@@ -3,8 +3,20 @@
 set -euo pipefail
 umask 077
 cd "$(dirname "$0")/.."
+bounded() {
+  local seconds="$1"
+  shift
+  timeout --signal=TERM --kill-after=5s "${seconds}s" "$@"
+}
+command -v timeout >/dev/null || { printf 'BLOCKED: GNU timeout is required for bounded runtime verification.\n' >&2; exit 1; }
 command -v docker >/dev/null || { printf 'BLOCKED: Docker is required for real Cube verification.\n' >&2; exit 1; }
-docker info --format '{{.ServerVersion}}' >/dev/null || { printf 'BLOCKED: Docker daemon unavailable.\n' >&2; exit 1; }
+if bounded 15 docker info --format '{{.ServerVersion}}' >/dev/null; then
+  :
+else
+  result=$?
+  printf 'BLOCKED: Docker daemon unavailable or readiness timed out.\n' >&2
+  exit "$result"
+fi
 readonly TEMP_DIR="$(mktemp -d)"
 readonly PROJECT="gateway-cube-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
 export GATEWAY_RUNTIME_SECRET_DIR="$TEMP_DIR/secrets"
@@ -14,19 +26,19 @@ export GATEWAY_CUBE_RUN_LABEL="${GITHUB_RUN_ID:-$PROJECT}-${GITHUB_RUN_ATTEMPT:-
 COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml)
 start_private_stack() {
   local result=0
-  "${COMPOSE[@]}" up -d --wait --wait-timeout 150 "$@" || result=$?
+  bounded 180 "${COMPOSE[@]}" up -d --wait --wait-timeout 150 "$@" || result=$?
   if (( result != 0 )); then
     # Only the fixed current Cube instances; redact every generated value before
     # bounded log emission. Preserve the readiness failure and cleanup behavior.
-    uv run --locked --offline python scripts/cube_runtime_diagnostics.py \
+    bounded 30 uv run --locked --offline python scripts/cube_runtime_diagnostics.py \
       --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR" --project "$PROJECT" \
       --run-label "$GATEWAY_CUBE_RUN_LABEL" || true
   fi
   return "$result"
 }
 cleanup() {
-  "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
-  docker image rm "$GATEWAY_PROBE_IMAGE" >/dev/null 2>&1 || true
+  bounded 45 "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  bounded 15 docker image rm "$GATEWAY_PROBE_IMAGE" >/dev/null 2>&1 || true
   rm -rf -- "$TEMP_DIR"
 }
 trap cleanup EXIT
@@ -47,9 +59,9 @@ assert all(re.fullmatch(r'(postgres:17\.11-bookworm|cubejs/cube:v1\.8\.5|nginx:1
 Path(sys.argv[1]).write_text('\n'.join(images)+'\n')
 PY
 while IFS= read -r image; do
-  docker pull --platform linux/amd64 "$image"
-  docker image inspect "$image" --format 'Prepared image={{json .RepoDigests}}'
-  docker buildx imagetools inspect "$image" --raw > "$TEMP_DIR/image-index.json"
+  bounded 180 docker pull --platform linux/amd64 "$image"
+  bounded 15 docker image inspect "$image" --format 'Prepared image={{json .RepoDigests}}'
+  bounded 30 docker buildx imagetools inspect "$image" --raw > "$TEMP_DIR/image-index.json"
   uv run --locked --offline python - "$image" "$TEMP_DIR/image-index.json" <<'PYIMAGE'
 import json
 from pathlib import Path
@@ -79,7 +91,7 @@ PYNAMES
   for name in "${names[@]}"; do
     mounts+=(--mount "type=bind,source=$GATEWAY_RUNTIME_SECRET_DIR/$name,target=/run/secrets/$name,readonly")
   done
-  docker run --rm --name "$PROJECT-read-$service" --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" \
+  bounded 15 docker run --rm --name "$PROJECT-read-$service" --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" \
     --network none --user 999:999 --read-only --cap-drop ALL --security-opt no-new-privileges \
     --memory 64m --cpus 1 --pids-limit 32 "${mounts[@]}" --entrypoint sh \
     'postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826' -c '
@@ -99,33 +111,33 @@ packages=$(uv run --locked --offline python -c 'import sysconfig; print(sysconfi
 cp -a "$python_root" "$TEMP_DIR/build/python"
 cp -a "$packages" "$TEMP_DIR/build/packages"
 cp infra/Probe.Dockerfile "$TEMP_DIR/build/Dockerfile"
-docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_PROBE_IMAGE" "$TEMP_DIR/build"
-docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
-"${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
+bounded 120 docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_PROBE_IMAGE" "$TEMP_DIR/build"
+bounded 15 docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
+bounded 15 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
 start_private_stack registry-db demo-db cube cube-test edge
 # Initialization must succeed after the official entrypoint drops to UID999.
 # Read-only per-service mounts are unchanged; no contents/passwords are logged.
 for service in registry-db demo-db; do
-  "${COMPOSE[@]}" exec -T --user 999:999 "$service" sh -c '
+  bounded 15 "${COMPOSE[@]}" exec -T --user 999:999 "$service" sh -c '
     set -eu
     test "$(id -u)" = 999
     for file in /run/secrets/*; do test -r "$file"; done
     printf "Observed initialized PostgreSQL non-root secret reads\n"
   '
 done
-registry_roles=$("${COMPOSE[@]}" exec -T --user 999:999 registry-db psql --no-psqlrc -U synthetic_admin -d gateway_registry -Atqc "SELECT count(*) FROM pg_roles WHERE rolname IN ('gateway_owner','gateway_app','gateway_audit_retention','gateway_source_reader') AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")
+registry_roles=$(bounded 15 "${COMPOSE[@]}" exec -T --user 999:999 registry-db psql --no-psqlrc -U synthetic_admin -d gateway_registry -Atqc "SELECT count(*) FROM pg_roles WHERE rolname IN ('gateway_owner','gateway_app','gateway_audit_retention','gateway_source_reader') AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")
 test "$registry_roles" = 4
-demo_roles=$("${COMPOSE[@]}" exec -T --user 999:999 demo-db psql --no-psqlrc -U synthetic_admin -d gateway_demo -Atqc "SELECT count(*) FROM pg_roles WHERE rolname IN ('source_owner','demo_reader','fixture_reader','fixture_observer') AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")
+demo_roles=$(bounded 15 "${COMPOSE[@]}" exec -T --user 999:999 demo-db psql --no-psqlrc -U synthetic_admin -d gateway_demo -Atqc "SELECT count(*) FROM pg_roles WHERE rolname IN ('source_owner','demo_reader','fixture_reader','fixture_observer') AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")
 test "$demo_roles" = 4
 printf 'Observed both private PostgreSQL initializers with four non-elevated synthetic roles each\n'
-"${COMPOSE[@]}" exec -T cube node -p 'require("@cubejs-backend/server-core/package.json").version'
-"${COMPOSE[@]}" exec -T cube node -p 'require("jsonwebtoken/package.json").version'
-"${COMPOSE[@]}" exec -T demo-db postgres --version
-"${COMPOSE[@]}" exec -T edge nginx -v
-"${COMPOSE[@]}" exec -T cube sh -c 'test "$(node -p '\''require("@cubejs-backend/server-core/package.json").version'\'')" = "1.8.5"'
+bounded 15 "${COMPOSE[@]}" exec -T cube node -p 'require("@cubejs-backend/server-core/package.json").version'
+bounded 15 "${COMPOSE[@]}" exec -T cube node -p 'require("jsonwebtoken/package.json").version'
+bounded 15 "${COMPOSE[@]}" exec -T demo-db postgres --version
+bounded 15 "${COMPOSE[@]}" exec -T edge nginx -v
+bounded 15 "${COMPOSE[@]}" exec -T cube sh -c 'test "$(node -p '\''require("@cubejs-backend/server-core/package.json").version'\'')" = "1.8.5"'
 # Record safe topology only. Never dump container env, mounts or credentials.
-container_ids=$("${COMPOSE[@]}" ps --all --quiet)
-uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
+container_ids=$(bounded 15 "${COMPOSE[@]}" ps --all --quiet)
+bounded 60 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
 import json
 import os
 from pathlib import Path
@@ -136,7 +148,7 @@ run_label=os.environ["GATEWAY_CUBE_RUN_LABEL"]
 records=[]
 instances={}
 for identifier in sys.argv[2:]:
-    raw=json.loads(subprocess.check_output(['docker','inspect',identifier]))[0]
+    raw=json.loads(subprocess.check_output(['docker','inspect',identifier],timeout=10))[0]
     name=raw['Config']['Labels']['com.docker.compose.service']
     assert name in {'cube','cube-test','demo-db','registry-db','edge'} and name not in instances
     assert raw['Config']['Labels']['com.docker.compose.project']==project
@@ -146,11 +158,11 @@ for identifier in sys.argv[2:]:
     if name!='edge': assert raw['State']['Health']['Status']=='healthy'
     networks=list(raw['NetworkSettings']['Networks'])
     assert networks==[project+'_private']
-    network=json.loads(subprocess.check_output(['docker','network','inspect',networks[0]]))[0]
+    network=json.loads(subprocess.check_output(['docker','network','inspect',networks[0]],timeout=10))[0]
     assert network['Labels']['com.docker.compose.project']==project
     assert network['Labels']['gateway.cube.run']==run_label and network['Internal']
     instances[name]=identifier
-    internal=all(json.loads(subprocess.check_output(['docker','network','inspect',network]))[0]['Internal'] for network in networks)
+    internal=all(json.loads(subprocess.check_output(['docker','network','inspect',network],timeout=10))[0]['Internal'] for network in networks)
     records.append({'service':raw['Config']['Labels']['com.docker.compose.service'],
         'ports':raw['HostConfig']['PortBindings'] or {}, 'internal_networks_only':bool(networks) and internal})
 Path(sys.argv[1]).write_text(json.dumps(records,sort_keys=True,indent=2)+'\n')
@@ -158,7 +170,7 @@ print('Observed private topology: '+', '.join(sorted(row['service'] for row in r
 assert set(instances)=={'cube','cube-test','demo-db','registry-db','edge'}
 hosts={}
 for identifier in sys.argv[2:]:
-    raw=json.loads(subprocess.check_output(['docker','inspect',identifier]))[0]
+    raw=json.loads(subprocess.check_output(['docker','inspect',identifier],timeout=10))[0]
     name=raw['Config']['Labels']['com.docker.compose.service']
     if name in ('cube','cube-test','demo-db'):
         assert raw['Config']['Labels']['gateway.cube.run']
@@ -169,10 +181,10 @@ assert set(hosts)=={'cube','cube-test','demo-db'}
 Path(sys.argv[1]).with_name('hosts.json').write_text(json.dumps({'kind':'private-synthetic-cube-only','hosts':hosts,'run_label':run_label,'project':project,'container_ids':{name:instances[name] for name in hosts}})+'\n')
 PY
 # Real release Node process executes the same security tests, without substitutes.
-"${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=/cube/conf/security.js cube node --test tests/runtime/context.test.js
-"${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube.js cube node --test tests/runtime/auth-wrapper.test.js
+bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=/cube/conf/security.js cube node --test tests/runtime/context.test.js
+bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube.js cube node --test tests/runtime/auth-wrapper.test.js
 for service in cube cube-test; do
-  "${COMPOSE[@]}" exec -T "$service" node - <<'JS'
+  bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'
 const net=require('node:net');
 Promise.all([["1.1.1.1",443],["8.8.8.8",53]].map(([host,port])=>new Promise((resolve,reject)=>{
  const socket=net.connect({host,port});
@@ -183,7 +195,7 @@ Promise.all([["1.1.1.1",443],["8.8.8.8",53]].map(([host,port])=>new Promise((res
 }))).then(()=>console.log('Observed blocked Cube outbound connectivity')).catch(()=>process.exit(1));
 JS
 done
-"${COMPOSE[@]}" run --rm --no-deps probe
+bounded 240 "${COMPOSE[@]}" run --rm --no-deps probe
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
@@ -193,16 +205,16 @@ assert all(int(s.get(k,'0'))==0 for s in suites for k in ('errors','failures','s
 print('Real pinned Cube gate: '+str(sum(int(s.get('tests','0')) for s in suites))+' tests, zero skips/errors/failures')
 PY
 # Restart the actual databases and both Cube endpoints, preserving named volumes.
-"${COMPOSE[@]}" restart registry-db demo-db cube cube-test
+bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
 start_private_stack registry-db demo-db cube cube-test
-"${COMPOSE[@]}" run --rm --no-deps -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
+bounded 90 "${COMPOSE[@]}" run --rm --no-deps -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
 # Existing registry verifier remains unchanged. Its final bare pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads
 # fixed synthetic endpoint addresses derived from this exact Compose project.
 export GATEWAY_CUBE_TEST_AUTHORIZATION=private-synthetic-cube-only
 export GATEWAY_CUBE_TEST_HOSTS_FILE="$GATEWAY_RUNTIME_EVIDENCE_DIR/hosts.json"
 export GATEWAY_CUBE_RESTART_PHASE=after
-bash scripts/verify_registry_postgres.sh
+bounded 360 bash scripts/verify_registry_postgres.sh
 # Selected, sanitized actual response shapes and source/network evidence only.
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR" <<'PY'
 import json

@@ -111,3 +111,43 @@ def test_cube_configuration_uses_driver_factory_without_removed_db_type_option()
     configuration = (ROOT / "cube/cube.js").read_text()
     assert not re.search(r"^\s+dbType\s*:", configuration, re.MULTILINE)
     assert "driverFactory: () => ({ type: 'postgres'" in configuration
+
+
+def test_image_auth_regression_has_normal_bounded_native_logger_teardown():
+    # Asset guard only. Natural exit of the real release process remains a CI gate.
+    source = (ROOT / "tests/runtime/auth-wrapper.test.js").read_text()
+    assert "after(async () => {" in source
+    assert "await gateway.release();" in source
+    assert "resetLogger('warn');" in source and "timeout: 5000" in source
+    assert all(value not in source for value in ("process.exit(", "forceExit", "force-exit"))
+
+
+@pytest.mark.parametrize("mode,expected", [("success", 0), ("error", 7), ("timeout", 124)])
+def test_runtime_command_bound_preserves_failure_and_runs_exit_cleanup(mode, expected):
+    import re
+    source = (ROOT / "scripts/verify_cube_runtime.sh").read_text()
+    match = re.search(r"^bounded\(\) \{\n.*?^\}", source, re.MULTILINE | re.DOTALL)
+    assert match, "Missing fail-closed runtime command bound"
+    command = {"success": "printf completed", "error": "exit 7", "timeout": "sleep 30"}[mode]
+    duration = "0.1" if mode == "timeout" else "2"
+    code = ("set -euo pipefail\n" + match.group(0) +
+        "\ntrap 'printf cleanup-observed' EXIT\n" +
+        f"bounded {duration} bash -c '{command}'\n" + "printf accepted-after-command\n")
+    completed = subprocess.run(["bash", "-c", code], text=True, capture_output=True, timeout=8)
+    assert completed.returncode == expected, completed.stderr
+    assert "cleanup-observed" in completed.stdout
+    assert ("accepted-after-command" in completed.stdout) == (mode == "success")
+
+
+def test_runtime_harness_bounds_all_container_exec_and_run_calls():
+    source = (ROOT / "scripts/verify_cube_runtime.sh").read_text()
+    for line in source.splitlines():
+        if ('"${COMPOSE[@]}" exec ' in line or '"${COMPOSE[@]}" run ' in line or
+            line.lstrip().startswith("docker run ")):
+            assert "bounded " in line, "Unbounded container command"
+        if "subprocess.check_output(" in line:
+            assert "timeout=10" in line, "Unbounded topology inspection"
+    assert 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=' in source
+    assert 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=' in source
+    assert 'bounded 240 "${COMPOSE[@]}" run --rm --no-deps probe' in source
+    assert "bounded 360 bash scripts/verify_registry_postgres.sh" in source

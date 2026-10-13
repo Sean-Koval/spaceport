@@ -2,12 +2,13 @@
 // Run only inside the exact pinned Cube image with its real dependencies and
 // mounted synthetic configuration. No copied/mock HTTP-status mapper is used.
 const assert = require('node:assert/strict');
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const http = require('node:http');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { ApiGateway } = require('@cubejs-backend/api-gateway');
 const { CubejsServerCore } = require('@cubejs-backend/server-core');
+const { resetLogger } = require('@cubejs-backend/native');
 const config = require(process.env.GATEWAY_CUBE_CONFIG_MODULE || '../../cube/cube.js');
 const unreachable = async () => { throw new Error('Upstream must not be called by authentication regression'); };
 // Construct the real release gateway once. The compiler/orchestrator are never
@@ -15,6 +16,16 @@ const unreachable = async () => { throw new Error('Upstream must not be called b
 const gateway = new ApiGateway(config.apiSecret, unreachable, unreachable, () => {}, {
   devServer: false, checkAuth: config.checkAuth, contextToApiScopes: config.contextToApiScopes,
 });
+after(async () => {
+  try {
+    await gateway.release();
+  } finally {
+    // ApiGateway's SQLServer constructor installs a process-global referenced
+    // native logger even without init/listeners. Tagged upstream auth teardown
+    // resets it; normal Core/gateway release does not release that channel.
+    resetLogger('warn');
+  }
+}, { timeout: 5000 });
 
 function request(url, options = {}) {
   return fetch(url, { ...options, signal: AbortSignal.timeout(2000) });
@@ -31,8 +42,11 @@ test('actual pinned Core accepts driverFactory and rejects the removed dbType op
     // query opened. The real Compose readiness remains a separate required gate.
     assert.ok(core);
   } finally {
-    await core.releaseConnections();
-    await core.shutdown();
+    try {
+      await core.releaseConnections();
+    } finally {
+      await core.shutdown();
+    }
   }
 });
 
