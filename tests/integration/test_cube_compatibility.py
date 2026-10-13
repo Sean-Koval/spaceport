@@ -22,6 +22,64 @@ import pytest
 pytestmark = pytest.mark.cube
 ROOT = Path(__file__).resolve().parents[2]
 AUTHORIZATION = "private-synthetic-cube-only"
+FAILURE_BODY_BYTES = 4096
+
+
+def failure_error_class(response):
+    """Fixed diagnostic enums only. Never emit any response text or field names."""
+    if response.extensions.get("diagnostic_complete") is not True or len(response.content) > FAILURE_BODY_BYTES:
+        return "unknown"
+    try:
+        text = response.content.decode("utf-8", errors="strict")
+        # Bound collection depth before JSON decoding; only a flat object is
+        # supported. Braces/brackets inside escaped strings are ordinary text.
+        depth, quoted, escaped = 0, False, False
+        for character in text:
+            if quoted:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == '"':
+                    quoted = False
+            elif character == '"':
+                quoted = True
+            elif character in "[{":
+                depth += 1
+                if depth > 1:
+                    return "unknown"
+            elif character in "]}":
+                depth -= 1
+                if depth < 0:
+                    return "unknown"
+
+        def strict_pairs(pairs):
+            body = {}
+            for key, value in pairs:
+                if key in body:
+                    raise ValueError()
+                body[key] = value
+            return body
+
+        def reject_constant(_):
+            raise ValueError()
+
+        body = json.loads(text, object_pairs_hook=strict_pairs, parse_constant=reject_constant)
+        if (type(body) is not dict or not set(body) <= {"error", "type", "requestId", "stack", "plainError"}
+            or type(body.get("error")) is not str or not body["error"]
+            or any(value is not None and (type(value) is not str or len(value.encode("utf-8")) > 1024)
+                for value in body.values())):
+            return "unknown"
+        error = body["error"]
+        if error in {"canceling statement due to statement timeout", "Error: canceling statement due to statement timeout"}:
+            return "source_statement_timeout"
+        if re.fullmatch(r"Query execution timeout after [0-9]{1,12}(?:\.[0-9]{1,12})? min of waiting", error):
+            return "queue_execution_timeout"
+        if body.get("type") == "UserError":
+            return "user_error"
+    except (ValueError, UnicodeError, RecursionError):
+        pass
+    return "unknown"
 
 
 class CubeStack:
@@ -82,20 +140,47 @@ class CubeStack:
         key = (self.secrets / ("cube_test_signing_key" if endpoint == "cube-test" else "cube_signing_key")).read_text().strip()
         return jwt.encode(payload, key, algorithm="HS256")
 
-    def request(self, path, *, endpoint="cube", token=None, body=None):
+    def request(self, path, *, endpoint="cube", token=None, body=None, diagnose_failure=False):
         headers = {"X-Request-Id": str(uuid.uuid4())}
         if token is not None:
             headers["Authorization"] = "Bearer " + token
         method = "POST" if body is not None else "GET"
+        if diagnose_failure:
+            headers["Accept-Encoding"] = "identity"
+            with self.client.stream(method, f"http://{self.hosts[endpoint]}:4000{path}", headers=headers, json=body) as response:
+                if response.status_code == 200:
+                    response.read()
+                    return response
+                raw, complete = bytearray(), False
+                try:
+                    if response.headers.get("content-encoding", "identity") == "identity":
+                        for chunk in response.iter_raw(chunk_size=512):
+                            if len(raw) + len(chunk) > FAILURE_BODY_BYTES:
+                                break
+                            raw.extend(chunk)
+                        else:
+                            complete = True
+                except httpx.HTTPError:
+                    pass
+                # An oversized/incomplete body can split a secret. Suppress the
+                # whole capture. Accumulation is bounded before each append.
+                return httpx.Response(response.status_code, content=bytes(raw) if complete else b"",
+                    extensions={"diagnostic_complete": complete})
         return self.client.request(method, f"http://{self.hosts[endpoint]}:4000{path}", headers=headers, json=body)
 
     def load(self, query, *, endpoint="cube", require_pending=False, **scope):
-        deadline = time.monotonic() + 120
+        started = time.monotonic()
+        deadline = started + 120
         pending = []
         while time.monotonic() < deadline:
             response = self.request("/cubejs-api/v1/load", endpoint=endpoint,
-                token=self.token(endpoint=endpoint, **scope), body={"query": query, "cache": "must-revalidate"})
-            assert response.status_code == 200, "Authenticated synthetic load failed"
+                token=self.token(endpoint=endpoint, **scope), body={"query": query, "cache": "must-revalidate"}, diagnose_failure=True)
+            if response.status_code != 200:
+                # Keep the exact success-status requirement and suppress pytest
+                # introspection of query/response locals on this failure path.
+                pytest.fail(f"Authenticated synthetic load failed: status={response.status_code} "
+                    f"error_class={failure_error_class(response)} elapsed_seconds={time.monotonic() - started:.3f} "
+                    f"pending_count={len(pending)}", pytrace=False)
             body = response.json()
             if body.get("error") == "Continue wait":
                 pending.append({"status": response.status_code, "error": body["error"], "keys": sorted(body)})
