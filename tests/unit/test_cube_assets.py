@@ -149,8 +149,16 @@ def test_runtime_harness_bounds_all_container_exec_and_run_calls():
             assert "timeout=10" in line, "Unbounded topology inspection"
     assert 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=' in source
     assert 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=' in source
-    assert 'bounded 240 "${COMPOSE[@]}" run --rm --no-deps probe' in source
-    assert "bounded 360 bash scripts/verify_registry_postgres.sh" in source
+    assert 'bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe' in source
+
+
+def test_full_registry_gate_keeps_six_minute_cap_inside_twenty_minute_job():
+    # Static budget guard only; this does not establish runtime completion time.
+    import re
+    source = (ROOT / "scripts/verify_cube_runtime.sh").read_text()
+    assert re.findall(r"^bounded ([0-9]+) bash scripts/verify_registry_postgres\.sh$", source, re.MULTILINE) == ["360"]
+    workflow = (ROOT / ".github/workflows/verify-cube.yml").read_text()
+    assert re.findall(r"^\s+timeout-minutes: ([0-9]+)$", workflow, re.MULTILINE) == ["20"]
 
 
 def test_fixture_delay_is_an_uncorrelated_scalar_initplan_without_shortening_bounds():

@@ -198,7 +198,10 @@ Promise.all([["1.1.1.1",443],["8.8.8.8",53]].map(([host,port])=>new Promise((res
 }))).then(()=>console.log('Observed blocked Cube outbound connectivity')).catch(()=>process.exit(1));
 JS
 done
-bounded 240 "${COMPOSE[@]}" run --rm --no-deps probe
+# The bind-mounted evidence is also written by host pytest after restart.
+# Keep both probe phases on the host writer UID/GID instead of creating root-owned
+# files; no permission changes to evidence, secrets, or repository are needed.
+bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
@@ -213,7 +216,7 @@ bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
 # IDs and all existing trust boundaries after readiness before host-side tests.
 start_private_stack registry-db demo-db cube cube-test
 record_private_topology
-bounded 90 "${COMPOSE[@]}" run --rm --no-deps -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
+bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
 # Existing registry verifier remains unchanged. Its final bare pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads
 # fixed synthetic endpoint addresses derived from this exact Compose project.

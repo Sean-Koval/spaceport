@@ -87,10 +87,25 @@ async def execute(stack, *, context="consumer",tenant="north",segment=None,input
 def test_actual_adapter_exact_grain_and_lossless_totals(cube_stack,context,tenant,total):
     result=asyncio.run(execute(cube_stack,context=context,tenant=tenant))
     assert sum((Decimal(row["revenue"]) for row in result.rows),Decimal(0))==Decimal(total)
-    assert result.row_count==(3 if tenant=="north" else 2)
+    expected = {
+        "north": (
+            {"day":"2024-03-09","segment":"A","revenue":"10.10"},
+            {"day":"2024-03-10","segment":None,"revenue":"20.20"},
+            {"day":"2024-03-11","segment":"A","revenue":"9007199254740993.01"},
+        ),
+        "south": (
+            {"day":"2024-03-09","segment":"A","revenue":"100.00"},
+            {"day":"2024-03-10","segment":"B","revenue":"0.01"},
+        ),
+    }[tenant]
+    # No sort was requested. Match the complete daily/segment grain regardless
+    # of upstream order, checking cardinality before a keyed comparison.
+    assert len(result.rows)==result.row_count==len(expected)
+    assert {(row["day"],row["segment"]):dict(row) for row in result.rows} == {
+        (row["day"],row["segment"]):row for row in expected}
+
     assert result.cache_status=="unknown" and result.truncated is False
     assert result.freshness.status=="fresh"
-    if tenant=="north": assert result.rows[1]["segment"] is None
 
 
 def test_actual_adapter_same_principal_entitlements_do_not_mix(cube_stack):
