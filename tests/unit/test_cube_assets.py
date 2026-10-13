@@ -151,3 +151,94 @@ def test_runtime_harness_bounds_all_container_exec_and_run_calls():
     assert 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=' in source
     assert 'bounded 240 "${COMPOSE[@]}" run --rm --no-deps probe' in source
     assert "bounded 360 bash scripts/verify_registry_postgres.sh" in source
+
+
+def test_fixture_delay_is_an_uncorrelated_scalar_initplan_without_shortening_bounds():
+    # Asset guard only: the real EXPLAIN ANALYZE and pending-response gate must
+    # establish execution counts and compatibility against pinned PostgreSQL/Cube.
+    import re
+    source = (ROOT / "infra/postgres/init.sql").read_text()
+    for name, seconds in [("slow_orders", 12), ("timeout_orders", 90)]:
+        match = re.search(rf"CREATE VIEW test_source\.{name} AS (.*?);", source, re.DOTALL)
+        assert match, "Missing bounded synthetic fixture"
+        query = " ".join(match.group(1).split())
+        assert query == ("SELECT o.* FROM test_source.orders o "
+            f"WHERE (SELECT test_source.bounded_delay({seconds}))"), "Fixture delay must be a noncorrelated scalar subquery"
+    assert "LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog" in source
+    assert "seconds < 1 OR seconds > 90" in source
+    assert "ALTER ROLE fixture_reader SET statement_timeout = '25s'" in source
+    assert "ALTER ROLE fixture_reader SET default_transaction_read_only = on" in source
+    assert "REVOKE ALL ON FUNCTION test_source.bounded_delay(integer) FROM PUBLIC" in source
+    assert "GRANT EXECUTE ON FUNCTION test_source.bounded_delay(integer) TO fixture_reader" in source
+
+
+def test_delay_plan_counts_emit_only_fixed_counts_and_ignore_sql_or_error_fields():
+    import runpy
+    module = runpy.run_path(str(ROOT / "tests/integration/test_cube_compatibility.py"))
+    assert "delay_plan_counts" in module, "Missing safe bounded delay-plan counts"
+    counts = module["delay_plan_counts"]({"Node Type": "Sort", "Actual Loops": 1,
+        "Output": ["untrusted SQL secret"], "Error": "untrusted error secret", "Plans": [
+            {"Node Type": "Result", "Parent Relationship": "InitPlan", "Actual Loops": 1,
+                "Output": ["test_source.bounded_delay(12)"], "Filter": "untrusted predicate secret"},
+            {"Node Type": "Result", "Actual Loops": 3,
+                "Output": ["test_source.bounded_delay(1)"]}]})
+    assert counts == {"plan_nodes": 3, "delay_nodes": 2, "initplan_delay_nodes": 1, "delay_loops": 4}
+
+
+@pytest.mark.parametrize("plan", [
+    {"Actual Loops": -1}, {"Actual Loops": True}, {"Actual Loops": 1.5},
+    {"Actual Loops": 1, "Plans": "untrusted SQL secret"},
+    {"Actual Loops": 1, "Output": "test_source.bounded_delay(12)"},
+    {"Actual Loops": 1, "Plans": [{"Actual Loops": 1}] * 128},
+])
+def test_delay_plan_counts_reject_malformed_or_oversized_plans_without_echo(plan):
+    import runpy
+    module = runpy.run_path(str(ROOT / "tests/integration/test_cube_compatibility.py"))
+    assert "delay_plan_counts" in module, "Missing safe bounded delay-plan counts"
+    with pytest.raises(ValueError) as caught:
+        module["delay_plan_counts"](plan)
+    assert str(caught.value) == "Invalid synthetic delay plan"
+
+
+def exercise_cold_pending_row_assertion(rows):
+    """Offline assertion probe only; this does not exercise or accept a backend."""
+    import runpy
+    module = runpy.run_path(str(ROOT / "tests/integration/test_cube_compatibility.py"))
+
+    class AssertionStack:
+        captured = False
+
+        def capture_delay_plans(self):
+            self.captured = True
+
+        def load(self, query, *, endpoint, require_pending):
+            assert self.captured
+            assert query == module["raw_query"]("SlowOrders")
+            assert endpoint == "cube-test" and require_pending is True
+            return rows
+
+    module["test_cold_bounded_fixture_observes_continue_wait_then_success"](AssertionStack())
+
+
+@pytest.fixture
+def expected_slow_order_rows():
+    return [{"SlowOrders.id": identifier, "SlowOrders.segment": segment,
+        "SlowOrders.revenue": revenue, "SlowOrders.tenant_id": "north"}
+        for identifier, segment, revenue in [
+            ("n1", "A", "10.10"), ("n2", None, "20.20"), ("n3", "A", "9007199254740993.01")]]
+
+
+def test_cold_pending_row_assertion_accepts_exact_three_rows(expected_slow_order_rows):
+    exercise_cold_pending_row_assertion(expected_slow_order_rows)
+
+
+@pytest.mark.parametrize("counterexample", ["duplicate_valid", "corrupt_overwritten"])
+def test_cold_pending_row_assertion_rejects_duplicates_and_overwritten_corruption(expected_slow_order_rows, counterexample):
+    extra = dict(expected_slow_order_rows[0])
+    if counterexample == "corrupt_overwritten":
+        extra["SlowOrders.revenue"] = "999.99"
+        rows = [extra, *expected_slow_order_rows]
+    else:
+        rows = [*expected_slow_order_rows, extra]
+    with pytest.raises(AssertionError):
+        exercise_cold_pending_row_assertion(rows)

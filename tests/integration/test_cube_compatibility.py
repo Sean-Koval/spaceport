@@ -25,6 +25,29 @@ AUTHORIZATION = "private-synthetic-cube-only"
 FAILURE_BODY_BYTES = 4096
 
 
+def delay_plan_counts(plan):
+    """Count bounded EXPLAIN ANALYZE nodes only; never return plan text."""
+    counts = {"plan_nodes": 0, "delay_nodes": 0, "initplan_delay_nodes": 0, "delay_loops": 0}
+    pending = [(plan, 0)]
+    while pending:
+        node, depth = pending.pop()
+        if type(node) is not dict or depth > 16 or counts["plan_nodes"] >= 128:
+            raise ValueError("Invalid synthetic delay plan")
+        loops, children, output = node.get("Actual Loops"), node.get("Plans", []), node.get("Output", [])
+        if (type(loops) is not int or not 0 <= loops <= 10000
+            or type(children) is not list or len(children) > 128
+            or type(output) is not list or len(output) > 32
+            or any(type(value) is not str or len(value) > 1024 for value in output)):
+            raise ValueError("Invalid synthetic delay plan")
+        counts["plan_nodes"] += 1
+        if any(re.fullmatch(r"(?:test_source\.)?bounded_delay\([0-9]{1,2}\)", value) for value in output):
+            counts["delay_nodes"] += 1
+            counts["initplan_delay_nodes"] += int(node.get("Parent Relationship") == "InitPlan")
+            counts["delay_loops"] += loops
+        pending.extend((child, depth + 1) for child in children)
+    return counts
+
+
 def failure_error_class(response):
     """Fixed diagnostic enums only. Never emit any response text or field names."""
     if response.extensions.get("diagnostic_complete") is not True or len(response.content) > FAILURE_BODY_BYTES:
@@ -206,6 +229,36 @@ class CubeStack:
         return psycopg.connect(host=self.hosts["demo-db"], port=5432, dbname="gateway_demo", user=role,
             password=(self.secrets / role).read_text().strip(), connect_timeout=5)
 
+    def capture_delay_plans(self):
+        # Same grouping, ordering, limit and mandatory filters as raw_query's
+        # source shape. The one-second LEGACY replay is diagnostic only; neither
+        # deployed view nor the actual Cube pending query shortens its delay.
+        legacy = """SELECT id, segment, tenant_id, sum(amount) FROM (
+            SELECT o.* FROM test_source.orders o
+            CROSS JOIN (SELECT test_source.bounded_delay(1) AS done OFFSET 0) delay WHERE delay.done
+            ) legacy_orders WHERE tenant_id='north' AND access_group IN ('north')
+            GROUP BY 1,2,3 ORDER BY 1 LIMIT 1001"""
+        fixed = """SELECT id, segment, tenant_id, sum(amount) FROM test_source.slow_orders
+            WHERE tenant_id='north' AND access_group IN ('north')
+            GROUP BY 1,2,3 ORDER BY 1 LIMIT 1001"""
+        evidence = {}
+        try:
+            with self.connect() as connection:
+                for name, query in [("legacy_replay", legacy), ("scalar_fixture", fixed)]:
+                    started = time.monotonic()
+                    result = connection.execute("EXPLAIN (ANALYZE, VERBOSE, FORMAT JSON, TIMING FALSE, SUMMARY FALSE) " + query).fetchone()[0]
+                    counts = delay_plan_counts(result[0]["Plan"])
+                    evidence[name] = {**counts, "elapsed_seconds": round(time.monotonic() - started, 3)}
+        except (psycopg.Error, ValueError, KeyError, IndexError, TypeError):
+            pytest.fail("Synthetic read-only delay-plan probe failed", pytrace=False)
+        # Retain this safe output even if the subsequent Cube query fails. The
+        # full raw plans, SQL, errors and connection details are never emitted.
+        self.capture("source-delay-plan.json", evidence)
+        print("Synthetic source delay-plan counts: " + json.dumps(evidence, sort_keys=True))
+        fixed_counts = evidence["scalar_fixture"]
+        if (fixed_counts["delay_nodes"], fixed_counts["initplan_delay_nodes"], fixed_counts["delay_loops"]) != (1, 1, 1):
+            pytest.fail("Synthetic scalar delay must execute exactly one InitPlan loop", pytrace=False)
+
 
 @pytest.fixture(scope="module")
 def cube_stack():
@@ -316,8 +369,12 @@ def test_native_sql_and_websocket_ports_are_closed(cube_stack):
 
 
 def test_cold_bounded_fixture_observes_continue_wait_then_success(cube_stack):
+    cube_stack.capture_delay_plans()
     rows = cube_stack.load(raw_query("SlowOrders"), endpoint="cube-test", require_pending=True)
-    assert {row["SlowOrders.id"] for row in rows} == {"n1", "n2", "n3"}
+    assert len(rows) == 3, "Cold bounded fixture must return exactly three north rows"
+    assert {row["SlowOrders.id"]: (row["SlowOrders.segment"], row["SlowOrders.revenue"]) for row in rows} == {
+        "n1": ("A", "10.10"), "n2": (None, "20.20"), "n3": ("A", "9007199254740993.01")}
+    assert {row["SlowOrders.tenant_id"] for row in rows} == {"north"}
 
 
 def test_source_roles_are_read_only_separate_and_statement_timeout_is_server_enforced(cube_stack):

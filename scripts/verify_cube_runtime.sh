@@ -221,7 +221,7 @@ import json
 from pathlib import Path
 import sys
 root=Path(sys.argv[1])
-for name in ('meta.json','load-shape.json','pending.json','source-timeout.json','cube-source-stop.json','watermark-before-restart.json','probe-egress.json'):
+for name in ('meta.json','load-shape.json','pending.json','source-delay-plan.json','source-timeout.json','cube-source-stop.json','watermark-before-restart.json','probe-egress.json'):
     value=json.loads((root/name).read_text())
     print('Actual synthetic evidence '+name+': '+json.dumps(value,sort_keys=True,separators=(',',':')))
 PY

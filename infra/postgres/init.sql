@@ -49,10 +49,13 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION test_source.bounded_delay(integer) FROM PUBLIC;
+-- An uncorrelated scalar subquery becomes an InitPlan. OFFSET 0 in a
+-- joined subquery does not prevent a nested-loop inner rescan per order.
+-- Keep the real pending/timeout delays and reader statement bounds unchanged.
 CREATE VIEW test_source.slow_orders AS SELECT o.* FROM test_source.orders o
-CROSS JOIN (SELECT test_source.bounded_delay(12) AS done OFFSET 0) delay WHERE delay.done;
+WHERE (SELECT test_source.bounded_delay(12));
 CREATE VIEW test_source.timeout_orders AS SELECT o.* FROM test_source.orders o
-CROSS JOIN (SELECT test_source.bounded_delay(90) AS done OFFSET 0) delay WHERE delay.done;
+WHERE (SELECT test_source.bounded_delay(90));
 GRANT USAGE ON SCHEMA demo_source TO demo_reader;
 GRANT SELECT ON ALL TABLES IN SCHEMA demo_source TO demo_reader;
 GRANT USAGE ON SCHEMA test_source TO fixture_reader;
