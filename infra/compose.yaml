@@ -1,0 +1,260 @@
+{
+  "name": "data-product-gateway",
+  "services": {
+    "registry-db": {
+      "image": "postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "POSTGRES_USER": "synthetic_admin",
+        "POSTGRES_DB": "gateway_registry",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/registry_admin",
+        "GATEWAY_DB_KIND": "registry"
+      },
+      "command": [
+        "postgres",
+        "-c",
+        "log_statement=none",
+        "-c",
+        "log_min_error_statement=panic",
+        "-c",
+        "log_error_verbosity=terse"
+      ],
+      "secrets": [
+        "registry_admin",
+        "registry_owner",
+        "registry_app",
+        "registry_audit_retention",
+        "registry_source_reader"
+      ],
+      "volumes": [
+        "registry-data:/var/lib/postgresql/data",
+        "./postgres/init.sh:/docker-entrypoint-initdb.d/10-gateway.sh:ro",
+        "./postgres/init.sql:/opt/gateway/init.sql:ro",
+        "../fixtures:/fixtures:ro"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U synthetic_admin -d gateway_registry"
+        ],
+        "interval": "2s",
+        "timeout": "2s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "512m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "demo-db": {
+      "image": "postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "POSTGRES_USER": "synthetic_admin",
+        "POSTGRES_DB": "gateway_demo",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/demo_admin",
+        "GATEWAY_DB_KIND": "demo"
+      },
+      "command": [
+        "postgres",
+        "-c",
+        "log_statement=none",
+        "-c",
+        "log_min_error_statement=panic",
+        "-c",
+        "log_error_verbosity=terse"
+      ],
+      "secrets": [
+        "demo_admin",
+        "demo_reader",
+        "fixture_reader",
+        "fixture_observer"
+      ],
+      "volumes": [
+        "demo-data:/var/lib/postgresql/data",
+        "./postgres/init.sh:/docker-entrypoint-initdb.d/10-gateway.sh:ro",
+        "./postgres/init.sql:/opt/gateway/init.sql:ro",
+        "../fixtures:/fixtures:ro"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U synthetic_admin -d gateway_demo"
+        ],
+        "interval": "2s",
+        "timeout": "2s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "512m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "cube": {
+      "image": "cubejs/cube:v1.8.5@sha256:47c298a6cc725b4840d42587ee6164b45fa195c34ddc9f9da8c98b63847684d3",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "CUBEJS_DEV_MODE": "false",
+        "CUBEJS_TELEMETRY": "false",
+        "CUBEJS_REFRESH_WORKER": "false",
+        "CUBEJS_EXTERNAL_DEFAULT": "false",
+        "CUBEJS_LOG_LEVEL": "error",
+        "GATEWAY_CUBE_CONTEXT": "consumer",
+        "GATEWAY_MODEL_BUNDLE_DIGEST": "a696c12e313613d83fe2e5e37176f80a987ffa0d2cb4c5fd6b3a17014717ecf4",
+        "CUBEJS_DB_QUERY_DEFAULT_LIMIT": "1001",
+        "CUBEJS_SQL_PORT": "false",
+        "CUBEJS_PG_SQL_PORT": "false",
+        "CUBEJS_NATIVE_API_GATEWAY_PORT": "false",
+        "CUBEJS_WEB_SOCKETS": "false",
+        "CUBEJS_LOG_REDACTION": "true",
+        "CUBEJS_MAX_REQUEST_SIZE": "100kb"
+      },
+      "secrets": [
+        "cube_signing_key",
+        "demo_reader"
+      ],
+      "volumes": [
+        "../cube/cube.js:/cube/conf/cube.js:ro",
+        "../cube/security.js:/cube/conf/security.js:ro",
+        "../cube/model:/cube/conf/model:ro",
+        "../tests/runtime:/cube/conf/tests/runtime:ro"
+      ],
+      "depends_on": {
+        "demo-db": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "3s",
+        "timeout": "5s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "mem_limit": "1500m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "edge": {
+      "image": "nginx:1.30.5-trixie@sha256:9bf97bd7714f5e24c1ccd545ecb9eb5435cb6d109c97cebb15e7e455e0239edb",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "ports": [
+        {
+          "target": 8080,
+          "published": "8080",
+          "host_ip": "127.0.0.1",
+          "protocol": "tcp"
+        }
+      ],
+      "entrypoint": [
+        "nginx",
+        "-g",
+        "daemon off;"
+      ],
+      "volumes": [
+        "./edge.conf:/etc/nginx/nginx.conf:ro"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 64,
+      "mem_limit": "64m",
+      "cpus": 0.25,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  },
+  "networks": {
+    "private": {
+      "internal": true,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  },
+  "volumes": {
+    "registry-data": {
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "demo-data": {
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  },
+  "secrets": {
+    "registry_admin": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/registry_admin"
+    },
+    "demo_admin": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/demo_admin"
+    },
+    "registry_owner": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/registry_owner"
+    },
+    "registry_app": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/registry_app"
+    },
+    "registry_audit_retention": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/registry_audit_retention"
+    },
+    "registry_source_reader": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/registry_source_reader"
+    },
+    "demo_reader": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/demo_reader"
+    },
+    "fixture_reader": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/fixture_reader"
+    },
+    "fixture_observer": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/fixture_observer"
+    },
+    "cube_signing_key": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/cube_signing_key"
+    },
+    "cube_test_signing_key": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?An absolute private synthetic secret directory is required}/cube_test_signing_key"
+    }
+  }
+}

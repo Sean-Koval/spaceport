@@ -1,0 +1,5 @@
+id,tenant_id,access_group,ordered_at,segment,amount
+dst-before,north,north,2024-03-10T04:59:59Z,A,1.00
+dst-start,north,north,2024-03-10T05:00:00Z,A,2.00
+dst-end-before,north,north,2024-03-11T03:59:59Z,A,3.00
+dst-end,north,north,2024-03-11T04:00:00Z,A,4.00

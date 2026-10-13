@@ -1,0 +1,6 @@
+id,tenant_id,access_group,ordered_at,segment,amount
+n1,north,north,2024-03-09T12:00:00Z,A,10.10
+n2,north,north,2024-03-10T07:00:00Z,,20.20
+n3,north,north,2024-03-11T12:00:00Z,A,9007199254740993.01
+s1,south,south,2024-03-09T12:00:00Z,A,100.00
+s2,south,south,2024-03-10T07:00:00Z,B,0.01

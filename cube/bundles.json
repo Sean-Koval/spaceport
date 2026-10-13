@@ -1,0 +1,16 @@
+{
+  "consumer": {
+    "bundle_digest": "a696c12e313613d83fe2e5e37176f80a987ffa0d2cb4c5fd6b3a17014717ecf4",
+    "context": "consumer",
+    "endpoint_id": "synthetic-consumer",
+    "secret_ref": "/run/secrets/cube_signing_key",
+    "url": "http://cube:4000"
+  },
+  "fixture_test": {
+    "bundle_digest": "1c7eacc137f862badacfb234190cdf1de35a2f6147529040ed192113bd93fac5",
+    "context": "fixture_test",
+    "endpoint_id": "synthetic-fixture",
+    "secret_ref": "/run/secrets/cube_test_signing_key",
+    "url": "http://cube-test:4000"
+  }
+}

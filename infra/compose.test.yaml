@@ -1,0 +1,112 @@
+{
+  "services": {
+    "cube-test": {
+      "image": "cubejs/cube:v1.8.5@sha256:47c298a6cc725b4840d42587ee6164b45fa195c34ddc9f9da8c98b63847684d3",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "CUBEJS_DEV_MODE": "false",
+        "CUBEJS_TELEMETRY": "false",
+        "CUBEJS_REFRESH_WORKER": "false",
+        "CUBEJS_EXTERNAL_DEFAULT": "false",
+        "CUBEJS_LOG_LEVEL": "error",
+        "GATEWAY_CUBE_CONTEXT": "fixture_test",
+        "GATEWAY_MODEL_BUNDLE_DIGEST": "1c7eacc137f862badacfb234190cdf1de35a2f6147529040ed192113bd93fac5",
+        "CUBEJS_DB_QUERY_DEFAULT_LIMIT": "1001",
+        "CUBEJS_SQL_PORT": "false",
+        "CUBEJS_PG_SQL_PORT": "false",
+        "CUBEJS_NATIVE_API_GATEWAY_PORT": "false",
+        "CUBEJS_WEB_SOCKETS": "false",
+        "CUBEJS_LOG_REDACTION": "true",
+        "CUBEJS_MAX_REQUEST_SIZE": "100kb"
+      },
+      "secrets": [
+        "cube_test_signing_key",
+        "fixture_reader"
+      ],
+      "volumes": [
+        "../cube/cube.js:/cube/conf/cube.js:ro",
+        "../cube/security.js:/cube/conf/security.js:ro",
+        "../cube/test-model:/cube/conf/model:ro",
+        "../tests/runtime:/cube/conf/tests/runtime:ro"
+      ],
+      "depends_on": {
+        "demo-db": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "3s",
+        "timeout": "5s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "mem_limit": "1500m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "probe": {
+      "image": "${GATEWAY_PROBE_IMAGE:?Prepare the synthetic locked Python probe image first}",
+      "pull_policy": "never",
+      "networks": [
+        "private"
+      ],
+      "entrypoint": [
+        "/opt/python/bin/python3.12",
+        "-m",
+        "pytest"
+      ],
+      "command": [
+        "tests/integration/test_cube_compatibility.py",
+        "-m",
+        "cube",
+        "-q",
+        "--junitxml=/evidence/cube.xml"
+      ],
+      "working_dir": "/app",
+      "environment": {
+        "PYTHONPATH": "/opt/packages:/app",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "GATEWAY_CUBE_TEST_AUTHORIZATION": "private-synthetic-cube-only"
+      },
+      "volumes": [
+        "..:/app:ro",
+        "${GATEWAY_RUNTIME_EVIDENCE_DIR:?An absolute run-private evidence directory is required}:/evidence"
+      ],
+      "secrets": [
+        "cube_signing_key",
+        "cube_test_signing_key",
+        "demo_reader",
+        "fixture_reader",
+        "fixture_observer"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  }
+}

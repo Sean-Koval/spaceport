@@ -75,3 +75,9 @@ One MiB means 1,048,576 UTF-8 bytes of the entire canonical serialized normalize
 ## Boundaries still unverified
 
 Task 1 tests only these pure contracts. Docker, PostgreSQL, Cube, HTTP transports, MCP SDK/protocol versions, browser/UI behavior, BigQuery, Domo, OIDC delegation, Studio and production operations are not verified by these tests. Docker is not installed in the implementation environment, so required live container suites remain NOT RUN. Later owners must add their exact compatible release pins and actual evidence here.
+
+## Task 5 private synthetic runtime candidate
+
+Full immutable image pins, operator bundle digests, upstream source observations and the mandatory test command are in [Cube compatibility](cube.md). The official metadata-only CI job verified Cube v1.8.5's index/platform digests. This is not yet a real-stack pass: actual image/version agreement, single-instance production-mode memory cache/queue, authenticated responses, cache isolation, pending behavior, source-side timeout, restart persistence and blocked egress remain PENDING the reviewed manual runtime job. PostgreSQL 17.11 and Nginx 1.30.5-trixie are pinned by official OCI index and selected linux/amd64 manifest digests. No original-code license or production deployment was authorized.
+
+Task 5 adds no Python package or lock changes. Its local Node tests used v24.19.0; the Cube image's actual packaged Node and jsonwebtoken versions must be recorded by the runtime job. Tagged Cube Docker source refers to Node 24.21.0-trixie-slim, which is a source observation rather than an observed runtime version. Model digests cover config/security/model bytes and must change together with reviewed assets; catalog and Compose values are checked against recomputation.

@@ -1,0 +1,58 @@
+name: Inspect reviewed runtime image metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed 40-character commit SHA in this repository
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-product-gateway-manual-verification
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Validate immutable source input
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+      - name: Check out reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Inspect public vendor manifests without pulling layers
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$REVIEWED_SOURCE_SHA" ]]
+          printf 'Reviewed source: %s\nRunner image: %s\n' "$REVIEWED_SOURCE_SHA" "${ImageVersion:-unavailable}"
+          docker version --format 'Docker client={{.Client.Version}}, server={{.Server.Version}}'
+          docker buildx version
+          for tag in cubejs/cube:v1.8.5; do
+            summary=$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest}}')
+            digest=$(jq -er '.digest' <<< "$summary")
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            repository=${tag%:*}
+            raw=$(docker buildx imagetools inspect "$repository@$digest" --raw)
+            printf 'Tag: %s\nIndex: %s\n' "$tag" "$digest"
+            for architecture in amd64 arm64; do
+              platform=$(jq -er --arg arch "$architecture" '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest] | if length == 1 then .[0] else error("Expected exactly one selected platform") end' <<< "$raw")
+              [[ "$platform" =~ ^sha256:[0-9a-f]{64}$ ]]
+              printf 'Linux/%s: %s\n' "$architecture" "$platform"
+            done
+            printf '%s\n' "$raw"
+          done
