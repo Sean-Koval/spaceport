@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Run-private synthetic gate. Never accepts an existing URL/database/secrets.
 set -euo pipefail
+VERIFY_MODE=full
+if (( $# != 0 )); then
+  if (( $# != 1 )) || [[ "$1" != --diagnostic ]]; then
+    printf 'Usage: %s [--diagnostic]\n' "$0" >&2
+    exit 2
+  fi
+  VERIFY_MODE=diagnostic
+fi
+readonly VERIFY_MODE
 umask 077
 cd "$(dirname "$0")/.."
 bounded() {
@@ -217,13 +226,21 @@ bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
 start_private_stack registry-db demo-db cube cube-test
 record_private_topology
 bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
-# Existing registry verifier remains unchanged. Its final bare pytest now has
+# Existing registry verifier defaults to full acceptance; diagnostics are explicit.
+# Its project pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads
 # fixed synthetic endpoint addresses derived from this exact Compose project.
 export GATEWAY_CUBE_TEST_AUTHORIZATION=private-synthetic-cube-only
 export GATEWAY_CUBE_TEST_HOSTS_FILE="$GATEWAY_RUNTIME_EVIDENCE_DIR/hosts.json"
 export GATEWAY_CUBE_RESTART_PHASE=after
-bounded 360 bash scripts/verify_registry_postgres.sh
+run_registry_verification() {
+  if [[ "$VERIFY_MODE" == diagnostic ]]; then
+    bounded 360 bash scripts/verify_registry_postgres.sh --diagnostic
+  else
+    bounded 360 bash scripts/verify_registry_postgres.sh
+  fi
+}
+run_registry_verification
 # Selected, sanitized actual response shapes and source/network evidence only.
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR" <<'PY'
 import json

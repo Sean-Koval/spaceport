@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Disposable synthetic PostgreSQL gate. Never accepts an existing database URL.
 set -euo pipefail
+VERIFY_MODE=full
+if (( $# != 0 )); then
+  if (( $# != 1 )) || [[ "$1" != --diagnostic ]]; then
+    printf 'Usage: %s [--diagnostic]\n' "$0" >&2
+    exit 2
+  fi
+  VERIFY_MODE=diagnostic
+fi
+readonly VERIFY_MODE
 umask 077
 cd "$(dirname "$0")/.."
 command -v docker >/dev/null || { printf 'BLOCKED: Docker is required for the real PostgreSQL gate.\n' >&2; exit 1; }
@@ -72,5 +81,20 @@ assert suites and sum(int(s.get('tests','0')) for s in suites)>0, 'PostgreSQL ga
 assert all(int(s.get(k,'0'))==0 for s in suites for k in ('failures','errors','skipped')), 'PostgreSQL gate must not skip or fail'
 print('Real PostgreSQL gate: '+str(sum(int(s.get('tests','0')) for s in suites))+' tests, zero skips/errors/failures')
 PY
-# Full project verification catches regressions outside this task's file.
-uv run --locked --offline pytest -q
+# Full acceptance stays the default. Diagnostic runs are never acceptance.
+run_project_verification() {
+  if [[ "$VERIFY_MODE" == diagnostic ]]; then
+    printf 'DIAGNOSTIC ONLY: full acceptance must run separately.\n'
+    local secret_arguments=(--secret-file "$TEMP_DIR/password")
+    if [[ -n "${GATEWAY_RUNTIME_SECRET_DIR:-}" ]]; then
+      local name
+      for name in registry_admin demo_admin registry_owner registry_app registry_audit_retention registry_source_reader demo_reader fixture_reader fixture_observer cube_signing_key cube_test_signing_key; do
+        secret_arguments+=(--secret-file "$GATEWAY_RUNTIME_SECRET_DIR/$name")
+      done
+    fi
+    uv run --locked --offline python scripts/pytest_runtime_diagnostics.py "${secret_arguments[@]}"
+  else
+    uv run --locked --offline pytest -q
+  fi
+}
+run_project_verification

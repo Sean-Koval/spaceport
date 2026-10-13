@@ -156,7 +156,7 @@ def test_full_registry_gate_keeps_six_minute_cap_inside_twenty_minute_job():
     # Static budget guard only; this does not establish runtime completion time.
     import re
     source = (ROOT / "scripts/verify_cube_runtime.sh").read_text()
-    assert re.findall(r"^bounded ([0-9]+) bash scripts/verify_registry_postgres\.sh$", source, re.MULTILINE) == ["360"]
+    assert re.findall(r"^\s*bounded ([0-9]+) bash scripts/verify_registry_postgres\.sh(?: --diagnostic)?$", source, re.MULTILINE) == ["360", "360"]
     workflow = (ROOT / ".github/workflows/verify-cube.yml").read_text()
     assert re.findall(r"^\s+timeout-minutes: ([0-9]+)$", workflow, re.MULTILINE) == ["20"]
 
