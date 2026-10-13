@@ -239,7 +239,7 @@ def test_audit_is_append_only_and_retention_cannot_delete_fresh_events(registry_
 
 @pytest.mark.postgres
 def test_second_migration_is_unchanged_and_head_is_recorded(registry_database):
-    assert registry_database.migration_head == "0001_registry"
+    assert registry_database.migration_head == "0002_audit_policy_id"
     assert registry_database.first_migration_snapshot == registry_database.second_migration_snapshot
 
 

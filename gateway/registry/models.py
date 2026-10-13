@@ -261,6 +261,7 @@ class AuditEvent(Record, Base):
     action: Mapped[str] = mapped_column(String(64))
     product_id: Mapped[str | None] = mapped_column(String(128))
     version_id: Mapped[str | None] = mapped_column(String(128))
+    policy_id: Mapped[str | None] = mapped_column(String(128))
     policy_revision: Mapped[int | None] = mapped_column(Integer)
     decision: Mapped[str] = mapped_column(String(32))
     parameter_names: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
@@ -270,6 +271,7 @@ class AuditEvent(Record, Base):
     adapter: Mapped[str | None] = mapped_column(String(128))
     correlation_id: Mapped[str] = mapped_column(String(128))
     __table_args__ = (CheckConstraint("jsonb_typeof(parameter_names) = 'array'", name="parameter_names_array"),
+        CheckConstraint("policy_id IS NULL OR policy_id ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'", name="policy_id_format"),
         CheckConstraint("parameter_digest IS NULL OR parameter_digest ~ '^[0-9a-f]{64}$'", name="digest_format"),
         CheckConstraint("duration_ms IS NULL OR duration_ms >= 0", name="duration_nonnegative"),
         CheckConstraint("row_count IS NULL OR row_count >= 0", name="row_count_nonnegative"),

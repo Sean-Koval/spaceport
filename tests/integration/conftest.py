@@ -113,10 +113,10 @@ def migration_snapshot(url):
         return connection.execute("SELECT n.nspname, c.relname, c.oid, c.relfilenode FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' OR (n.nspname='public' AND c.relname='alembic_version') ORDER BY n.nspname,c.relname").fetchall()
 
 
-def run_migration(url, roles):
+def run_migration(url, roles, target="head"):
     env = {**os.environ, "GATEWAY_MIGRATION_DATABASE_URL": url.render_as_string(hide_password=False),
         **{f"GATEWAY_{key.upper()}_ROLE": value for key, value in roles.items()}}
-    return subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=ROOT,
+    return subprocess.run([sys.executable, "-m", "alembic", "upgrade", target], cwd=ROOT,
         env=env, capture_output=True, text=True, timeout=60)
 
 
@@ -129,8 +129,8 @@ def safe_migration_error(completed, url):
     return detail.removeprefix("RuntimeError: ")[:1024]
 
 
-def migrate(url, roles):
-    completed = run_migration(url, roles)
+def migrate(url, roles, target="head"):
+    completed = run_migration(url, roles, target)
     if completed.returncode:
         pytest.fail("Disposable owner migration failed: " + safe_migration_error(completed, url), pytrace=False)
 
@@ -191,9 +191,12 @@ def registry_database(request):
                 recipients = sql.SQL(", ").join(sql.Identifier(roles[key]) for key in ("app", "source_reader", "audit_retention"))
                 for object_kind in ("TABLES", "SCHEMAS", "FUNCTIONS"):
                     owner.execute(sql.SQL("ALTER DEFAULT PRIVILEGES GRANT ALL PRIVILEGES ON {} TO {}").format(sql.SQL(object_kind), recipients))
-        migrate(urls["owner"], roles)
+        initial_revision = options.get("initial_revision", "head")
+        if initial_revision not in {"head", "0001_registry"}:
+            pytest.fail("The disposable fixture accepts only the reviewed migration targets", pytrace=False)
+        migrate(urls["owner"], roles, initial_revision)
         first = migration_snapshot(urls["owner"])
-        migrate(urls["owner"], roles)
+        migrate(urls["owner"], roles, initial_revision)
         second = migration_snapshot(urls["owner"])
         with psycopg.connect(**connection_kwargs(urls["owner"])) as owner:
             head = owner.execute("SELECT version_num FROM public.alembic_version").fetchone()[0]
