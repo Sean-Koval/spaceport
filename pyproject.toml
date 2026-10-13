@@ -3,7 +3,13 @@ name = "data-product-gateway"
 version = "0.1.0"
 description = "Strict contracts for the self-hosted Data Product Gateway"
 requires-python = "==3.12.14"
-dependencies = ["pydantic==2.14.1", "rfc8785==0.1.4"]
+dependencies = [
+    "alembic==1.20.0",
+    "psycopg[binary]==3.3.6",
+    "pydantic==2.14.1",
+    "rfc8785==0.1.4",
+    "sqlalchemy[asyncio]==2.0.54",
+]
 
 [dependency-groups]
 dev = ["pytest==9.1.1"]

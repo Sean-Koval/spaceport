@@ -1,0 +1,71 @@
+name: Verify reviewed gateway commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed 40-character commit SHA in this repository
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-product-gateway-manual-verification
+  cancel-in-progress: false
+
+jobs:
+  registry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Validate immutable source input
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'An exact lowercase commit SHA is required.' >&2; exit 1; }
+      - name: Check out reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Verify checkout and record runner tools
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$REVIEWED_SOURCE_SHA" ]]
+          printf 'Tested source commit: %s\nRunner image: %s\n' "$REVIEWED_SOURCE_SHA" "${ImageVersion:-unavailable}"
+          docker version --format 'Docker client={{.Client.Version}}, server={{.Server.Version}}'
+          docker compose version
+      - name: Set up pinned uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install locked dependencies
+        run: |
+          uv python install 3.12.14
+          uv sync --locked --dev
+          uv --version
+          uv run --locked --offline python --version
+      - name: Verify local unit and contract tests
+        run: uv run --locked --offline pytest -m 'unit or contract' -q
+      - name: Verify real PostgreSQL registry and full suite
+        run: bash scripts/verify_registry_postgres.sh
+      - name: Always remove this run's disposable PostgreSQL containers
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_ids=$(docker ps --all --quiet --filter "label=gateway.registry.run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}")
+          if [[ -n "$container_ids" ]]; then
+            while IFS= read -r container_id; do
+              docker rm --force --volumes "$container_id" >/dev/null
+            done <<< "$container_ids"
+          fi
