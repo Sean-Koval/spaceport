@@ -7,6 +7,14 @@ on:
         description: Exact reviewed 40-character commit SHA in this repository
         required: true
         type: string
+      verification_mode:
+        description: Full acceptance or failure-limited diagnostics
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - diagnostic
 
 permissions:
   contents: read
@@ -57,7 +65,16 @@ jobs:
       - name: Verify offline project units and contracts
         run: uv run --locked --offline pytest -m 'unit or contract' -q
       - name: Verify pinned real Cube synthetic boundary
-        run: bash scripts/verify_cube_runtime.sh
+        env:
+          VERIFICATION_MODE: ${{ inputs.verification_mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VERIFICATION_MODE" in
+            full) bash scripts/verify_cube_runtime.sh ;;
+            diagnostic) bash scripts/verify_cube_runtime.sh --diagnostic ;;
+            *) printf 'Invalid verification mode\n' >&2; exit 2 ;;
+          esac
       - name: Always remove only this run's synthetic runtime
         if: always()
         shell: bash
