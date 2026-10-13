@@ -12,6 +12,18 @@ export GATEWAY_RUNTIME_EVIDENCE_DIR="$TEMP_DIR/evidence"
 export GATEWAY_PROBE_IMAGE="$PROJECT-probe:local"
 export GATEWAY_CUBE_RUN_LABEL="${GITHUB_RUN_ID:-$PROJECT}-${GITHUB_RUN_ATTEMPT:-local}"
 COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml)
+start_private_stack() {
+  local result=0
+  "${COMPOSE[@]}" up -d --wait --wait-timeout 150 "$@" || result=$?
+  if (( result != 0 )); then
+    # Only the fixed current Cube instances; redact every generated value before
+    # bounded log emission. Preserve the readiness failure and cleanup behavior.
+    uv run --locked --offline python scripts/cube_runtime_diagnostics.py \
+      --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR" --project "$PROJECT" \
+      --run-label "$GATEWAY_CUBE_RUN_LABEL" || true
+  fi
+  return "$result"
+}
 cleanup() {
   "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   docker image rm "$GATEWAY_PROBE_IMAGE" >/dev/null 2>&1 || true
@@ -90,7 +102,7 @@ cp infra/Probe.Dockerfile "$TEMP_DIR/build/Dockerfile"
 docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_PROBE_IMAGE" "$TEMP_DIR/build"
 docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
-"${COMPOSE[@]}" up -d --wait --wait-timeout 150 registry-db demo-db cube cube-test edge
+start_private_stack registry-db demo-db cube cube-test edge
 # Initialization must succeed after the official entrypoint drops to UID999.
 # Read-only per-service mounts are unchanged; no contents/passwords are logged.
 for service in registry-db demo-db; do
@@ -182,7 +194,7 @@ print('Real pinned Cube gate: '+str(sum(int(s.get('tests','0')) for s in suites)
 PY
 # Restart the actual databases and both Cube endpoints, preserving named volumes.
 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
-"${COMPOSE[@]}" up -d --wait --wait-timeout 150 registry-db demo-db cube cube-test
+start_private_stack registry-db demo-db cube cube-test
 "${COMPOSE[@]}" run --rm --no-deps -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
 # Existing registry verifier remains unchanged. Its final bare pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads

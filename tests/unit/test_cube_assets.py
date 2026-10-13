@@ -102,3 +102,12 @@ def test_every_model_revalidates_the_committed_source_load_watermark():
         watermark = (ROOT / "cube" / directory / "watermark.yml").read_text()
         assert "refresh_key:" in watermark and f"SELECT MAX(loaded_at) FROM {schema}.watermark" in watermark
         assert "every: 1 second" in orders and "every: 1 second" in watermark
+
+
+def test_cube_configuration_uses_driver_factory_without_removed_db_type_option():
+    # Cube v1.8.5 OptsHandler rejects CreateOptions.dbType before startup.
+    # This asset guard is not a substitute for the real Core constructor gate.
+    import re
+    configuration = (ROOT / "cube/cube.js").read_text()
+    assert not re.search(r"^\s+dbType\s*:", configuration, re.MULTILINE)
+    assert "driverFactory: () => ({ type: 'postgres'" in configuration

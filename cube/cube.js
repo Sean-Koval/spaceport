@@ -33,7 +33,6 @@ module.exports = {
   scheduledRefreshTimer: false,
   scheduledRefreshContexts: async () => [],
   webSockets: false,
-  dbType: 'postgres',
   schemaPath: 'model',
   cacheAndQueueDriver: 'memory',
   contextToAppId: () => 'dpg_bundle_' + digest,

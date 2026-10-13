@@ -14,7 +14,7 @@
         "CUBEJS_EXTERNAL_DEFAULT": "false",
         "CUBEJS_LOG_LEVEL": "error",
         "GATEWAY_CUBE_CONTEXT": "fixture_test",
-        "GATEWAY_MODEL_BUNDLE_DIGEST": "1c7eacc137f862badacfb234190cdf1de35a2f6147529040ed192113bd93fac5",
+        "GATEWAY_MODEL_BUNDLE_DIGEST": "8c3e9a8b030fb495bbdbbec19061df43c17d508ffadaf390a025d19120e43f17",
         "CUBEJS_DB_QUERY_DEFAULT_LIMIT": "1001",
         "CUBEJS_SQL_PORT": "false",
         "CUBEJS_PG_SQL_PORT": "false",

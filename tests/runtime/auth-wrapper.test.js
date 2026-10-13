@@ -7,6 +7,7 @@ const http = require('node:http');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { ApiGateway } = require('@cubejs-backend/api-gateway');
+const { CubejsServerCore } = require('@cubejs-backend/server-core');
 const config = require(process.env.GATEWAY_CUBE_CONFIG_MODULE || '../../cube/cube.js');
 const unreachable = async () => { throw new Error('Upstream must not be called by authentication regression'); };
 // Construct the real release gateway once. The compiler/orchestrator are never
@@ -18,6 +19,22 @@ const gateway = new ApiGateway(config.apiSecret, unreachable, unreachable, () =>
 function request(url, options = {}) {
   return fetch(url, { ...options, signal: AbortSignal.timeout(2000) });
 }
+
+test('actual pinned Core accepts driverFactory and rejects the removed dbType option', { timeout: 15000 }, async () => {
+  assert.equal(Object.hasOwn(config, 'dbType'), false);
+  assert.equal(config.driverFactory().type, 'postgres');
+  assert.throws(() => new CubejsServerCore({ ...config, dbType: 'postgres' }),
+    /CreateOptions\.dbType was removed in v1\.7\.0/);
+  const core = new CubejsServerCore(config);
+  try {
+    // Construction executes actual OptsHandler validation, with no listener or
+    // query opened. The real Compose readiness remains a separate required gate.
+    assert.ok(core);
+  } finally {
+    await core.releaseConnections();
+    await core.shutdown();
+  }
+});
 
 function token(patch = {}) {
   const now = Math.floor(Date.now() / 1000);
