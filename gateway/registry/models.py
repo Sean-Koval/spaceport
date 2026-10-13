@@ -6,7 +6,7 @@ Database privileges and triggers, not ORM setters, enforce immutability.
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, MetaData, String, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, FetchedValue, ForeignKey, ForeignKeyConstraint, Index, Integer, MetaData, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -312,8 +312,10 @@ class SourceReservation(Record, Base):
     principal_id: Mapped[str] = mapped_column(String(128))
     lease_token: Mapped[str] = mapped_column(String(128))
     generation: Mapped[int] = mapped_column(Integer)
-    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    release_reason: Mapped[str | None] = mapped_column(String(32))
+    # INSERT omits server-owned release columns under the narrow app GRANT.
+    # Only the fenced trigger may assign the completion timestamp.
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=FetchedValue(), server_onupdate=FetchedValue())
+    release_reason: Mapped[str | None] = mapped_column(String(32), server_default=FetchedValue())
     __table_args__ = (
         ForeignKeyConstraint(["execution_id", "principal_id"], ["gateway.executions.id", "gateway.executions.principal_id"]),
         UniqueConstraint("execution_id", "generation"),

@@ -432,3 +432,33 @@ def test_current_tighter_timeout_bounds_following_database_work(clock,blocked_st
     asyncio.run(bounded())
     assert queue.failures==[('EXECUTION_TIMEOUT',blocked_stage=='complete')]
     assert adapter.closed and not queue.completed
+
+
+def test_claim_reservation_orm_insert_omits_server_owned_release_columns():
+    """Observe real ORM SQL emission only, not PostgreSQL privilege enforcement."""
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import Session
+    from gateway.registry.models import SourceReservation
+
+    class StopBeforeExecution(Exception):
+        pass
+
+    engine=create_engine('sqlite://')
+    inserted=[]
+    @event.listens_for(engine,'before_cursor_execute')
+    def capture_insert(connection,cursor,statement,parameters,context,many):
+        assert context.isinsert
+        inserted.extend(context.compiled_parameters)
+        # Never execute this PostgreSQL mapping against SQLite. The ORM planner
+        # is the boundary under test; integration tests enforce actual GRANTs.
+        raise StopBeforeExecution
+    try:
+        with Session(engine) as session:
+            session.add(SourceReservation(id='reservation-1',execution_id='execution-1',
+                principal_id='principal-1',lease_token='lease-1',generation=1))
+            with pytest.raises(StopBeforeExecution):
+                session.flush()
+        assert inserted==[{'id':'reservation-1','execution_id':'execution-1',
+            'principal_id':'principal-1','lease_token':'lease-1','generation':1}]
+    finally:
+        engine.dispose()

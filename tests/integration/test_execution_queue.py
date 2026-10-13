@@ -145,6 +145,26 @@ def test_pending_principal_capacity_is_ten_and_replay_does_not_consume_slot(regi
     asyncio.run(scenario())
 
 
+def test_claim_reserves_source_without_server_owned_insert_privileges(registry_database):
+    async def scenario():
+        service,request=await setup(registry_database)
+        view=await service.submit(principal(),request)
+        for column in ('released_at','release_reason','created_at'):
+            assert registry_database.scalar(
+                "SELECT has_column_privilege(%s,'gateway.source_reservations',%s,'INSERT')",
+                (registry_database.roles['app'],column)) is False
+        claim=await service.queue.claim('worker-1')
+        assert claim is not None, (await service.queue.view(view.execution_id)).model_dump(mode='json')
+        assert claim.execution_id==view.execution_id
+        assert registry_database.scalar(
+            'SELECT released_at IS NULL AND release_reason IS NULL FROM gateway.source_reservations WHERE id=%s',
+            (claim.reservation_id,)) is True
+        assert registry_database.denied_as_app(
+            'UPDATE gateway.source_reservations SET released_at=clock_timestamp() WHERE id=%s',
+            (claim.reservation_id,))=='permission_denied'
+    asyncio.run(scenario())
+
+
 def test_worker_persists_complete_result_and_releases_only_own_source_reservation(registry_database):
     async def scenario():
         service,request=await setup(registry_database)
