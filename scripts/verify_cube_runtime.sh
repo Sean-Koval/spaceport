@@ -137,6 +137,7 @@ bounded 15 "${COMPOSE[@]}" exec -T edge nginx -v
 bounded 15 "${COMPOSE[@]}" exec -T cube sh -c 'test "$(node -p '\''require("@cubejs-backend/server-core/package.json").version'\'')" = "1.8.5"'
 # Record safe topology only. Never dump container env, mounts or credentials.
 container_ids=$(bounded 15 "${COMPOSE[@]}" ps --all --quiet)
+record_private_topology() {
 bounded 60 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
 import json
 import os
@@ -180,6 +181,8 @@ for identifier in sys.argv[2:]:
 assert set(hosts)=={'cube','cube-test','demo-db'}
 Path(sys.argv[1]).with_name('hosts.json').write_text(json.dumps({'kind':'private-synthetic-cube-only','hosts':hosts,'run_label':run_label,'project':project,'container_ids':{name:instances[name] for name in hosts}})+'\n')
 PY
+}
+record_private_topology
 # Real release Node process executes the same security tests, without substitutes.
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=/cube/conf/security.js cube node --test tests/runtime/context.test.js
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube.js cube node --test tests/runtime/auth-wrapper.test.js
@@ -206,7 +209,10 @@ print('Real pinned Cube gate: '+str(sum(int(s.get('tests','0')) for s in suites)
 PY
 # Restart the actual databases and both Cube endpoints, preserving named volumes.
 bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
+# A restart can reassign bridge addresses. Re-inspect the original container
+# IDs and all existing trust boundaries after readiness before host-side tests.
 start_private_stack registry-db demo-db cube cube-test
+record_private_topology
 bounded 90 "${COMPOSE[@]}" run --rm --no-deps -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
 # Existing registry verifier remains unchanged. Its final bare pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads
