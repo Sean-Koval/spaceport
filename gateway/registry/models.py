@@ -175,11 +175,14 @@ class Execution(Record, Base):
     context: Mapped[str] = mapped_column(String(16))
     request_id: Mapped[str] = mapped_column(String(128))
     deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    execution_timeout_seconds: Mapped[int] = mapped_column(Integer, server_default="120")
     __table_args__ = (ForeignKeyConstraint(["version_id", "product_id"], ["gateway.product_versions.id", "gateway.product_versions.product_id"]),
         ForeignKeyConstraint(["policy_id", "policy_revision"], ["gateway.policy_revisions.policy_id", "gateway.policy_revisions.revision"]),
+        UniqueConstraint("id", "principal_id", name="uq_execution_principal"),
         UniqueConstraint("id", "principal_id", "version_id", "policy_revision", "canonical_hash", name="uq_execution_result_scope"),
         UniqueConstraint("id", "principal_id", "version_id", "canonical_hash", name="uq_execution_idempotency_scope"),
         CheckConstraint("context IN ('consumer', 'fixture_test')", name="context_valid"),
+        CheckConstraint("execution_timeout_seconds BETWEEN 1 AND 120", name="execution_timeout_bounded"),
         CheckConstraint("canonical_hash ~ '^[0-9a-f]{64}$'", name="digest_format"),
         CheckConstraint("jsonb_typeof(canonical_query) = 'object'", name="query_object"),
         CheckConstraint("deadline_at > created_at AND deadline_at <= created_at + interval '120 seconds'", name="bounded_deadline"))
@@ -276,3 +279,46 @@ class AuditEvent(Record, Base):
         CheckConstraint("duration_ms IS NULL OR duration_ms >= 0", name="duration_nonnegative"),
         CheckConstraint("row_count IS NULL OR row_count >= 0", name="row_count_nonnegative"),
         Index("ix_audit_events_retention", "created_at"))
+
+
+class ExecutionAuthorization(Base):
+    """Immutable actual decision/verified identity used for original dispatch."""
+    __tablename__ = "execution_authorizations"
+    execution_id: Mapped[str] = mapped_column(ForeignKey("gateway.executions.id"), primary_key=True)
+    principal_snapshot: Mapped[dict] = mapped_column(JSONB)
+    decision: Mapped[dict] = mapped_column(JSONB)
+    scope_digest: Mapped[str] = mapped_column(String(64))
+    full_decision_digest: Mapped[str] = mapped_column(String(64))
+    __table_args__ = (
+        CheckConstraint("scope_digest ~ '^[0-9a-f]{64}$' AND full_decision_digest ~ '^[0-9a-f]{64}$'", name="digest_format"),
+        CheckConstraint("jsonb_typeof(principal_snapshot) = 'object' AND jsonb_typeof(decision) = 'object' AND octet_length(principal_snapshot::text) <= 8192 AND octet_length(decision::text) <= 32768", name="bounded_objects"),
+    )
+
+
+class ExecutionPreparation(Base):
+    """One immutable query retained across leases; no mutable adapter-side map."""
+    __tablename__ = "execution_preparations"
+    execution_id: Mapped[str] = mapped_column(ForeignKey("gateway.executions.id"), primary_key=True)
+    prepared_query: Mapped[dict] = mapped_column(JSONB)
+    __table_args__ = (
+        CheckConstraint("jsonb_typeof(prepared_query) = 'object' AND octet_length(prepared_query::text) <= 65536", name="bounded_query"),
+    )
+
+
+class SourceReservation(Record, Base):
+    """Attempt-specific capacity. Lease expiry never makes it reusable."""
+    __tablename__ = "source_reservations"
+    execution_id: Mapped[str] = mapped_column(String(128))
+    principal_id: Mapped[str] = mapped_column(String(128))
+    lease_token: Mapped[str] = mapped_column(String(128))
+    generation: Mapped[int] = mapped_column(Integer)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    release_reason: Mapped[str | None] = mapped_column(String(32))
+    __table_args__ = (
+        ForeignKeyConstraint(["execution_id", "principal_id"], ["gateway.executions.id", "gateway.executions.principal_id"]),
+        UniqueConstraint("execution_id", "generation"),
+        UniqueConstraint("lease_token"),
+        CheckConstraint("generation > 0", name="generation_positive"),
+        CheckConstraint("(released_at IS NULL AND release_reason IS NULL) OR (released_at >= created_at AND release_reason = 'completed')", name="release_coherent"),
+        Index("ix_source_reservations_capacity", "principal_id", "released_at"),
+    )

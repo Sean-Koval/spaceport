@@ -246,7 +246,9 @@ def test_additive_audit_migration_is_frozen_and_downgrade_fails_closed():
     from alembic.script import ScriptDirectory
     migration = importlib.import_module("migrations.versions.0002_audit_policy_id")
     assert migration.down_revision == "0001_registry"
-    assert ScriptDirectory.from_config(Config("alembic.ini")).get_heads() == ["0002_audit_policy_id"]
+    scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+    assert len(scripts.get_heads()) == 1
+    assert "0002_audit_policy_id" in {revision.revision for revision in scripts.walk_revisions()}
     with pytest.raises(RuntimeError, match="downgrade is disabled"):
         migration.downgrade()
 

@@ -1,0 +1,196 @@
+{
+  "product_id": "revenue",
+  "consumer_binding": {
+    "context": "consumer",
+    "binding_id": "revenue-orders",
+    "revision": 1,
+    "adapter_revision": "cube-rest-v1",
+    "model_bundle_digest": "228090dcbeaf8416a1e8a14d4e17c2873f9963ec3346d728650308ee5684d8ba",
+    "fields": {
+      "day": {
+        "member": "Orders.ordered_at",
+        "kind": "time",
+        "cube_type": "time",
+        "response_key": "Orders.ordered_at.day",
+        "granularity": "day"
+      },
+      "segment": {
+        "member": "Orders.segment",
+        "kind": "dimension",
+        "cube_type": "string",
+        "response_key": "Orders.segment",
+        "granularity": null
+      },
+      "revenue": {
+        "member": "Orders.revenue",
+        "kind": "measure",
+        "cube_type": "number",
+        "response_key": "Orders.revenue",
+        "granularity": null
+      }
+    },
+    "input_fields": {
+      "segment": "segment"
+    },
+    "constraint_members": [
+      "Orders.tenant_id",
+      "Orders.access_group",
+      "Orders.segment"
+    ],
+    "watermark_member": "Watermark.loaded_at"
+  },
+  "fixture_binding": {
+    "context": "fixture_test",
+    "binding_id": "fixture-revenue-orders",
+    "revision": 1,
+    "adapter_revision": "cube-rest-v1",
+    "model_bundle_digest": "8c3e9a8b030fb495bbdbbec19061df43c17d508ffadaf390a025d19120e43f17",
+    "fields": {
+      "day": {
+        "member": "Orders.ordered_at",
+        "kind": "time",
+        "cube_type": "time",
+        "response_key": "Orders.ordered_at.day",
+        "granularity": "day"
+      },
+      "segment": {
+        "member": "Orders.segment",
+        "kind": "dimension",
+        "cube_type": "string",
+        "response_key": "Orders.segment",
+        "granularity": null
+      },
+      "revenue": {
+        "member": "Orders.revenue",
+        "kind": "measure",
+        "cube_type": "number",
+        "response_key": "Orders.revenue",
+        "granularity": null
+      }
+    },
+    "input_fields": {
+      "segment": "segment"
+    },
+    "constraint_members": [
+      "Orders.tenant_id",
+      "Orders.access_group",
+      "Orders.segment"
+    ],
+    "watermark_member": "Watermark.loaded_at"
+  },
+  "execution_contract_digest": "edbd64553bed812eb30ad109d37d2c41d5d9223a870e9f77d3e4b38c3a6aa39a",
+  "cases": [
+    {
+      "fixture": {
+        "id": "north-total",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [
+          {
+            "day": "2024-03-09",
+            "segment": "A",
+            "revenue": "10.10"
+          },
+          {
+            "day": "2024-03-10",
+            "segment": null,
+            "revenue": "20.20"
+          },
+          {
+            "day": "2024-03-11",
+            "segment": "A",
+            "revenue": "9007199254740993.01"
+          }
+        ],
+        "expected_error": null,
+        "tolerance": "0.00",
+        "source_watermark": "2024-03-12T00:00:00Z"
+      },
+      "principal_id": "fixture-north",
+      "kind": "known_answer",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "south-total",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [
+          {
+            "day": "2024-03-09",
+            "segment": "A",
+            "revenue": "100.00"
+          },
+          {
+            "day": "2024-03-10",
+            "segment": "B",
+            "revenue": "0.01"
+          }
+        ],
+        "expected_error": null,
+        "tolerance": "0.00",
+        "source_watermark": "2024-03-12T00:00:00Z"
+      },
+      "principal_id": "fixture-south",
+      "kind": "known_answer",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "empty",
+        "version": "1",
+        "inputs": {
+          "start": "2025-01-01",
+          "end": "2025-01-02"
+        },
+        "expected_rows": [],
+        "expected_error": null,
+        "tolerance": "0",
+        "source_watermark": "2024-03-12T00:00:00Z"
+      },
+      "principal_id": "fixture-north",
+      "kind": "known_answer",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "range-367",
+        "version": "1",
+        "inputs": {
+          "start": "2024-01-01",
+          "end": "2025-01-02"
+        },
+        "expected_rows": [],
+        "expected_error": "INVALID_INPUT",
+        "tolerance": "0",
+        "source_watermark": null
+      },
+      "principal_id": "fixture-north",
+      "kind": "input_negative",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "permission-denied",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [],
+        "expected_error": "NOT_FOUND_OR_FORBIDDEN",
+        "tolerance": "0",
+        "source_watermark": null
+      },
+      "principal_id": "fixture-denied",
+      "kind": "permission_negative",
+      "relative_tolerance": "0"
+    }
+  ]
+}

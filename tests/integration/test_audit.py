@@ -141,7 +141,7 @@ def test_existing_0001_audit_upgrades_without_rewriting_history(registry_databas
     from tests.integration.conftest import run_migration
     assert registry_database.migration_head == "0001_registry"
     registry_database.insert_audit("legacy-audit", "2024-03-12T00:00:00Z")
-    completed = run_migration(registry_database.urls["owner"], registry_database.roles)
+    completed = run_migration(registry_database.urls["owner"], registry_database.roles, target="0002_audit_policy_id")
     assert completed.returncode == 0, "Additive migration failed on disposable PostgreSQL"
     assert registry_database.scalar("SELECT version_num FROM public.alembic_version") == "0002_audit_policy_id"
     assert registry_database.scalar("SELECT policy_id FROM gateway.audit_events WHERE id='legacy-audit'") is None
@@ -152,11 +152,14 @@ def test_existing_0001_audit_upgrades_without_rewriting_history(registry_databas
     assert registry_database.denied_as_app("INSERT INTO gateway.audit_events (id,actor_id,action,decision,correlation_id,created_at) VALUES ('backdated','operator','result','deny','request-2','2024-03-12T00:00:00Z')") == "permission_denied"
 
 
+@pytest.mark.parametrize("registry_database", [{"initial_revision": "0001_registry"}], indirect=True)
 def test_destructive_audit_identity_downgrade_is_rejected_without_data_loss(registry_database):
     import os
     import subprocess
     import sys
-    from tests.integration.conftest import ROOT
+    from tests.integration.conftest import ROOT, run_migration
+    upgraded = run_migration(registry_database.urls["owner"], registry_database.roles, target="0002_audit_policy_id")
+    assert upgraded.returncode == 0, "Exact audit migration failed on disposable PostgreSQL"
     registry_database.execute_app("INSERT INTO gateway.audit_events (id,actor_id,action,policy_id,decision,correlation_id) VALUES ('preserved-audit','operator','change_policy','revenue-access','deny','request-1')")
     env = {**os.environ, "GATEWAY_MIGRATION_DATABASE_URL": registry_database.urls["owner"].render_as_string(hide_password=False),
         **{f"GATEWAY_{key.upper()}_ROLE": value for key, value in registry_database.roles.items()}}

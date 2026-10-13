@@ -46,7 +46,7 @@ def test_invalid_expected_revision_is_rejected_without_database_access(valid_man
     asyncio.run(registry.close())
 
 
-async def seed(database, valid_manifest):
+async def seed(database, valid_manifest, *, policy_content=None):
     m = api().models
     manifest = validate_manifest(valid_manifest)
     async with database.registry.transaction() as uow:
@@ -58,8 +58,11 @@ async def seed(database, valid_manifest):
         # The revision's immediate FK needs its head row. No ORM relationship is
         # declared here; explicit flush keeps insertion order unambiguous.
         await uow.session.flush()
+        from gateway.contracts.canonical import canonical_digest
         uow.session.add(m.PolicyRevision(id="policy-1", policy_id=manifest.policy_id, revision=1,
-            content={"tenant_ids": ["north", "south"]}, content_digest="c" * 64, actor_id="operator"))
+            content=policy_content if policy_content is not None else {"tenant_ids": ["north", "south"]},
+            content_digest=canonical_digest(policy_content) if policy_content is not None else "c" * 64,
+            actor_id="operator"))
     draft = await database.registry.save_draft("revenue", manifest, 0, "editor")
     async with database.registry.transaction() as uow:
         uow.session.add(m.TestRun(id="test-1", product_id="revenue", draft_id=draft.id,
@@ -239,7 +242,9 @@ def test_audit_is_append_only_and_retention_cannot_delete_fresh_events(registry_
 
 @pytest.mark.postgres
 def test_second_migration_is_unchanged_and_head_is_recorded(registry_database):
-    assert registry_database.migration_head == "0002_audit_policy_id"
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    assert registry_database.migration_head == ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
     assert registry_database.first_migration_snapshot == registry_database.second_migration_snapshot
 
 
@@ -292,7 +297,11 @@ def test_app_cannot_backdate_audit_or_modify_principal_grants(registry_database)
 
 
 async def seed_execution(database, valid_manifest):
-    _, draft = await seed(database, valid_manifest)
+    from tests.unit.test_policy import rules
+    # The execution acceptance gate requires current typed policy rules. Keep
+    # the legacy registry-only seed unchanged for frozen-migration coverage.
+    policy = {"rules": rules(), "reason": "Reviewed synthetic execution policy"}
+    _, draft = await seed(database, valid_manifest, policy_content=policy)
     await publish(database.registry, draft)
     database.execute_owner("INSERT INTO gateway.principals (id,subject,kind) VALUES ('north-user','synthetic-north','demo'),('south-user','synthetic-south','demo')")
     async with database.registry.transaction() as uow:
