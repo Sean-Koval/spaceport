@@ -19,6 +19,7 @@ from tests.integration.conftest import registry_database
 from tests.integration.test_operations import actual_demo, demo_request
 
 QUERY = {'product_id': 'revenue', 'inputs': {'start': '2024-03-09', 'end': '2024-03-12'}}
+MATRIX_CURSOR_KEY = b'm' * 32
 
 
 def safe_error(response, code, *, mcp=False):
@@ -131,7 +132,7 @@ def test_actual_postgres_operator_and_service_authority_over_same_socket(registr
                 oidc_access_token_profile='rfc9068', oidc_client_ids=('synthetic-client',))
         auth = Authenticator(Settings(**settings), PrincipalStore(registry.sessions), clock=ctx.clock)
         bindings = StaticBindingResolver([ctx.binding])
-        cursors = PageCursorCodec(b'synthetic-matrix-cursor-key-32bytes', ctx.clock)
+        cursors = PageCursorCodec(MATRIX_CURSOR_KEY, ctx.clock)
         svc = SimpleNamespace(authenticator=auth, clock=ctx.clock,
             catalog=CatalogService(registry=registry, policy=ctx.policy, bindings=bindings, cursors=cursors),
             execution=ExecutionService(registry=registry, policy=ctx.policy, bindings=bindings, clock=ctx.clock),
