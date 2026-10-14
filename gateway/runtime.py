@@ -10,6 +10,7 @@ from gateway.adapters.cube import CubeAdapter
 from gateway.api.app import create_app
 from gateway.api.audit import AuditReadService
 from gateway.api.catalog import CatalogService
+from gateway.api.drafts import DraftDiscoveryService
 from gateway.api.choices import ChoiceService
 from gateway.api.cursors import PageCursorCodec
 from gateway.api.readiness import ReadinessService
@@ -70,6 +71,7 @@ def build_runtime() -> Runtime:
         bundles=assets.bundles,execution=ExecutionService(registry=registry,policy=policy,bindings=bindings,clock=clock),
         results=ResultService(registry,policy,bindings,clock),publishing=publishing,clock=clock,
         catalog=CatalogService(registry=registry,policy=policy,bindings=bindings,cursors=cursors),
+        drafts=DraftDiscoveryService(registry=registry,policy=policy,publishing=publishing,cursors=cursors),
         choices=ChoiceService(registry=registry,policy=policy,bindings=bindings,bundles=assets.bundles,cursors=cursors,
             templates=(assets.manifest,)),audit_reader=AuditReadService(registry=registry,policy=policy,cursors=cursors,clock=clock),
         readiness=ReadinessService(registry=registry,policy=policy,adapter=adapter,bindings=bindings,bundles=assets.bundles,

@@ -334,6 +334,7 @@ function ReviewPage({ id }: { id: string }) {
   }
   return (
     <>
+      <Link to="/drafts">Back to saved drafts</Link>
       <p className="eyebrow">Evidence-first review</p>
       <h1>Review publication</h1>
       <p>

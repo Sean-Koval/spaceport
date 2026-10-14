@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Query
 from gateway.contracts.canonical import Identifier
 from gateway.publishing.service import DraftView, VersionDiff
-from .dependencies import services, principal, query
-from .models import (DraftWrite,DraftReceipt,TestRunView,FixtureCheckView,PublishRequest,PublicationReceipt,LifecycleRequest,Changed)
+from .dependencies import services, principal, query, paging
+from .models import (DraftPage,DraftWrite,DraftReceipt,TestRunView,FixtureCheckView,PublishRequest,PublicationReceipt,LifecycleRequest,Changed)
 
 router=APIRouter()
 
@@ -14,6 +14,11 @@ def draft_receipt(row):
 def test_view(row):
     checks=[FixtureCheckView(**{name:check.get(name) for name in FixtureCheckView.model_fields}) for check in row.evidence['checks']]
     return TestRunView(**{name:getattr(row,name) for name in TestRunView.model_fields if name!='checks'},checks=checks)
+
+@router.get('/v1/drafts',response_model=DraftPage)
+async def search_drafts(request: Request,q: str=Query(default="",max_length=256),cursor: str | None=Query(default=None,max_length=4096),limit: int=Query(default=50,ge=1,le=50)):
+    cursor,limit=paging(request,{'q'})
+    return await services(request).drafts.search(principal(request),query=request.query_params.get('q',''),cursor=cursor,limit=limit)
 
 @router.post('/v1/drafts',response_model=DraftReceipt)
 async def save_draft(request: Request,body: DraftWrite):

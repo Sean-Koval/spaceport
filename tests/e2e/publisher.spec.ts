@@ -66,6 +66,9 @@ test.beforeAll(() => {
 });
 async function signIn(page: Page, role: keyof Tokens, path: string) {
   await page.goto(path);
+  await startSession(page, role);
+}
+async function startSession(page: Page, role: keyof Tokens) {
   await expect(page.getByText(/Synthetic demo/)).toBeVisible();
   try {
     await page.getByLabel("Session bearer").fill(tokens[role]);
@@ -118,6 +121,19 @@ test("clean bootstrap: author → exact fixture evidence → independent publish
     await a.getByRole("button", { name: "Save draft", exact: true }).click();
     await expect(a).toHaveURL(/\/drafts\/[^/]+\/edit$/);
     const draftId = draftState.capture(a.url());
+    await a.getByRole("link", { name: "Back to saved drafts" }).click();
+    await expect(
+      a.getByRole("heading", { name: "Saved drafts", exact: true }),
+    ).toBeVisible();
+    await a.reload();
+    await startSession(a, "demo-author");
+    await expect(
+      a.getByRole("heading", { name: "Saved drafts", exact: true }),
+    ).toBeVisible();
+    const resume = a.getByRole("link", { name: "Resume editing", exact: true });
+    await expect(resume).toHaveAttribute("href", `/drafts/${draftId}/edit`);
+    await resume.click();
+    await expect(a).toHaveURL(new RegExp(`/drafts/${draftId}/edit$`));
     await a.getByRole("button", { name: "Run tests", exact: true }).click();
     await expect(
       a
@@ -130,7 +146,16 @@ test("clean bootstrap: author → exact fixture evidence → independent publish
     ).toBeDisabled();
     await expect(a.getByText("Expected access denial verified")).toBeVisible();
     const p = await publisher.newPage();
-    await signIn(p, "demo-publisher", `/drafts/${draftId}/review`);
+    await signIn(p, "demo-publisher", "/drafts");
+    await expect(
+      p.getByRole("heading", { name: "Saved drafts", exact: true }),
+    ).toBeVisible();
+    await expect(
+      p.getByRole("link", { name: "Resume editing", exact: true }),
+    ).toHaveCount(0);
+    const review = p.getByRole("link", { name: "Review draft", exact: true });
+    await expect(review).toHaveAttribute("href", `/drafts/${draftId}/review`);
+    await review.click();
     await expect(
       p.getByRole("button", { name: "Publish", exact: true }),
     ).toBeEnabled();
@@ -159,6 +184,15 @@ test("clean bootstrap: author → exact fixture evidence → independent publish
     await expect(
       p.getByText("Published version 1.0.0", { exact: true }),
     ).toBeVisible();
+    await p.getByRole("link", { name: "Back to saved drafts" }).click();
+    await expect(
+      p.getByText("No saved drafts available for this account.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(p.locator(`a[href="/drafts/${draftId}/review"]`)).toHaveCount(
+      0,
+    );
     const n = await north.newPage();
     await signIn(n, "demo-north", "/catalog");
     await n.getByRole("link", { name: "Daily revenue", exact: true }).focus();
@@ -168,6 +202,20 @@ test("clean bootstrap: author → exact fixture evidence → independent publish
     ).toBeVisible();
     await n.getByRole("button", { name: "Use example 1" }).focus();
     await n.keyboard.press("Enter");
+    // This permitted lower bound keeps all original known-answer fixture rows.
+    // The UI must transmit real controls; the existing exact decimal/tenant
+    // assertions below still reconcile the backend's unchanged expected rows.
+    await n.getByRole("button", { name: "Add filter", exact: true }).click();
+    await n.getByLabel("Filter 1 field", { exact: true }).selectOption("day");
+    await n
+      .getByLabel("Filter 1 operator", { exact: true })
+      .selectOption("gte");
+    await n
+      .getByLabel("Filter 1 value (date)", { exact: true })
+      .fill("2024-03-09");
+    await n.getByRole("button", { name: "Add sort", exact: true }).click();
+    await n.getByLabel("Sort 1 field", { exact: true }).selectOption("day");
+    await n.getByLabel("Sort 1 direction", { exact: true }).selectOption("asc");
     await n.getByRole("button", { name: "Run product", exact: true }).focus();
     await n.keyboard.press("Enter");
     await expect(

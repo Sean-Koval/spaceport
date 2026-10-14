@@ -79,7 +79,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Search Drafts */
+        get: operations["search_drafts_v1_drafts_get"];
         put?: never;
         /** Save Draft */
         post: operations["save_draft_v1_drafts_post"];
@@ -396,6 +397,13 @@ export interface components {
             /** Value */
             value: string | number | boolean | null;
         };
+        /** DraftPage */
+        DraftPage: {
+            /** Items */
+            items: components["schemas"]["DraftSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /** DraftReceipt */
         DraftReceipt: {
             /** Digest */
@@ -406,6 +414,37 @@ export interface components {
             product_id: string;
             /** Revision */
             revision: number;
+        };
+        /**
+         * DraftSummary
+         * @description Minimal authorized saved-head metadata; never a manifest or test verdict.
+         */
+        DraftSummary: {
+            /**
+             * Can Publish
+             * @description Current base and target publisher capability hint only; not evidence readiness or publication authorization.
+             */
+            can_publish: boolean;
+            /**
+             * Can Test
+             * @description Current author capability hint only; not evidence readiness or authorization to run tests.
+             */
+            can_test: boolean;
+            /**
+             * Editable Full Definition
+             * @description Current full-definition author capability hint; edits recheck authority and revision.
+             */
+            editable_full_definition: boolean;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Product Id */
+            product_id: string;
+            /** Revision */
+            revision: number;
+            /** Version */
+            version: string;
         };
         /**
          * DraftView
@@ -1427,6 +1466,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BindingChoicePage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorView"];
+                };
+            };
+        };
+    };
+    search_drafts_v1_drafts_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftPage"];
                 };
             };
             /** @description Unauthorized */

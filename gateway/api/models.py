@@ -39,6 +39,23 @@ class CatalogPage(StrictModel):
     next_cursor: str | None = None
 
 
+class DraftSummary(StrictModel):
+    """Minimal authorized saved-head metadata; never a manifest or test verdict."""
+    id: Identifier
+    product_id: Identifier
+    version: Version
+    name: str = Field(min_length=1, max_length=256)
+    revision: int = Field(ge=1)
+    editable_full_definition: bool = Field(description='Current full-definition author capability hint; edits recheck authority and revision.')
+    can_test: bool = Field(description='Current author capability hint only; not evidence readiness or authorization to run tests.')
+    can_publish: bool = Field(description='Current base and target publisher capability hint only; not evidence readiness or publication authorization.')
+
+
+class DraftPage(StrictModel):
+    items: Array[DraftSummary] = Field(max_length=50)
+    next_cursor: str | None = None
+
+
 class BindingChoice(StrictModel):
     binding_id: Identifier
     revision: int = Field(ge=1)
