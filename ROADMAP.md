@@ -28,11 +28,13 @@ Acceptance:
 
 ## 1. Complete two everyday workflows
 
-**Status: implementation in progress on isolated feature branches; not yet accepted or merged.** These are small, offline-buildable improvements using the existing product contract. Neither needs a live warehouse or a new execution engine.
+**Status: implementation merged in [PR 2](https://github.com/Sean-Koval/spaceport/pull/2); source-level and complete backend checks passed. Rendered-browser and composed-demo acceptance remain open.** The [merge commit](https://github.com/Sean-Koval/spaceport/commit/7a45b7e22514375de375dc71be1f8c70f843c589) has exact tested tree `bbd64ee1f4272e303a180a6c98a35ec7e56a574a`. [Run 38633087264](https://github.com/Sean-Koval/spaceport/actions/runs/38633087264), on source `44062b2ea8fa5b0d65bd29f5090209de164ff3bf`, admitted 1,950 unit/contract tests and all 329 backend cases with verified cleanup. Independent code review and 254 frontend tests passed; the live-source and production gates below remain open.
+
+These are small improvements using the existing product contract. Neither needs a live warehouse or a new execution engine.
 
 ### 1A. Finish the consumer execution workspace
 
-**Problem:** the product page accepts typed inputs but currently submits empty filters and sort arrays. An ambiguous submission leaves the user unable to safely recover from that page, despite server-side idempotency support.
+**Original problem:** the product page accepted typed inputs but submitted empty filters and sort arrays. An ambiguous submission left the user unable to safely recover from that page, despite server-side idempotency support.
 
 Build:
 
@@ -54,7 +56,7 @@ Acceptance:
 
 ### 1B. Add an authorized draft inbox
 
-**Problem:** saved drafts have direct edit/review URLs but no discoverable index. Returning authors and reviewers need a safe way to find unfinished work.
+**Original problem:** saved drafts had direct edit/review URLs but no discoverable index. Returning authors and reviewers needed a safe way to find unfinished work.
 
 Build:
 

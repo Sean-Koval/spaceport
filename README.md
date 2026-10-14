@@ -23,9 +23,11 @@ Agents receive approved product capabilities, not database credentials or unrest
 
 The reviewed private-main baseline was merged on 14 October 2026. Its exact source tree passed 1,847 unit/contract tests and 294 genuine PostgreSQL/Cube backend tests, with verified cleanup, in [run 38615111132](https://github.com/Sean-Koval/spaceport/actions/runs/38615111132). See the [source-bound baseline record](docs/evidence/private-main-baseline.md). This is not a production release or verified end-to-end installation; later changes need their own checks.
 
+The consumer query workspace and authorized draft inbox merged in [PR 2](https://github.com/Sean-Koval/spaceport/pull/2) on 14 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/7a45b7e22514375de375dc71be1f8c70f843c589) has the exact same tree as [tested source 44062b2e](https://github.com/Sean-Koval/spaceport/commit/44062b2ea8fa5b0d65bd29f5090209de164ff3bf): [run 38633087264](https://github.com/Sean-Koval/spaceport/actions/runs/38633087264) admitted 1,950 unit/contract tests and all 329 genuine PostgreSQL/Cube backend cases, with both cleanup checks passing. The unchanged frontend passed 254 frontend tests, typecheck, generated-client consistency, build and formatting checks. Rendered-browser and composed-demo acceptance remain unverified; live-source and production gates remain open.
+
 | Area | Evidence boundary |
 | --- | --- |
-| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged baseline passed the complete backend gate; later changes and composed-demo acceptance require fresh evidence. |
+| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 2 implementation passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
 | Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
 | BigQuery | Configuration validation and mocked adapter contracts only. The profile is non-executable; live models, bindings, queries and source cost/lifetime controls are unverified. |
 | Domo | Not implemented. Identity/PDP and business-definition reconciliation gates are documented. |
