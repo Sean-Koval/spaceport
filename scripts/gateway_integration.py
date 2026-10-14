@@ -26,6 +26,7 @@ ROOT = runtime.ROOT
 BACKEND_SELECTION = ['-m', 'postgres or cube']
 WORK_SECONDS = 1080
 CLEANUP_SECONDS = 120
+UNIT_CONTRACT_SECONDS = 180
 MAX_LOG_BYTES = 16 * 1024 * 1024
 
 
@@ -438,7 +439,7 @@ def verify_units(root, rows, budget):
     expected = collect_test_identities(selection)
     output = root / 'units-contracts.xml'
     required_phase(rows, 'units-contracts', [sys.executable, '-m', 'pytest', *selection,
-        '-q', '--junitxml=' + str(output)], root, budget, 120, env=verify_demo.pytest_environment())
+        '-q', '--junitxml=' + str(output)], root, budget, UNIT_CONTRACT_SECONDS, env=verify_demo.pytest_environment())
     count = validate_backend_junit(output, expected)
     rows.append({'phase': 'admit-units-contracts', 'status': 'PASS', 'tests': count,
         'junit_sha256': hashlib.sha256(output.read_bytes()).hexdigest()})

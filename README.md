@@ -4,7 +4,7 @@ Spaceport is a self-hosted gateway that turns reviewed team data into reusable p
 
 The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. BigQuery is a planned live source; Domo requires a separate read-only adapter and reconciliation with authoritative cards and Beast Modes.
 
-Spaceport is the working product name. Repository, Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
+The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
 
 ## What is implemented
 

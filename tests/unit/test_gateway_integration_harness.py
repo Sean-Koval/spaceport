@@ -348,6 +348,50 @@ def test_outer_termination_relays_to_nested_supervisor_and_reaps_child(tmp_path)
             except ProcessLookupError:pass
 
 
+def test_units_phase_uses_180_seconds_without_widening_job_reservations(harness,tmp_path,monkeypatch):
+    from scripts import runtime_process as process
+    clock={'now':1000.0}
+    monkeypatch.setenv('GITHUB_ACTIONS','true')
+    monkeypatch.setenv('GATEWAY_INTEGRATION_FIRST_STEP_EPOCH','1000')
+    monkeypatch.setattr(harness.time,'time',lambda:clock['now'])
+    monkeypatch.setattr(harness.time,'monotonic',lambda:clock['now'])
+    monkeypatch.setattr(harness,'collect_test_identities',lambda selection:{('tests.integration.test_registry','test_a')})
+    allowance=harness.job_budget();budget=harness.Budget(allowance['work_seconds'])
+    (tmp_path/'budget.json').write_text(json.dumps(allowance))
+    timeouts=[]
+    def execute(command,path,*,timeout,**kwargs):
+        timeouts.append(timeout);path.write_text('complete')
+        write_junit(tmp_path/'units-contracts.xml')
+        clock['now']+=180
+        return {'exit_status':0,'descendant_cleanup':True}
+    monkeypatch.setattr(process,'bounded_process',execute)
+    rows=[];harness.verify_units(tmp_path,rows,budget)
+    assert timeouts==[180]
+    assert [row['status'] for row in rows]==['PASS','PASS']
+    assert rows[-1]['tests']==1
+    assert allowance['work_seconds']==1020 and budget.remaining()==840
+    assert allowance['cleanup_deadline_epoch']==2140
+    assert allowance['runner_margin_seconds']==60 and allowance['cleanup_reserve_seconds']==120
+    assert harness.cleanup_remaining(tmp_path)==120
+    assert harness.backend_phase_allowance(budget)==830
+
+
+def test_units_phase_refuses_less_than_180_remaining_seconds(harness,tmp_path,monkeypatch):
+    from scripts import runtime_process as process
+    monkeypatch.setattr(harness.time,'monotonic',lambda:1000.0)
+    monkeypatch.setattr(harness,'collect_test_identities',lambda selection:{('tests.integration.test_registry','test_a')})
+    monkeypatch.setattr(process,'bounded_process',lambda *args,**kwargs:pytest.fail('Unaffordable unit phase started a process'))
+    rows=[]
+    with pytest.raises(harness.Blocked,match='required'):
+        harness.verify_units(tmp_path,rows,harness.Budget(179))
+    assert len(rows)==1 and rows[0]['status']=='BLOCKED'
+    assert rows[0]['reason']=='insufficient_remaining_phase_budget'
+    assert rows[0]['failure_evidence']['reason']=='phase_budget'
+    assert rows[0]['exit_status'] is None
+    assert not (tmp_path/'units-contracts.log').exists()
+    assert not (tmp_path/'units-contracts.xml').exists()
+
+
 def test_units_gate_rejects_zero_exit_partial_or_skipped_junit(harness,tmp_path,monkeypatch):
     expected={('tests.unit.test_a','test_a'),('tests.unit.test_b','test_b')}
     monkeypatch.setattr(harness,'collect_test_identities',lambda selection:expected)
