@@ -55,7 +55,7 @@ def test_pilot_bootstrap_stores_issuer_bound_users_and_inert_fixture_identities(
     assert registry_database.scalar('SELECT count(*) FROM gateway.principals') == 6
     assert registry_database.scalar('SELECT count(*) FROM gateway.principals WHERE kind=\'user\'') == 3
     assert registry_database.scalar("SELECT count(*) FROM gateway.principals WHERE kind='demo' AND id IN ('fixture-north','fixture-south','fixture-denied')") == 3
-    assert registry_database.scalar("SELECT count(*) FROM gateway.principals WHERE id LIKE 'demo-%'") == 0
+    assert registry_database.scalar("SELECT count(*) FROM gateway.principals WHERE id LIKE %s", ('demo-%',)) == 0
     assert registry_database.scalar("SELECT subject FROM gateway.principals WHERE id='north-user'") == oidc_subject_key(cfg.identity_settings().oidc_issuer, 'synthetic-reviewed-north')
     assert registry_database.scalar('SELECT count(*) FROM gateway.principal_grants') == 5
     assert registry_database.scalar("SELECT count(*) FROM gateway.principal_grants WHERE entitlements = jsonb_build_object('groups',jsonb_build_array(tenant_id))") == 5
