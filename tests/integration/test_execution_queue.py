@@ -702,17 +702,65 @@ def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release
         options={'product_wait':1} if source=='product' else {'policy_limits':{'sync_wait_seconds':1}}
         service,request=await setup(registry_database,**options)
         request=request.model_copy(update={'idempotency_key':'one-second'})
-        start=monotonic()
-        accepted=await service.submit_and_wait(principal(),request,seconds=100)
-        # Includes ordinary local admission overhead; polling itself is bounded
-        # from pre-commit authority issuance, verified separately in unit tests.
-        assert monotonic()-start<1.5
+        original=service.queue.wait_authorized
+        async def bounded_wait(seconds):
+            cancelled=[]
+            async def observed_read(execution_id):
+                try:
+                    return await original(execution_id)
+                except asyncio.CancelledError:
+                    cancelled.append(execution_id)
+                    raise
+            service.queue.wait_authorized=observed_read
+            start=monotonic()
+            try:
+                try:
+                    view=await service.submit_and_wait(principal(),request,seconds=seconds)
+                    assert not cancelled
+                except GatewayError as error:
+                    # A real reauthorization read may begin before the cap and
+                    # cross it. Only this invocation's cancelled read permits
+                    # the fail-closed status error; admission failures do not.
+                    assert error.code=='UPSTREAM_UNAVAILABLE'
+                    assert error.request_id=='execution-status'
+                    assert error.safe_message=='Execution state is unavailable.'
+                    assert len(cancelled)==1 and monotonic()-start>=1
+                    view=None
+                # Includes ordinary admission overhead. The unchanged strict
+                # one-second polling deadline starts before admission commits.
+                assert monotonic()-start<1.5
+            finally:
+                service.queue.wait_authorized=original
+            if view is None:
+                # A separate, freshly authenticated idempotent lookup recovers
+                # the durable identity; never retry or extend the timed wait.
+                view=await service.submit(principal(),request)
+                assert view.execution_id==cancelled[0]
+            # A cancelled transaction must leave fresh authorized polling viable.
+            current=await original(view.execution_id)
+            assert current.view==view
+            assert registry_database.scalar('SELECT count(*) FROM gateway.executions')==1
+            assert registry_database.scalar('SELECT count(*) FROM gateway.idempotency_records')==1
+            return view
+        accepted=await bounded_wait(100)
+        assert accepted.state=='accepted'
         claim=await service.queue.claim('worker-1')
-        start=monotonic()
-        replay=await service.submit_and_wait(principal(),request)
-        assert monotonic()-start<1.5
+        assert claim.execution_id==accepted.execution_id
+        replay=await bounded_wait(5)
         assert replay.execution_id==accepted.execution_id and replay.state=='running'
         assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert registry_database.scalar('SELECT lease_token FROM gateway.execution_leases')==claim.lease_token
+        registry_database.execute_owner('UPDATE gateway.principal_grants SET active=false')
+        with pytest.raises(GatewayError) as caught: await original(replay.execution_id)
+        assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
+        with pytest.raises(GatewayError) as caught: await service.submit(principal(),request)
+        assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
+        assert registry_database.scalar('SELECT count(*) FROM gateway.executions')==1
+        assert registry_database.scalar('SELECT state FROM gateway.execution_states')=='running'
+        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert registry_database.scalar(
+            'SELECT released_at IS NULL AND release_reason IS NULL FROM gateway.source_reservations WHERE id=%s',
+            (claim.reservation_id,)) is True
         assert registry_database.scalar('SELECT lease_token FROM gateway.execution_leases')==claim.lease_token
     asyncio.run(scenario())
 

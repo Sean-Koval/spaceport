@@ -74,7 +74,8 @@ async def wait_for_view(read: Callable[[], Awaitable[ExecutionView]], *, clock: 
                     or loop.time()>=monotonic_start+cap): return last
                 if last is not None:
                     await clock.sleep(min(.25,remaining))
-                    if cap-(clock.now()-started).total_seconds()<=0: return last
+                    if (cap-(clock.now()-started).total_seconds()<=0
+                        or loop.time()>=monotonic_start+cap): return last
                 reading=True
                 last=await read()
                 reading=False
