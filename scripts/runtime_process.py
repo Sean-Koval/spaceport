@@ -172,6 +172,10 @@ def supervise(command, output_fd, timeout, env, cwd, limit_bytes, expected_paren
         try:
             if child is not None:
                 child.poll()  # Preserve direct status before adoption reaping.
+                # Finished adopted children are ours to reap, not live work
+                # escaping a successful command. Keep every remaining descendant
+                # subject to the existing fail-closed orphan check.
+                reap_children()
                 if result['exit_status'] == 0 and descendants(os.getpid()):
                     result.update(exit_status=126, orphaned_descendants=True)
                 result['descendant_cleanup'] = terminate_descendants(os.getpid())
