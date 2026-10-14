@@ -100,7 +100,12 @@ jobs:
           set -euo pipefail
           uv python install 3.12.14
           uv sync --locked --dev
-          [[ "$(uv --version)" == 'uv 0.12.23' ]]
+          uv_version="$(uv --version)"
+          uv_semantic_version="$(uv self version --short)"
+          printf 'Observed uv version: %q; semantic version: %q\n' "${uv_version:0:128}" "${uv_semantic_version:0:128}"
+          [[ "$uv_semantic_version" == '0.12.23' ]]
+          uv_version_pattern='^uv 0\.12\.23( \(([0-9a-f]{7,40} [0-9]{4}-[0-9]{2}-[0-9]{2} )?x86_64-unknown-linux-gnu\))?$'
+          [[ "$uv_version" =~ $uv_version_pattern ]]
           [[ "$(uv run --locked --offline python --version)" == 'Python 3.12.14' ]]
       - name: Set up exact Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -132,8 +137,11 @@ jobs:
           import json, os, re, subprocess, time
           from pathlib import Path
           def observed(command, pattern):
-              value = subprocess.check_output(command, text=True, stderr=subprocess.DEVNULL, timeout=15).strip()
+              raw = subprocess.check_output(command, text=True, stderr=subprocess.DEVNULL, timeout=15)
+              value = raw.rstrip('\n') if command[0] == 'uv' else raw.strip()
               if not re.fullmatch(pattern, value):
+                  if command[0] == 'uv':
+                      print('BLOCKED: unexpected uv version ' + ascii(value[:128]))
                   raise ValueError('Unexpected tool or source identity')
               return value
           try:
@@ -144,7 +152,9 @@ jobs:
                   raise ValueError('Reviewed source mismatch')
               observed(['git', 'status', '--porcelain', '--untracked-files=all'], r'')
               version = r'[A-Za-z0-9v.+ _-]{1,128}'
-              tools = {'uv': observed(['uv', '--version'], r'uv 0\.12\.23'),
+              observed(['uv', 'self', 'version', '--short'], r'0\.12\.23')
+              uv_version_pattern = r'uv 0\.12\.23(?: \((?:[0-9a-f]{7,40} [0-9]{4}-[0-9]{2}-[0-9]{2} )?x86_64-unknown-linux-gnu\))?'
+              tools = {'uv': observed(['uv', '--version'], uv_version_pattern),
                   'python': observed(['uv', 'run', '--locked', '--offline', 'python', '--version'], r'Python 3\.12\.14'),
                   'docker': observed(['docker', 'version', '--format', '{{.Client.Version}} {{.Server.Version}}'], version),
                   'compose': observed(['docker', 'compose', 'version', '--short'], version),
@@ -237,6 +247,7 @@ jobs:
               if not isinstance(value, str) or len(value) > 40: return None
               try: return datetime.fromisoformat(value).astimezone(timezone.utc).isoformat()
               except ValueError: return None
+          uv_version_pattern = r'uv 0\.12\.23(?: \((?:[0-9a-f]{7,40} [0-9]{4}-[0-9]{2}-[0-9]{2} )?x86_64-unknown-linux-gnu\))?'
           summary = {'schema_version': 1, 'status': 'BLOCKED',
               'limitations': {'live_bigquery': 'NOT RUN', 'studio': 'NOT TESTED',
                   'domo': 'NOT IMPLEMENTED', 'production': 'NOT APPROVED'}}
@@ -267,7 +278,8 @@ jobs:
                   timing_basis='first_step; actual_job_start_unavailable',
                   tools={key: value for key, value in source['tools'].items()
                       if key in ('python', 'uv', 'docker', 'compose', 'node', 'npm')
-                      and isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9v.+ _-]{1,128}', value)},
+                      and isinstance(value, str) and re.fullmatch(
+                          uv_version_pattern if key == 'uv' else r'[A-Za-z0-9v.+ _-]{1,128}', value)},
                   runner_image=source['runner_image'] if re.fullmatch(r'[A-Za-z0-9v.+ _-]{1,128}', source['runner_image']) else 'unavailable')
               integration, integration_hash = read(root / 'integration.json')
               cleanup, cleanup_hash = read(root / 'cleanup.json')
