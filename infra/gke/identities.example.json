@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "principals": [
+    {
+      "id": "north-user",
+      "kind": "user",
+      "subject": "fictional-reviewed-north-subject",
+      "grants": [
+        {
+          "tenant_id": "north",
+          "roles": [
+            "consumer"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "author-user",
+      "kind": "user",
+      "subject": "fictional-reviewed-author-subject",
+      "grants": [
+        {
+          "tenant_id": "north",
+          "roles": [
+            "author"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "publisher-user",
+      "kind": "user",
+      "subject": "fictional-reviewed-publisher-subject",
+      "grants": [
+        {
+          "tenant_id": "north",
+          "roles": [
+            "publisher"
+          ]
+        }
+      ]
+    }
+  ]
+}

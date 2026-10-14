@@ -1,6 +1,6 @@
 # Identity and deployment modes
 
-Task 3 implements verification and fresh identity/grant reads. It does not implement HTTP/MCP authentication middleware, the publisher UI, a running Compose topology, an identity-provider signup flow or verified Studio delegation. Production remains blocked by the additional gates in the approved design.
+The source implements verification, fresh identity/grant reads and shared HTTP/MCP authentication. The publisher and synthetic Compose topology also exist, but rendered-browser/composed acceptance, an identity-provider browser sign-in flow and verified Studio delegation remain open. Production remains blocked by the additional gates in the approved design. The [organization-runtime foundation](../superpowers/specs/2026-10-14-organization-runtime-foundation.md) wires the existing verifier into a separate synthetic-data OIDC profile; it is not a universal identity-provider compatibility claim.
 
 ## Internal interfaces
 
@@ -27,7 +27,7 @@ Construct one authenticator per process/event loop and reuse its HTTP client. Ca
 | policy_admin | policy_admin |
 | audit_view | audit_view |
 
-These are separate privileges. Author/publisher/operator rights do not imply consumer/data access. A grant can explicitly combine roles within its own policy and tenant. Authentication can succeed for an active principal with no grants; authorization must still reject unauthorized actions. Policy enforcement and required audit writes belong to Task 4.
+These are separate privileges. Author/publisher/operator rights do not imply consumer/data access. A grant can explicitly combine roles within its own policy and tenant. Authentication can succeed for an active principal with no grants; authorization must still reject unauthorized actions. The policy service enforces current scope and required audit writes. The bounded pilot bootstrap further requires distinct author/publisher principals and supports one synthetic policy/tenant grant per principal.
 
 ## Production access-token profile
 

@@ -100,6 +100,25 @@ Acceptance:
 
 **Dependencies:** supported Docker/browser host, prepared locked artifacts, and separately approved observer capability for stronger offline assurance. The unprivileged business workflow can be investigated before that observer is available.
 
+## 2A. Establish the GKE organization-runtime foundation
+
+**Status: foundation implemented and independently source-reviewed; local source checks passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,220 unit/contract and 254 frontend passes, with 346 genuine backend cases collected but not run locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
+
+Build:
+
+- A separate explicit `oidc-synthetic-pilot` runtime, preserving the loopback-only demo. Pass the same validated production identity settings into shared REST/MCP authentication; require canonical HTTPS resource/origins and certificate-verified PostgreSQL.
+- Strict mounted-file configuration and minimum per-workload secrets. Materialize supported projected mounts into bounded regular-file snapshots; document restart-based rotation rather than claiming hot rotation.
+- Owner-only migration/provisioning, issuer-bound user identities and explicit service principals. Map approved synthetic tenant/policy roles server-side; never adopt JWT group/role claims as authority, restore revoked grants or publish on startup.
+- GKE reference workloads and discovery routing, with separate API/worker/retention/bootstrap privileges. Keep cluster, Cloud SQL, IAM, DNS, certificates, actual secret versions and live-source resources operator-owned and unapplied.
+
+Acceptance:
+
+- Invalid source/profile, URL, identity, file or TLS settings fail before connections, with sanitized failures. Demo credentials cannot authenticate in the pilot profile.
+- Synthetic OIDC composition, user/service separation, scoped provisioning, repeated bootstrap and resource cleanup have independent source-level review/tests; genuine database evidence is reported separately.
+- The exact combined source is reviewed and tested. No live issuer, GKE, managed database, browser SSO or production acceptance is inferred from mocked/local tests.
+
+Next: select the actual identity provider and validate Studio delegation/browser login against it, then activate one separately approved bounded warehouse product. The foundation retains only the reviewed synthetic model; it is not a generic real-data deployment switch.
+
 ## 3. Deliver one real BigQuery-backed product
 
 **Status: gated; current BigQuery coverage is mocked and non-executable.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.

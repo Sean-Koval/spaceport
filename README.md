@@ -36,6 +36,8 @@ The consumer query workspace and authorized draft inbox merged in [PR 2](https:/
 
 The [acceptance index](docs/evidence/acceptance.md) and [limitations](docs/evidence/limitations.md) explain the required evidence. Older passes apply only to the source and environment they tested. The [roadmap](ROADMAP.md) separates the private-main baseline, next product work and live-source/production gates.
 
+GCP/GKE is the selected organization-deployment target. The [organization-pilot assessment](docs/operations/organization-pilot.md) covers infrastructure, credentials, performance, UI/UX and the remaining decisions. The implemented [runtime foundation](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) introduces explicit OIDC/TLS configuration and controlled identity provisioning against synthetic data. Its [source-level evidence](docs/evidence/organization-runtime-foundation.md) does not activate BigQuery/Domo, implement browser SSO or authorize a rollout.
+
 ## Architecture
 
 The React UI and MCP clients call the same Python gateway services. The gateway authenticates the caller, checks current policy, pins a product version and builds a query from its approved binding. A worker processes bounded jobs through Cube; consumers retrieve authorized, typed result envelopes.
