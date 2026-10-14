@@ -110,16 +110,16 @@ def run_phase(name, command, output, budget, seconds, *, env=None):
         budget.admit(seconds)
     except Blocked:
         row['failure_evidence'] = {'reason': 'phase_budget', 'details_status': 'unavailable', 'markers': []}
-        emit_phase_failure(row['failure_evidence'])
+        emit_phase_failure(row['failure_evidence'], phase=name)
         return {**row, 'finished_at': utc_now(), 'reason': 'insufficient_remaining_phase_budget'}
     path = output / (name + '.log')
-    command = evidence_pytest_command(command)
+    command = evidence_pytest_command(command, progress=name == 'backends')
     try:
         if name != 'exact-cleanup': freeze_source()
         result = bounded_process(command, path, timeout=seconds, env=env, cwd=ROOT, limit_bytes=MAX_LOG_BYTES)
         if result.get('exit_status') != 0 or result.get('descendant_cleanup') is not True:
-            row['failure_evidence'] = phase_failure_evidence(path, result)
-            emit_phase_failure(row['failure_evidence'])
+            row['failure_evidence'] = phase_failure_evidence(path, result, progress=name == 'backends')
+            emit_phase_failure(row['failure_evidence'], phase=name)
         if result.get('descendant_cleanup') is not True:
             blocked = Blocked('Owned process cleanup is unverified; later phases must not start')
             blocked.phase_row = {**row, **result, 'finished_at': utc_now()}
@@ -131,7 +131,7 @@ def run_phase(name, command, output, budget, seconds, *, env=None):
         if isinstance(error, Blocked) and hasattr(error, 'phase_row'): raise
         row['failure_evidence'] = {'reason': 'work_interrupted' if isinstance(error, Blocked) else 'supervision_exception',
             'details_status': 'unavailable', 'markers': []}
-        emit_phase_failure(row['failure_evidence'])
+        emit_phase_failure(row['failure_evidence'], phase=name)
         blocked = Blocked('Owned phase supervision did not return a verified result; later phases must not start')
         blocked.phase_row = {**row, 'finished_at': utc_now()}
         raise blocked from None
@@ -199,27 +199,45 @@ def validate_backend_report(root, images):
 
 
 def record_backends(root):
-    validate_new_directory(root, private_parent=True)
-    images = verify_demo.prerequisite_images(None)
-    identities = verify_demo.validate_backend_endpoints(images)
-    source = current_source()
-    expected = collect_backend_identities()
-    root.mkdir(mode=0o700)
-    output = root / 'backends.xml'
-    phase = run_phase('backends', [sys.executable, '-m', 'pytest', *BACKEND_SELECTION,
-        '-q', '--junitxml=' + str(output)], root, Budget(580), 570, env=verify_demo.pytest_environment())
-    if phase['status'] != 'PASS':
-        runtime.private_json(root / 'blocked.json', phase)
-        raise Blocked('Actual full backend gate failed')
-    count = validate_backend_junit(output, expected)
-    if current_source() != source or verify_demo.validate_backend_endpoints(images) != identities:
-        raise ValueError('Source or live backend identity changed during verification')
-    receipt = {'classification': 'actual', 'status': 'PASS', 'source': source,
-        'images': images, 'containers': identities, 'tests': count,
-        'junit': output.name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
-        'phase': phase, 'recorded_at': utc_now()}
-    runtime.private_json(root / 'backends.json', receipt)
-    return validate_backend_report(root, images)
+    from scripts.pytest_runtime_diagnostics import emit_phase_failure
+    checkpoint = 'backend-preflight'
+    try:
+        validate_new_directory(root, private_parent=True)
+        images = verify_demo.prerequisite_images(None)
+        identities = verify_demo.validate_backend_endpoints(images)
+        source = current_source()
+        checkpoint = 'backend-collection'
+        expected = collect_backend_identities()
+        checkpoint = 'backend-tests'
+        root.mkdir(mode=0o700)
+        output = root / 'backends.xml'
+        phase = run_phase('backends', [sys.executable, '-m', 'pytest', *BACKEND_SELECTION,
+            '-q', '--junitxml=' + str(output)], root, Budget(580), 570, env=verify_demo.pytest_environment())
+        if phase['status'] != 'PASS':
+            runtime.private_json(root / 'blocked.json', phase)
+            raise Blocked('Actual full backend gate failed')
+        checkpoint = 'backend-junit-admission'
+        count = validate_backend_junit(output, expected)
+        checkpoint = 'backend-source-recheck'
+        if current_source() != source:
+            raise ValueError('Source or live backend identity changed during verification')
+        checkpoint = 'backend-endpoint-recheck'
+        if verify_demo.validate_backend_endpoints(images) != identities:
+            raise ValueError('Source or live backend identity changed during verification')
+        checkpoint = 'backend-receipt-write'
+        receipt = {'classification': 'actual', 'status': 'PASS', 'source': source,
+            'images': images, 'containers': identities, 'tests': count,
+            'junit': output.name, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+            'phase': phase, 'recorded_at': utc_now()}
+        runtime.private_json(root / 'backends.json', receipt)
+        checkpoint = 'backend-report-admission'
+        return validate_backend_report(root, images)
+    except Exception:
+        # Report only the reviewed fixed stage, then preserve the original
+        # failure. Raw exception details and all receipt/log bytes stay private.
+        emit_phase_failure({'reason': 'process_exit', 'details_status': 'available',
+            'markers': [{'kind': 'checkpoint', 'checkpoint': checkpoint, 'exit_status': 1}]})
+        raise
 
 
 def required_phase(rows, name, command, root, budget, seconds, *, env=None):

@@ -109,5 +109,6 @@ it('executes only the pinned named product and approved input keys', async () =>
     inputs: { start: '2024-03-09', end: '2024-03-12' },
     filters: [],
     sort: [],
+    idempotency_key: expect.stringMatching(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/),
   });
 });

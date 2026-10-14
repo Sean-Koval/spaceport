@@ -294,9 +294,12 @@ function DocumentEditor({
               : 'New product · expected revision 0'}
           </p>
         </div>
-        {snapshot && (
-          <Link to={`/drafts/${encodeURIComponent(snapshot.id)}/review`}>Open saved review</Link>
-        )}
+        <div className="inline">
+          <Link to="/drafts">Back to saved drafts</Link>
+          {snapshot && (
+            <Link to={`/drafts/${encodeURIComponent(snapshot.id)}/review`}>Open saved review</Link>
+          )}
+        </div>
       </div>
       {!!error && <ErrorNotice error={error} />}
       {!mayEdit ? (

@@ -10,7 +10,7 @@ Work is ordered by usable outcomes and evidence. Synthetic fixtures, mock contra
 
 ## 0. Establish a tested private-main baseline
 
-**Status: in progress.** The implementation exists on the delivery branch; a complete current-source backend pass and composed-demo acceptance have not been established.
+**Status: completed for the merged baseline.** Private `main` commit `e03a5a10fa78da78d18a964bc631a79633344b60` has the exact tested tree `b589ae8a0560dea59b45a112fd2409984128a0d9`: 1,847 unit/contract tests, 294 genuine backend tests and cleanup passed in [run 38615111132](https://github.com/Sean-Koval/spaceport/actions/runs/38615111132). The [baseline record](docs/evidence/private-main-baseline.md) scopes this evidence. Composed-demo acceptance remains open.
 
 Tasks:
 
@@ -24,11 +24,11 @@ Acceptance:
 - The private-main commit contains the application and documentation; the reported commit matches the remote.
 - Remaining demo, packet-observer, live-source and production gaps are explicit. Merging the source does not declare those gates satisfied.
 
-**Dependency:** the existing verification/merge work owns this milestone. New feature work branches from the tested baseline rather than racing its backend fixes.
+**Dependency satisfied:** new feature work starts from the tested baseline. That result does not certify later feature changes; they require independent review and fresh checks.
 
 ## 1. Complete two everyday workflows
 
-**Status: next build wave, after milestone 0.** These are small, offline-buildable improvements using the existing product contract. Neither needs a live warehouse or a new execution engine.
+**Status: implementation in progress on isolated feature branches; not yet accepted or merged.** These are small, offline-buildable improvements using the existing product contract. Neither needs a live warehouse or a new execution engine.
 
 ### 1A. Finish the consumer execution workspace
 

@@ -12,6 +12,7 @@ from gateway.publishing.service import PublishingService
 from gateway.contracts.clock import Clock
 if TYPE_CHECKING:
     from .catalog import CatalogService
+    from .drafts import DraftDiscoveryService
     from .choices import ChoiceService
     from .audit import AuditReadService
     from .readiness import ReadinessService
@@ -29,6 +30,7 @@ class Services:
     publishing: PublishingService
     clock: Clock
     catalog: 'CatalogService'
+    drafts: 'DraftDiscoveryService'
     choices: 'ChoiceService'
     audit_reader: 'AuditReadService'
     readiness: 'ReadinessService'

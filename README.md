@@ -11,7 +11,8 @@ The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-
 The source includes:
 
 - A permission-filtered catalog, product definitions, examples, units, grain, freshness requirements and provenance.
-- A React publisher with a versioned editor, known-answer and permission-negative test results, definition diffs, and publication of the exact tested revision. Author and publisher are separate roles.
+- A React publisher with an authorized saved-draft inbox, versioned editor, known-answer and permission-negative test results, definition diffs, and publication of the exact tested revision. Author and publisher are separate roles.
+- A consumer workspace with permitted typed filters and sorting, in-memory idempotent request recovery, explicit new runs and pinned result identity checks.
 - Immutable published versions, audited lifecycle changes, tenant-scoped queries, durable execution, idempotency, bounded results and authorized pagination.
 - A REST API and four fixed MCP tools: `search_products`, `describe_product`, `query_product` and `get_result`. Python and TypeScript client harnesses exercise the same contract.
 - Synthetic Compose packaging, migrations, generated demo identities, health/readiness checks, backup/restore commands and verification tooling.
@@ -20,11 +21,11 @@ Agents receive approved product capabilities, not database credentials or unrest
 
 ## Current status
 
-This is a private source candidate, not a production release or a verified end-to-end installation. Unit, mocked-contract and frontend checks are distinct from actual backend and browser acceptance.
+The reviewed private-main baseline was merged on 14 October 2026. Its exact source tree passed 1,847 unit/contract tests and 294 genuine PostgreSQL/Cube backend tests, with verified cleanup, in [run 38615111132](https://github.com/Sean-Koval/spaceport/actions/runs/38615111132). See the [source-bound baseline record](docs/evidence/private-main-baseline.md). This is not a production release or verified end-to-end installation; later changes need their own checks.
 
 | Area | Evidence boundary |
 | --- | --- |
-| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage; complete current-source backend and composed-demo acceptance remain open. |
+| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged baseline passed the complete backend gate; later changes and composed-demo acceptance require fresh evidence. |
 | Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
 | BigQuery | Configuration validation and mocked adapter contracts only. The profile is non-executable; live models, bindings, queries and source cost/lifetime controls are unverified. |
 | Domo | Not implemented. Identity/PDP and business-definition reconciliation gates are documented. |
@@ -43,7 +44,7 @@ The React UI and MCP clients call the same Python gateway services. The gateway 
 - **Publisher:** React, TypeScript and Vite with generated OpenAPI types, served by the local edge service.
 - **Operations:** separate worker and retention processes; only the edge exposes loopback ingress. Cube and database ports remain private.
 
-REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. See the [OpenAPI snapshot](docs/compatibility/openapi.json), [MCP profile](docs/compatibility/mcp.md) and [tool schemas](docs/compatibility/mcp-tools.json). Result freshness refers to the recorded source-load watermark, not the time a query was fetched.
+REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. The [saved-draft inbox](docs/compatibility/drafts.md) is a bounded, authorized REST discovery surface; the four MCP tools are unchanged. See the [OpenAPI snapshot](docs/compatibility/openapi.json), [MCP profile](docs/compatibility/mcp.md) and [tool schemas](docs/compatibility/mcp-tools.json). Result freshness refers to the recorded source-load watermark, not the time a query was fetched.
 
 ## Local synthetic setup
 

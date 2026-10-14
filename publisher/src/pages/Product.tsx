@@ -1,12 +1,20 @@
-import { useRef, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useParams, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useGateway } from '../auth';
 import { useAccess, useInvocation } from '../access';
 import { GatewayError, type Model } from '../api';
 import { Loading, ErrorNotice } from '../ui';
 import { Rows, Value, SafeLinks, ConnectorStatus } from '../metadata';
-type Scalar = string | number | boolean | null;
+import { InputField, QueryControls } from '../QueryControls';
+import {
+  queryErrors,
+  queryFingerprint,
+  queryIntent,
+  productContext,
+  type Scalar,
+  type QueryIntent,
+} from '../query-controls';
 function Provenance({ value }: { value: Model<'Provenance'> }) {
   return (
     <details className="panel">
@@ -25,109 +33,23 @@ function Provenance({ value }: { value: Model<'Provenance'> }) {
     </details>
   );
 }
-function InputField({
-  name,
-  field,
-  value,
-  onChange,
-}: {
-  name: string;
-  field: Model<'FieldSchema'>;
-  value: Scalar | undefined;
-  onChange: (next: Scalar | undefined) => void;
-}) {
-  const mode = value === undefined ? 'omit' : value === null ? 'null' : 'value';
-  return (
-    <div className="input-field">
-      <label htmlFor={`mode-${name}`}>{name} value mode</label>
-      <select
-        id={`mode-${name}`}
-        value={mode}
-        onChange={(event) =>
-          onChange(
-            event.target.value === 'omit'
-              ? undefined
-              : event.target.value === 'null'
-                ? null
-                : field.enum?.length
-                  ? field.enum[0]
-                  : field.type === 'boolean'
-                    ? false
-                    : field.type === 'number' || field.type === 'integer'
-                      ? 0
-                      : '',
-          )
-        }
-      >
-        <option value="omit">Omit (gateway default, if defined)</option>
-        {(field.nullable || field.enum?.includes(null)) && <option value="null">null</option>}
-        <option value="value">Enter value</option>
-      </select>
-      {(mode === 'value' || (mode === 'null' && field.enum?.includes(null))) && (
-        <>
-          <label htmlFor={`input-${name}`}>
-            {name} ({field.type})
-          </label>
-          {field.enum ? (
-            <select
-              id={`input-${name}`}
-              value={field.enum.findIndex((item) => item === value)}
-              onChange={(event) => onChange(field.enum![Number(event.target.value)])}
-            >
-              {!field.enum.includes(value ?? null) && (
-                <option value={-1} disabled>
-                  Choose an allowed value
-                </option>
-              )}
-              {field.enum.map((item, index) => (
-                <option key={index} value={index}>
-                  {JSON.stringify(item)}
-                </option>
-              ))}
-            </select>
-          ) : field.type === 'boolean' ? (
-            <select
-              id={`input-${name}`}
-              value={String(value)}
-              onChange={(event) => onChange(event.target.value === 'true')}
-            >
-              <option value="false">false</option>
-              <option value="true">true</option>
-            </select>
-          ) : (
-            <input
-              id={`input-${name}`}
-              type={
-                field.type === 'date'
-                  ? 'date'
-                  : field.type === 'number' || field.type === 'integer'
-                    ? 'number'
-                    : 'text'
-              }
-              step={field.type === 'integer' ? 1 : 'any'}
-              value={typeof value === 'string' || typeof value === 'number' ? value : ''}
-              onChange={(event) =>
-                onChange(
-                  field.type === 'number' || field.type === 'integer'
-                    ? event.target.value === ''
-                      ? ''
-                      : Number(event.target.value)
-                    : event.target.value,
-                )
-              }
-            />
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-function ExecutionResult({ id, productId }: { id: string; productId: string }) {
+function ExecutionResult({ id, product }: { id: string; product: Model<'ProductDescription'> }) {
   const { client, generation } = useGateway();
   const [cursor, setCursor] = useState<string | undefined>();
   const result = useQuery({
-    queryKey: [generation, 'execution', id, cursor],
-    queryFn: ({ signal }) => client.execution(id, cursor, signal),
+    queryKey: [generation, 'execution', id, productContext(product), cursor],
+    queryFn: async ({ signal }) => {
+      const value = await client.execution(id, cursor, signal);
+      if (
+        value.execution_id !== id ||
+        ('product_id' in value &&
+          (value.product_id !== product.product_id ||
+            value.version !== product.version ||
+            value.product_digest !== product.digest))
+      )
+        throw new GatewayError(404, 'NOT_FOUND_OR_FORBIDDEN');
+      return value;
+    },
     refetchInterval: (query) =>
       query.state.data && ['accepted', 'running'].includes(query.state.data.state) ? 2000 : false,
   });
@@ -142,8 +64,6 @@ function ExecutionResult({ id, productId }: { id: string; productId: string }) {
     );
   const data = result.data;
   const envelope = 'product_id' in data ? data : null;
-  if (envelope && envelope.product_id !== productId)
-    return <ErrorNotice error={new GatewayError(404, 'NOT_FOUND_OR_FORBIDDEN')} />;
   return (
     <section className="result" aria-labelledby="execution-result">
       <div className="page-heading">
@@ -236,42 +156,66 @@ function ProductDetail({ product }: { product: Model<'ProductDescription'> }) {
   const isCurrent = useInvocation();
   const [params, setParams] = useSearchParams();
   const [inputs, setInputs] = useState<Record<string, Scalar>>({});
+  const [filters, setFilters] = useState<Model<'QueryFilter'>[]>([]);
+  const [sort, setSort] = useState<Model<'QuerySort'>[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [uncertain, setUncertain] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [acceptedIntent, setAcceptedIntent] = useState(false);
+  const intent = useRef<QueryIntent | undefined>(undefined);
   const guard = useRef(false);
+  const active = useRef(true);
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      intent.current = undefined;
+    };
+  }, []);
   const execution = params.get('execution');
-  const invalidEnum = Object.entries(inputs).some(([name, value]) => {
-    const field = product.inputs[name];
-    if (value === null && field?.nullable) return false;
-    const allowed = field?.enum;
-    return allowed && !allowed.includes(value);
-  });
-  async function execute() {
-    if (guard.current || uncertain || invalidEnum) return;
+  const draft = { inputs, filters, sort };
+  const validation = queryErrors(product, draft);
+  const unchanged = intent.current?.fingerprint === queryFingerprint(product, draft);
+  async function execute(retry = false, fresh = false) {
+    if (guard.current || !active.current || !access.current()) return;
+    if (!retry && (validation.length || (uncertain && (!editing || unchanged)))) return;
+    if (retry && !intent.current) return;
+    if (fresh && (!acceptedIntent || uncertain)) return;
     guard.current = true;
     setPending(true);
     setError(null);
+    setAcceptedIntent(false);
+    let submitted = false;
     try {
-      const accepted = await client.execute({
-        product_id: product.product_id,
-        version: product.version,
-        inputs,
-        filters: [],
-        sort: [],
-      });
-      if (!isCurrent()) return;
+      const snapshot = retry
+        ? intent.current!
+        : queryIntent(product, draft, fresh ? undefined : intent.current);
+      intent.current = snapshot;
+      if (!retry) {
+        setUncertain(false);
+        setEditing(false);
+      }
+      submitted = true;
+      const accepted = await client.execute(snapshot.request);
+      if (!active.current || !isCurrent()) return;
+      setUncertain(false);
+      setEditing(false);
+      setAcceptedIntent(true);
       const next = new URLSearchParams(params);
       next.set('version', product.version);
       next.set('execution', accepted.execution_id);
       setParams(next);
     } catch (caught) {
-      if (access.reject(caught) || !isCurrent()) return;
+      if (!active.current || access.reject(caught) || !isCurrent()) return;
       setError(caught);
-      if (!(caught instanceof GatewayError) || caught.status >= 500) setUncertain(true);
+      if (submitted && (!(caught instanceof GatewayError) || caught.status >= 500)) {
+        setUncertain(true);
+        setEditing(false);
+      }
     } finally {
       guard.current = false;
-      setPending(false);
+      if (active.current && access.current()) setPending(false);
     }
   }
   return (
@@ -346,7 +290,7 @@ function ProductDetail({ product }: { product: Model<'ProductDescription'> }) {
             <p>{example.description}</p>
             <button
               className="secondary"
-              disabled={pending}
+              disabled={pending || (uncertain && !editing)}
               onClick={() => setInputs({ ...example.inputs })}
             >
               Use example {index + 1}
@@ -361,7 +305,7 @@ function ProductDetail({ product }: { product: Model<'ProductDescription'> }) {
             void execute();
           }}
         >
-          <fieldset disabled={pending || uncertain}>
+          <fieldset disabled={pending || (uncertain && !editing)}>
             <legend>Permitted inputs</legend>
             {Object.entries(product.inputs).map(([name, field]) => (
               <InputField
@@ -379,20 +323,74 @@ function ProductDetail({ product }: { product: Model<'ProductDescription'> }) {
                 }
               />
             ))}
-            <button disabled={pending || uncertain || invalidEnum}>
+            <QueryControls
+              product={product}
+              filters={filters}
+              sort={sort}
+              onFilters={setFilters}
+              onSort={setSort}
+            />
+            {!!validation.length && (
+              <div className="notice warning" role="status">
+                <p>Check these values before running:</p>
+                <ul>
+                  {validation.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              disabled={pending || (uncertain && (!editing || unchanged)) || !!validation.length}
+            >
               {pending ? 'Starting execution…' : 'Run product'}
             </button>
+            {acceptedIntent && !uncertain && (
+              <>
+                <p>
+                  Unchanged values reuse the accepted execution. Start a new run to request a fresh
+                  execution with the current values.
+                </p>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={pending || !!validation.length}
+                  onClick={() => void execute(false, true)}
+                >
+                  Start new run
+                </button>
+              </>
+            )}
           </fieldset>
         </form>
         {uncertain && (
-          <p>
-            Execution outcome not yet confirmed. No duplicate request will be sent automatically.
-          </p>
+          <div className="notice warning" role="status">
+            <p>Execution outcome not yet confirmed. Nothing is resubmitted automatically.</p>
+            <p>
+              Retry reuses the original request and its key, even if you edit the controls. Changed
+              values start a separate execution; the earlier execution may still complete.
+            </p>
+            <details>
+              <summary>Original request for retry</summary>
+              <Value value={intent.current?.request} />
+            </details>
+            <button type="button" disabled={pending} onClick={() => void execute(true)}>
+              Retry same request
+            </button>
+            {!editing && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={pending}
+                onClick={() => setEditing(true)}
+              >
+                Edit as new request
+              </button>
+            )}
+          </div>
         )}
       </section>
-      {execution && (
-        <ExecutionResult key={execution} id={execution} productId={product.product_id} />
-      )}
+      {execution && <ExecutionResult key={execution} id={execution} product={product} />}
       <ConnectorStatus />
     </>
   );
@@ -404,7 +402,15 @@ export default function Product() {
   const version = params.get('version') ?? undefined;
   const detail = useQuery({
     queryKey: [generation, 'product', productId, version],
-    queryFn: ({ signal }) => client.product(productId!, version, signal),
+    queryFn: async ({ signal }) => {
+      const product = await client.product(productId!, version, signal);
+      if (
+        product.product_id !== productId ||
+        (version !== undefined && product.version !== version)
+      )
+        throw new GatewayError(404, 'NOT_FOUND_OR_FORBIDDEN');
+      return product;
+    },
     enabled: !!productId,
   });
   useAccess(detail.error);
@@ -417,7 +423,13 @@ export default function Product() {
         <Link to="/catalog">Return to catalog</Link>
       </>
     );
+  // Resolve “latest” once, before the user can create an intent or follow an execution.
+  if (!version) {
+    const pinned = new URLSearchParams(params);
+    pinned.set('version', detail.data.version);
+    return <Navigate replace to={{ search: pinned.toString() }} />;
+  }
   return (
-    <ProductDetail key={`${detail.data.product_id}:${detail.data.version}`} product={detail.data} />
+    <ProductDetail key={`${generation}:${productContext(detail.data)}`} product={detail.data} />
   );
 }

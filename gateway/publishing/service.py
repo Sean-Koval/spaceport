@@ -74,6 +74,12 @@ def definition_changes(before: dict, after: dict) -> tuple[FieldChange, ...]:
     return tuple(changes)
 
 
+def review_capabilities(manifest, decision, capabilities):
+    """Shared review hints. Each write keeps its independent authorization gate."""
+    return dict(editable_full_definition=not set(manifest.outputs)-set(decision.visible_fields)
+        and 'author' in capabilities, can_test='author' in capabilities, can_publish='publish' in capabilities)
+
+
 def review_projection(manifest: Manifest, visible_fields: tuple[str, ...]) -> dict:
     """Apply each side's current output visibility before computing a diff.
 
@@ -250,14 +256,11 @@ class PublishingService:
         async with self.registry.transaction() as uow:
             head, draft, target = await self._draft(uow, draft_id)
             decision, capabilities = await self._review(actor, target, uow)
-            editable = (not set(target.manifest.outputs) - set(decision.visible_fields)
-                and 'author' in capabilities)
             is_current = head.latest_draft_id == draft.id and head.draft_revision == draft.revision
             has_base = head.current_version_id is not None
             view = dict(id=draft.id, product_id=target.manifest.product_id, revision=draft.revision,
                 digest=draft.content_digest, definition=review_projection(target.manifest,decision.visible_fields),
-                editable_full_definition=editable, is_current_revision=is_current,
-                can_test='author' in capabilities, can_publish='publish' in capabilities)
+                is_current_revision=is_current, **review_capabilities(target.manifest,decision,capabilities))
         # Optional lookups use their own UoWs. Denying a new head or a required
         # base scope must never resume an authorization-aborted review UoW.
         current_id = draft_id if is_current else await self._current_draft_id(actor, draft_id)
@@ -281,17 +284,22 @@ class PublishingService:
                 raise
             return None
 
+    async def _publication_targets(self, uow, head, target):
+        """Identical base and target scopes for hints and actual publication."""
+        targets = [target]
+        if head.current_version_id:
+            old = await uow.session.get(ProductVersion,head.current_version_id)
+            if old is None or old.manifest['product_id'] != target.manifest.product_id:
+                raise not_found()
+            targets.append(review_target(validate_manifest(old.manifest),old.id,old.binding_digest))
+        return targets
+
     async def _publish_capability(self, actor, draft_id):
         """Audited capability probe only; publish retains its independent gate."""
         try:
             async with self.registry.transaction() as uow:
                 head, _, target = await self._draft(uow, draft_id)
-                targets = [target]
-                if head.current_version_id:
-                    old = await uow.session.get(ProductVersion, head.current_version_id)
-                    if old is None or old.manifest['product_id'] != target.manifest.product_id:
-                        raise not_found()
-                    targets.append(review_target(validate_manifest(old.manifest),old.id,old.binding_digest))
+                targets = await self._publication_targets(uow,head,target)
                 await self._scopes(actor, targets, 'publish', uow)
                 return True
         except GatewayError as error:
@@ -403,10 +411,7 @@ class PublishingService:
         from .models import PublicationEvent
         async with self.registry.transaction() as uow:
             head, draft, target = await self._draft(uow,draft_id)
-            targets = [target]
-            if head.current_version_id:
-                current = await uow.session.get(ProductVersion,head.current_version_id)
-                targets.append(review_target(validate_manifest(current.manifest),current.id,current.binding_digest))
+            targets = await self._publication_targets(uow,head,target)
             decisions = await self._scopes(actor,targets,'publish',uow)
             reason = validate_reason(reason)
             evidence = await self._latest_test(uow,draft)

@@ -2,7 +2,7 @@
 
 Overall acceptance: **BLOCKED**. Source coverage and receipt controls are not composed-demo success or production approval.
 
-- **Complete backend: NOT RUN on final Task15 source.** Historical compatibility or three-group prerequisite evidence cannot replace current full-backend collection and zero-skip execution.
+- **Complete backend: PASS for the merged private-main baseline only.** [Run 38615111132](private-main-baseline.md) admitted 1,847 unit/contract tests and 294 genuine backend tests with cleanup PASS. Changed source needs a fresh complete-backend receipt; historical compatibility or three-group prerequisite evidence cannot replace it.
 - **Composed browser/REST/MCP/worker: NOT RUN on final source.** Acceptance fails closed without explicitly authorized real environments. Seeded-result/service-double socket cases are separate.
 - **Offline runtime: BLOCKED** until reviewed observer/helper has genuine Engine/build, resolver/topology, capture readiness/positive controls, denial probes and stable identity evidence. Configuration or zero packets alone proves nothing.
 - **Offline repeat: NOT RUN.** A second fresh bootstrap/publication/query cycle must reuse prepared dependencies/image IDs/source without acquisition. A job that downloads/rebuilds again is not the repeat. Restoring published data is not clean installation.
@@ -15,6 +15,6 @@ Overall acceptance: **BLOCKED**. Source coverage and receipt controls are not co
 - **Profiles:** four external demo accounts represent two consumers, author and publisher; anonymous has no credentials. Operator/service use explicitly identified real-PostgreSQL fixtures, not extra production/demo identities.
 - **Audit/evidence integrity:** app-role append-only protection does not stop database owners. Hashes do not authenticate files when the same privileged writer can replace receipt metadata.
 - **Browser inspection:** automation does not replace inspection of the actual rendered flow. Approved screenshots/traces must redact bearer entry and private data. No manual accessibility certification performed.
-- **Release/distribution:** no public release, deployment, merge, credentials, license choice or registry publication authorized here. Notices/original-code licensing remain separate gates; no npm-audit execution implied.
+- **Release/distribution:** the reviewed private baseline was merged; that does not authorize later merges, public release, deployment, credentials, license choice or registry publication. Notices/original-code licensing remain separate gates; no npm-audit execution implied.
 
 Historical results remain scoped to their commits/tools/images. The final report must name exact source, direct run URL, UTC times, actual exits/counts and unresolved gates. Never splice old receipts onto changed source.

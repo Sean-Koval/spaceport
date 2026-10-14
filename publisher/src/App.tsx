@@ -12,6 +12,7 @@ import { AuthProvider, AuthGate, useAuth } from './auth';
 import { ProtectedView } from './access';
 import { Icon } from './Icon';
 const Catalog = lazy(() => import('./pages/Catalog'));
+const Drafts = lazy(() => import('./pages/Drafts'));
 const Product = lazy(() => import('./pages/Product'));
 const Editor = lazy(() => import('./pages/Editor'));
 const Review = lazy(() => import('./pages/Review'));
@@ -55,6 +56,7 @@ function Layout() {
           <Link to="/catalog">Catalog</Link>
           {session && (
             <>
+              <Link to="/drafts">Drafts</Link>
               <Link to="/drafts/new">Create draft</Link>
               <button className="text-button" onClick={end}>
                 <Icon name="exit" />
@@ -90,6 +92,7 @@ export function App() {
           { path: '/', element: <Navigate to="/catalog" replace /> },
           { path: '/catalog', element: <Catalog /> },
           { path: '/products/:productId', element: <Product /> },
+          { path: '/drafts', element: <Drafts /> },
           { path: '/drafts/new', element: <Editor /> },
           { path: '/drafts/:draftId/edit', element: <Editor /> },
           { path: '/drafts/:draftId/review', element: <Review /> },

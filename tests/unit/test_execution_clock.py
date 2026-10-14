@@ -62,6 +62,61 @@ def test_wait_bounds_a_blocked_database_read(clock):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize('elapsed', [1, 1.01])
+def test_wait_does_not_start_a_read_after_monotonic_deadline(clock, monkeypatch, elapsed):
+    view=ExecutionView(execution_id='e-1',state='running',accepted_at=clock.now(),started_at=clock.now())
+    async def scenario():
+        loop=asyncio.get_running_loop()
+        monotonic_start=loop.time()
+        monotonic_now=monotonic_start
+        async def delayed_sleep(seconds):
+            nonlocal monotonic_now
+            # Wall time can lag the monotonic budget after scheduler delay or
+            # a wall-clock adjustment. No timer callback has run yet.
+            clock.instant+=timedelta(seconds=seconds)
+            monotonic_now=monotonic_start+elapsed
+        async def forbidden_read():
+            raise AssertionError('An expired monotonic budget must not start polling I/O')
+        with monkeypatch.context() as patch:
+            patch.setattr(loop,'time',lambda:monotonic_now)
+            patch.setattr(clock,'sleep',delayed_sleep)
+            result=await api().service.wait_for_view(forbidden_read,clock=clock,seconds=1,initial=view,
+                monotonic_started_at=monotonic_start)
+        assert result==view
+    asyncio.run(scenario())
+
+
+def test_wait_fails_closed_when_in_time_read_crosses_deadline(clock, monkeypatch):
+    view=ExecutionView(execution_id='e-1',state='running',accepted_at=clock.now(),started_at=clock.now())
+    async def scenario():
+        loop=asyncio.get_running_loop()
+        monotonic_start=loop.time()
+        monotonic_now=monotonic_start
+        reads=[]
+        def advance(seconds):
+            nonlocal monotonic_now
+            clock.instant+=timedelta(seconds=seconds)
+            monotonic_now+=seconds
+        async def sleep(seconds): advance(seconds)
+        async def read():
+            reads.append((clock.now()-view.accepted_at).total_seconds())
+            advance(.1)
+            # Yield to the real asyncio timeout so the last read is cancelled
+            # after it began inside the one-second budget, before returning.
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            return view
+        with monkeypatch.context() as patch:
+            patch.setattr(loop,'time',lambda:monotonic_now)
+            patch.setattr(clock,'sleep',sleep)
+            with pytest.raises(GatewayError) as caught:
+                await api().service.wait_for_view(read,clock=clock,seconds=1,initial=view,
+                    monotonic_started_at=monotonic_start)
+        assert caught.value.code=='UPSTREAM_UNAVAILABLE'
+        assert reads==[.25,.6,.95]
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize('seconds', [-1, float('nan'), float('inf'), True, '5'])
 def test_wait_rejects_invalid_budget(clock, seconds):
     async def read(): raise AssertionError('No read for an invalid budget')

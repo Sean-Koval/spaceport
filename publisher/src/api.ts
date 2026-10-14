@@ -1,6 +1,6 @@
 import createClient from 'openapi-fetch';
 import type { paths, components } from './generated/api';
-import { matchesSchema, record } from './form-schema';
+import { matchesSchema, namedSchema, record } from './form-schema';
 export type Model<K extends keyof components['schemas']> = components['schemas'][K];
 const messages: Record<string, string> = {
   UNAUTHENTICATED: 'Your session has expired. Sign in again.',
@@ -91,6 +91,40 @@ export class GatewayClient {
       }),
       'ProductDescription',
     );
+  }
+  async drafts(q = '', cursor?: string, signal?: AbortSignal) {
+    const page = await this.checked(
+      this.http.GET('/v1/drafts', { params: { query: { q, cursor, limit: 50 } }, signal }),
+      'DraftPage',
+    );
+    // The shared form helper checks structure. Enforce the inbox's scalar bounds
+    // from the same generated schema before exposing navigable draft identities.
+    const fields = namedSchema('DraftSummary').properties!;
+    if (
+      new Set(page.items.map((item) => item.id)).size !== page.items.length ||
+      new Set(page.items.map((item) => item.product_id)).size !== page.items.length ||
+      page.items.some((item) =>
+        Object.entries(item).some(([key, value]) => {
+          const schema = fields[key];
+          if (typeof value === 'number')
+            return value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity);
+          if (typeof value === 'string') {
+            const length = [...value].length;
+            return (
+              length < (schema.minLength ?? 0) ||
+              length > (schema.maxLength ?? Infinity) ||
+              (!!schema.pattern && !new RegExp(schema.pattern).test(value))
+            );
+          }
+          return false;
+        }),
+      ) ||
+      (page.next_cursor !== null &&
+        page.next_cursor !== undefined &&
+        !(page.next_cursor.length >= 1 && page.next_cursor.length <= 4096))
+    )
+      throw new GatewayError(503, 'UPSTREAM_UNAVAILABLE');
+    return page;
   }
   draft(id: string, signal?: AbortSignal) {
     return this.checked(
