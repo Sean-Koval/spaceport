@@ -272,15 +272,22 @@ def test_file_preflight_sanitizes_secret_errors(tmp_path, monkeypatch):
     assert 'CANARY' not in str(caught.value)
 
 
-def test_ca_requires_parseable_certificate_and_no_private_key(tmp_path):
+@pytest.mark.parametrize('missing_system_ca', [False, True])
+def test_ca_requires_parseable_certificate_and_no_private_key(tmp_path, monkeypatch, missing_system_ca):
     module = api(); path = tmp_path / 'ca.pem'; path.write_text('NOT A CERTIFICATE'); path.chmod(0o600)
     with pytest.raises(ValueError): module._validate_ca(str(path))
-    # Public system trust certificate is test input, never a private credential.
+    # A public certificate from the locked dependency is test input, never a
+    # private credential. Standalone Python need not have an OS-default CA path.
+    import certifi
     import ssl
     defaults = ssl.get_default_verify_paths()
-    source = Path(defaults.cafile)
-    text = source.read_text(); end = text.index('-----END CERTIFICATE-----') + len('-----END CERTIFICATE-----')
-    path.write_text(text[:end] + '\n')
+    if missing_system_ca:
+        monkeypatch.setattr(ssl, 'get_default_verify_paths',
+            lambda: defaults._replace(cafile=None, capath=None))
+    source = Path(certifi.where())
+    text = source.read_text(); start = text.index('-----BEGIN CERTIFICATE-----')
+    end = text.index('-----END CERTIFICATE-----', start) + len('-----END CERTIFICATE-----')
+    path.write_text(text[start:end] + '\n')
     module._validate_ca(str(path))
     path.write_text(path.read_text() + '\n-----BEGIN PRIVATE KEY-----\ncanary\n-----END PRIVATE KEY-----\n')
     with pytest.raises(ValueError): module._validate_ca(str(path))
