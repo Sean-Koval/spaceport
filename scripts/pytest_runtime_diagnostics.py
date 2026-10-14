@@ -16,6 +16,19 @@ import sys
 LINE_BYTES = 8192
 OUTPUT_BYTES = 262144
 PREFIX = "pytest diagnostic: "
+_failure_reported = False
+
+
+def pytest_runtest_logreport(report):
+    """Flush the first failure before pytest enters possibly slow teardown.
+
+    Loaded only by the diagnostic child; stdout still passes through the
+    parent's redaction, line limit, and total output budget.
+    """
+    global _failure_reported
+    if report.failed and not _failure_reported:
+        _failure_reported = True
+        print(f"\nFIRST FAILURE ({report.when}): {report.nodeid}\n{report.longreprtext}", flush=True)
 
 
 def read_secrets(paths):
@@ -70,10 +83,13 @@ def stream_output(stream, secrets, output):
 
 
 def run_pytest(secrets):
-    print("DIAGNOSTIC ONLY: five-failure limit; this is not full acceptance.", flush=True)
-    process = subprocess.Popen([sys.executable, "-m", "pytest", "-vv", "--maxfail=5",
-        "--tb=short", "--no-showlocals"], stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    print("DIAGNOSTIC ONLY: first-failure limit; this is not full acceptance.", flush=True)
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join(filter(None, (
+        str(Path(__file__).resolve().parent), environment.get("PYTHONPATH"))))
+    process = subprocess.Popen([sys.executable, "-m", "pytest", "-vv", "--maxfail=1",
+        "--tb=short", "--no-showlocals", "-p", "pytest_runtime_diagnostics"], stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment)
     received = []
     def forward(signum, frame):
         received.append(signum)

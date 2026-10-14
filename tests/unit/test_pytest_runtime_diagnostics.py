@@ -6,6 +6,7 @@ import runpy
 import signal
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -87,10 +88,52 @@ def test_actual_pytest_limits_only_failure_runs_and_labels_diagnostics(tmp_path,
     assert "full acceptance" in output
     assert "test_cases.py::test_diagnostic_case_0" in output
     if failure:
-        assert "5 failed" in output and "synthetic root cause" in output
-        assert "test_cases.py::test_diagnostic_case_5" not in output
+        assert "1 failed" in output and "synthetic root cause" in output
+        assert "test_cases.py::test_diagnostic_case_1" not in output
     else:
         assert "7 passed" in output and "test_cases.py::test_diagnostic_case_6" in output
+
+
+def test_first_failure_trace_is_redacted_and_flushed_before_slow_teardown(tmp_path):
+    diagnostics = load_diagnostics()
+    secret = tmp_path / "password"
+    secret.write_text("s" * 43)
+    secret.chmod(0o600)
+    marker = tmp_path / "teardown_started"
+    (tmp_path / "test_failure.py").write_text(
+        "import time\nfrom pathlib import Path\nimport pytest\n"
+        "@pytest.fixture\ndef slow_teardown():\n"
+        "    yield\n    Path('teardown_started').touch()\n    time.sleep(30)\n"
+        "def test_first_failure(slow_teardown):\n"
+        "    private_local = 'never-show-this-local'\n"
+        "    secret = Path('password').read_text()\n"
+        "    raise RuntimeError('synthetic root cause ' + secret + "
+        "' https://person:private-url-password@example.test/path')\n"
+        "def test_later_case():\n    Path('later_started').touch()\n    time.sleep(30)\n")
+    output_path = tmp_path / "diagnostic.log"
+    with output_path.open("w") as output:
+        child = subprocess.Popen([sys.executable, str(SCRIPT), "--secret-file", str(secret)],
+            cwd=tmp_path, stdout=output, stderr=subprocess.STDOUT)
+        try:
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                text = output_path.read_text()
+                if marker.exists() and "E   RuntimeError: synthetic root cause" in text:
+                    break
+                time.sleep(0.01)
+            assert marker.exists(), "Real child never reached slow teardown"
+            assert child.poll() is None, "Trace must arrive while teardown remains blocked"
+            assert "E   RuntimeError: synthetic root cause" in text
+            assert "FIRST FAILURE (call): test_failure.py::test_first_failure" in text
+            assert "[REDACTED]" in text
+            assert all(value not in text for value in (
+                secret.read_text(), "private-url-password", "never-show-this-local"))
+            assert len(text.encode()) <= diagnostics["OUTPUT_BYTES"] + 256
+            assert not (tmp_path / "later_started").exists()
+        finally:
+            if child.poll() is None:
+                child.send_signal(signal.SIGTERM)
+                child.wait(timeout=5)
 
 
 @pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGKILL])

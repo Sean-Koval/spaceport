@@ -1,6 +1,7 @@
 """Operator-pinned fixture evidence; this module is not a pytest test module."""
 __test__ = False
 
+from collections import Counter, defaultdict, deque
 from decimal import Decimal, localcontext
 import re
 from typing import Literal
@@ -44,23 +45,100 @@ def _tolerance(value: str) -> Decimal:
     return Decimal(value)
 
 
+def _perfect_row_matching(edges: list[list[int]]) -> bool:
+    """Iterative Hopcroft–Karp: O(E sqrt(V)), without recursive augmenting paths."""
+    size = len(edges)
+    left_match, right_match = [-1] * size, [-1] * size
+    matched, infinity = 0, size + 1
+    while matched < size:
+        distance = [infinity] * size
+        queue = deque()
+        for left in range(size):
+            if left_match[left] == -1:
+                distance[left] = 0
+                queue.append(left)
+        shortest = infinity
+        while queue:
+            left = queue.popleft()
+            if distance[left] >= shortest:
+                continue
+            for right in edges[left]:
+                partner = right_match[right]
+                if partner == -1:
+                    shortest = distance[left] + 1
+                elif distance[partner] == infinity:
+                    distance[partner] = distance[left] + 1
+                    queue.append(partner)
+        if shortest == infinity:
+            return False
+        # Each edge is visited at most once in this layered-search phase.
+        remaining = [iter(candidates) for candidates in edges]
+        for start in range(size):
+            if left_match[start] != -1:
+                continue
+            path, chosen = [start], []
+            while path:
+                left = path[-1]
+                for right in remaining[left]:
+                    partner = right_match[right]
+                    if partner == -1 and distance[left] + 1 == shortest:
+                        for source, target in zip(path, [*chosen, right]):
+                            left_match[source], right_match[target] = target, source
+                        matched += 1
+                        path.clear()
+                        break
+                    if partner != -1 and distance[partner] == distance[left] + 1:
+                        path.append(partner)
+                        chosen.append(right)
+                        break
+                else:
+                    distance[left] = infinity
+                    path.pop()
+                    if chosen:
+                        chosen.pop()
+    return True
+
+
 def compare_rows(manifest: Manifest, expected, actual, *, absolute: str, relative: str) -> RowComparison:
+    """Fixtures request no sort: compare row multisets, preserving raw evidence.
+
+    Tolerance is directional and non-transitive. Neither sorting then zipping
+    nor greedily consuming candidates proves that a whole-row bijection exists.
+    """
     absolute_value, relative_value = _tolerance(absolute), _tolerance(relative)
-    passed = len(expected) == len(actual)
+    # Fixture.expected_rows and normalized results both have a 1,000-row bound.
+    passed = len(expected) == len(actual) and len(expected) <= 1000
     try:
         for row in (*expected, *actual):
             validate_row(manifest.outputs, row)
-        # decimal(38,s) arithmetic must not inherit Decimal's 28-digit default.
-        with localcontext() as context:
-            context.prec = 160
-            for left, right in zip(expected, actual):
+        if passed:
+            def prepared(row):
+                exact, decimals = [], []
                 for name, field in manifest.outputs.items():
-                    wanted, observed = left[name], right[name]
-                    if field.type == 'decimal' and wanted is not None and observed is not None:
-                        delta = abs(Decimal(wanted) - Decimal(observed))
-                        passed &= delta <= max(absolute_value, relative_value * abs(Decimal(wanted)))
+                    value = row[name]
+                    if field.type == 'decimal' and value is not None:
+                        exact.append(None)
+                        decimals.append(Decimal(value))
                     else:
-                        passed &= canonical_bytes(wanted) == canonical_bytes(observed)
+                        exact.append(canonical_bytes(value))
+                return tuple(exact), tuple(decimals)
+
+            wanted_rows = [prepared(row) for row in expected]
+            observed_rows = [prepared(row) for row in actual]
+            if Counter(wanted_rows) != Counter(observed_rows):
+                observed_groups = defaultdict(list)
+                for index, (key, values) in enumerate(observed_rows):
+                    observed_groups[key].append((index, values))
+                # decimal(38,s) arithmetic must not inherit the 28-digit default.
+                with localcontext() as context:
+                    context.prec = 160
+                    edges = []
+                    for key, wanted in wanted_rows:
+                        tolerances = [max(absolute_value, relative_value * abs(value)) for value in wanted]
+                        edges.append([index for index, observed in observed_groups[key]
+                            if all(abs(left - right) <= tolerance
+                                for left, right, tolerance in zip(wanted, observed, tolerances))])
+                    passed = _perfect_row_matching(edges)
     except (ValueError, TypeError, KeyError):
         passed = False
     return RowComparison(passed=bool(passed), expected=expected, actual=actual,

@@ -57,6 +57,150 @@ def test_decimal_evidence_is_lossless_and_records_absolute_relative_tolerance(va
         [{**actual[0],'revenue':'101.00'}],absolute='0',relative='0.01').passed is True
 
 
+@pytest.mark.parametrize('order', [(0, 1, 2), (0, 2, 1), (2, 0, 1), (2, 1, 0)])
+def test_fixture_rows_are_an_unordered_multiset_without_rewriting_evidence(valid_manifest, order):
+    manifest = validate_manifest(valid_manifest)
+    expected = list(manifest.fixtures[0].expected_rows)
+    actual = [expected[index] for index in order]
+    comparison = api().runner.compare_rows(manifest, expected, actual, absolute='0', relative='0')
+    assert comparison.passed
+    assert comparison.expected == tuple(expected)
+    assert comparison.actual == tuple(actual)
+    assert manifest.fixtures[0].expected_rows == tuple(expected)
+
+
+@pytest.mark.parametrize('actual_indices,passed', [
+    ([1, 0, 0], True), ([0, 1, 1], False), ([0, 1], False),
+    ([0, 0, 1, 1], False), ([0, 0, 2], False),
+])
+def test_fixture_row_matching_preserves_cardinality_and_duplicate_multiplicity(valid_manifest, actual_indices, passed):
+    manifest = validate_manifest(valid_manifest)
+    rows = manifest.fixtures[0].expected_rows
+    assert api().runner.compare_rows(manifest, [rows[0], rows[0], rows[1]],
+        [rows[index] for index in actual_indices], absolute='0', relative='0').passed is passed
+
+
+@pytest.mark.parametrize('side', ['expected', 'actual'])
+@pytest.mark.parametrize('mutation', ['missing', 'extra', 'wrong_type', 'bad_date', 'precision', 'scale', 'null'])
+def test_fixture_matching_validates_every_row_before_matching(valid_manifest, side, mutation):
+    manifest = validate_manifest(valid_manifest)
+    expected = [dict(row) for row in manifest.fixtures[0].expected_rows]
+    actual = list(reversed(deepcopy(expected)))
+    row = (expected if side == 'expected' else actual)[-1]
+    if mutation == 'missing': row.pop('revenue')
+    elif mutation == 'extra': row['unexpected'] = 'value'
+    elif mutation == 'wrong_type': row['revenue'] = 10.1
+    elif mutation == 'bad_date': row['day'] = '2024-02-31'
+    elif mutation == 'precision': row['revenue'] = '1' * 37 + '.00'
+    elif mutation == 'scale': row['revenue'] = '1.001'
+    else: row['revenue'] = None
+    assert not api().runner.compare_rows(manifest, expected, actual, absolute='100', relative='100').passed
+
+
+def test_unordered_fixture_null_is_not_zero_or_a_string(valid_manifest):
+    valid_manifest['outputs']['revenue']['nullable'] = True
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None, 'revenue': None}
+    zero = {**row, 'revenue': '0.00'}
+    assert api().runner.compare_rows(manifest, [row, zero], [zero, row], absolute='100', relative='100').passed
+    assert not api().runner.compare_rows(manifest, [row, zero], [zero, zero], absolute='100', relative='100').passed
+    assert not api().runner.compare_rows(manifest, [row], [{**row, 'segment': 'None'}], absolute='100', relative='100').passed
+
+
+def test_tolerance_matching_reassigns_an_ambiguous_first_match(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': value} for value in ('0.00', '2.00')]
+    actual = [{**row, 'revenue': value} for value in ('1.00', '-1.00')]
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='1', relative='0').passed
+
+
+def test_tolerance_matching_uses_all_decimal_dimensions_in_one_assignment(valid_manifest):
+    valid_manifest['outputs']['cost'] = {'type': 'decimal', 'precision': 38, 'scale': 2}
+    for row in valid_manifest['fixtures'][0]['expected_rows']: row['cost'] = '0.00'
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': '0', 'cost': '1'}, {**row, 'revenue': '1', 'cost': '0'}]
+    actual = [{**row, 'revenue': '0', 'cost': '0'}, {**row, 'revenue': '1', 'cost': '2'}]
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='1', relative='0').passed
+    # Each column has a matching multiset, but no whole-row assignment exists.
+    expected = [{**row, 'revenue': '0', 'cost': '0'}, {**row, 'revenue': '2', 'cost': '2'}]
+    actual = [{**row, 'revenue': '0', 'cost': '2'}, {**row, 'revenue': '2', 'cost': '0'}]
+    assert not api().runner.compare_rows(manifest, expected, actual, absolute='0', relative='0').passed
+
+
+def test_relative_tolerance_remains_relative_to_each_expected_value(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': value} for value in ('100.00', '-200.00', '0.00')]
+    actual = [{**row, 'revenue': value} for value in ('0.00', '-180.00', '90.00')]
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='0', relative='0.1').passed
+    assert not api().runner.compare_rows(manifest, actual, expected, absolute='0', relative='0.1').passed
+    actual[0]['revenue'] = '0.01'
+    assert not api().runner.compare_rows(manifest, expected, actual, absolute='0', relative='0.1').passed
+
+
+def test_unordered_decimal_equivalence_does_not_depend_on_string_scale(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': value} for value in ('1.00', '-0.00', '9007199254740993.01')]
+    actual = [{**row, 'revenue': value} for value in ('9007199254740993.01', '0', '1')]
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='0', relative='0').passed
+
+
+def test_tolerance_matching_handles_a_maximum_length_augmenting_path(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': str(value)} for value in [*range(2, 2000, 2), 0]]
+    actual = [{**row, 'revenue': str(value)} for value in range(1, 2000, 2)]
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='1', relative='0').passed
+
+
+def test_dense_tolerance_candidates_still_require_a_complete_one_to_one_match(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    # Every row has candidates; 33 expected zeros share only 32 actual ones.
+    # Enumerating possible permutations here would have factorial complexity.
+    expected = [{**row, 'revenue': value} for value in ['0'] * 33 + ['2'] * 31]
+    actual = [{**row, 'revenue': value} for value in ['1'] * 32 + ['3'] * 32]
+    assert not api().runner.compare_rows(manifest, expected, actual, absolute='1', relative='0').passed
+
+
+def test_maximum_size_dense_tolerance_ambiguity_matches_without_enumerating_permutations(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    expected = [{**row, 'revenue': '0'}] * 1000
+    actual = [{**row, 'revenue': '1'}] * 1000
+    assert api().runner.compare_rows(manifest, expected, actual, absolute='1', relative='0').passed
+
+
+def test_empty_fixture_multisets_match(valid_manifest):
+    assert api().runner.compare_rows(validate_manifest(valid_manifest), [], [], absolute='0', relative='0').passed
+
+
+def test_fixture_comparison_refuses_more_than_the_fixture_row_bound(valid_manifest):
+    manifest = validate_manifest(valid_manifest)
+    rows = [manifest.fixtures[0].expected_rows[0]] * 1001
+    assert not api().runner.compare_rows(manifest, rows, rows, absolute='0', relative='0').passed
+
+
+def test_small_multidimensional_matches_agree_with_exhaustive_assignment(valid_manifest):
+    from itertools import combinations_with_replacement, permutations
+    valid_manifest['outputs']['cost'] = {'type': 'decimal', 'precision': 38, 'scale': 2}
+    for row in valid_manifest['fixtures'][0]['expected_rows']: row['cost'] = '0'
+    manifest = validate_manifest(valid_manifest)
+    row = {'day': '2024-03-11', 'segment': None}
+    samples = list(combinations_with_replacement([(0, 0), (0, 2), (2, 0), (2, 2), (1, 1)], 3))
+    for expected in samples:
+        for actual in samples:
+            possible = any(all(abs(a - c) <= 1 and abs(b - d) <= 1
+                for (a, b), (c, d) in zip(expected, order)) for order in permutations(actual))
+            comparison = api().runner.compare_rows(manifest,
+                [{**row, 'revenue': str(a), 'cost': str(b)} for a, b in expected],
+                [{**row, 'revenue': str(a), 'cost': str(b)} for a, b in actual], absolute='1', relative='0')
+            assert comparison.passed is possible, (expected, actual)
+
+
 @pytest.mark.parametrize('field,value',[('day','2024-03-10'),('segment','None')])
 def test_only_decimal_fields_can_use_tolerance(valid_manifest,field,value):
     row={'day':'2024-03-11','segment':None,'revenue':'1.00'}

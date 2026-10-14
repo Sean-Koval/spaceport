@@ -407,7 +407,7 @@ def test_shared_capacity_views_are_invoker_only_and_include_held_attempts(regist
     asyncio.run(scenario())
 
 
-from test_cube_compatibility import cube_stack
+from tests.integration.test_cube_compatibility import cube_stack
 
 
 @pytest.mark.cube
@@ -498,6 +498,21 @@ def test_real_worker_process_death_preserves_committed_attempt_for_recovery(regi
         receiver.close()
 
 
+def rewind_execution(database, execution_id, *, seconds):
+    """Owner-only historical fixture; preserve the accepted/deadline interval."""
+    import psycopg
+    from tests.integration.conftest import connection_kwargs
+    delta=timedelta(seconds=seconds)
+    # Bound parameters use PostgreSQL's extended protocol, which accepts only
+    # one command per execute. Keep all three commands in one transaction:
+    # success restores the trigger, and any failure rolls its disable back.
+    with psycopg.connect(**connection_kwargs(database.urls['owner'])) as connection:
+        connection.execute('ALTER TABLE gateway.executions DISABLE TRIGGER immutable_content')
+        connection.execute('UPDATE gateway.executions SET created_at=created_at-%s, '
+            'deadline_at=deadline_at-%s WHERE id=%s',(delta,delta,execution_id))
+        connection.execute('ALTER TABLE gateway.executions ENABLE TRIGGER immutable_content')
+
+
 def test_expiry_commits_before_claim_policy_lock_to_avoid_result_read_deadlock(registry_database):
     async def scenario():
         from gateway.registry.models import ExecutionState
@@ -506,7 +521,7 @@ def test_expiry_commits_before_claim_policy_lock_to_avoid_result_read_deadlock(r
         live=await service.submit(principal(),request)
         # Disposable-owner-only historical fixture. No app privilege is widened;
         # keep the accepted/deadline interval exactly120s and restore the trigger.
-        registry_database.execute_owner("ALTER TABLE gateway.executions DISABLE TRIGGER immutable_content; UPDATE gateway.executions SET created_at=created_at-interval '121 seconds',deadline_at=deadline_at-interval '121 seconds' WHERE id=%s; ALTER TABLE gateway.executions ENABLE TRIGGER immutable_content",(expired.execution_id,))
+        rewind_execution(registry_database,expired.execution_id,seconds=121)
         policy_locked=asyncio.Event();expired_state_locked=asyncio.Event();continue_claim=asyncio.Event()
         actual_expire=service.queue._expire
         async def coordinated_expire(uow):
@@ -535,7 +550,7 @@ def test_idempotent_replay_observes_elapsed_database_deadline(registry_database)
         service,request=await setup(registry_database)
         request=request.model_copy(update={'idempotency_key':'elapsed'})
         accepted=await service.submit(principal(),request)
-        registry_database.execute_owner("ALTER TABLE gateway.executions DISABLE TRIGGER immutable_content; UPDATE gateway.executions SET created_at=created_at-interval '121 seconds',deadline_at=deadline_at-interval '121 seconds' WHERE id=%s; ALTER TABLE gateway.executions ENABLE TRIGGER immutable_content",(accepted.execution_id,))
+        rewind_execution(registry_database,accepted.execution_id,seconds=121)
         replay=await service.submit(principal(),request)
         assert replay.execution_id==accepted.execution_id and replay.state=='timed_out'
         assert replay.error.code=='EXECUTION_TIMEOUT'
@@ -638,7 +653,7 @@ def test_tight_timeout_replay_expires_at_original_acceptance(registry_database):
         accepted=await service.submit(principal(),request)
         claim=await service.queue.claim('worker-1')
         # Historical disposable-owner fixture, preserving the exact ten seconds.
-        registry_database.execute_owner("ALTER TABLE gateway.executions DISABLE TRIGGER immutable_content; UPDATE gateway.executions SET created_at=created_at-interval '11 seconds',deadline_at=deadline_at-interval '11 seconds' WHERE id=%s; ALTER TABLE gateway.executions ENABLE TRIGGER immutable_content",(accepted.execution_id,))
+        rewind_execution(registry_database,accepted.execution_id,seconds=11)
         replay=await service.submit(principal(),request)
         assert replay.execution_id==accepted.execution_id and replay.state=='timed_out'
         assert replay.error.code=='EXECUTION_TIMEOUT'
