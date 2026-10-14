@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import stat
 import subprocess
 import time
@@ -191,15 +192,131 @@ def fake_tool(tmp_path, name, body):
     tool.chmod(0o755)
 
 
-def source_tools(tmp_path, env, *, commit='a'*40, dirty=False):
+
+def uv_tool(bindir, version, semantic_version='0.12.23'):
+    # Real workflow shell/Python validation runs against controlled CLI output.
+    # Dependency preparation is inert so these tests never acquire packages.
+    fake_tool(bindir, 'uv', 'case "$*" in\n'
+        '"python install 3.12.14"|"sync --locked --dev") :;;\n'
+        f'"--version") printf "%s\\n" {shlex.quote(version)};;\n'
+        f'"self version --short") printf "%s\\n" {shlex.quote(semantic_version)};;\n'
+        '"run --locked --offline python --version") echo "Python 3.12.14";;\n'
+        '*) exit 71;; esac')
+
+
+UV_RELEASE_VERSIONS = [
+    'uv 0.12.23',
+    'uv 0.12.23 (x86_64-unknown-linux-gnu)',
+    'uv 0.12.23 (abcdef123 2026-10-13 x86_64-unknown-linux-gnu)',
+]
+UV_INVALID_VERSIONS = [
+    '', '0.12.23', 'uv 0.12.22', 'uv 0.12.230', 'uv 0.12.23rc1',
+    'uv 0.12.23+custom', 'uv 0.12.23 arbitrary', 'uv 0.12.23 (arbitrary)',
+    'uv 0.12.23 (abcdef123 2026-10-13)',
+    'uv 0.12.23 (aarch64-unknown-linux-gnu)',
+    'uv 0.12.23+1 (abcdef123 2026-10-13 x86_64-unknown-linux-gnu)',
+    'uv 0.12.23 (x86_64-unknown-linux-gnu) extra',
+    'uv 0.12.23 (abcdef123 2026-10-13) extra',
+    'uv 0.12.23 (abcdef123 2026-10-13\nINJECTED)',
+    'uv 0.12.23\nINJECTED', ' uv 0.12.23', 'uv 0.12.23 ',
+    'uv 0.12.23 (' + 'a'*129 + ')',
+]
+
+
+@pytest.mark.parametrize('version', UV_RELEASE_VERSIONS)
+def test_python_preparation_accepts_exact_uv_release_with_known_metadata(tmp_path, version):
+    env = source_tools(tmp_path, environment(tmp_path), uv_version=version)
+    result = run('Prepare exact Python dependencies', env)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('version', UV_INVALID_VERSIONS)
+def test_python_preparation_rejects_wrong_uv_or_unrecognized_output(tmp_path, version):
+    env = source_tools(tmp_path, environment(tmp_path), uv_version=version)
+    assert run('Prepare exact Python dependencies', env).returncode != 0
+
+
+@pytest.mark.parametrize('step_name', [
+    'Prepare exact Python dependencies', 'Record checked-out source and actual tools'])
+@pytest.mark.parametrize('semantic_version', ['0.12.22', '0.12.230', '0.12.23rc1', '0.12.23 extra'])
+def test_uv_semantic_version_must_independently_match_exact_pin(tmp_path, step_name, semantic_version):
+    env = source_tools(tmp_path, initialize(tmp_path), uv_semantic_version=semantic_version)
+    assert run(step_name, env).returncode != 0
+    assert not (Path(env['GATEWAY_CI_PARENT'])/'ci-source.json').exists()
+
+
+@pytest.mark.parametrize('version', UV_RELEASE_VERSIONS)
+def test_source_receipt_preserves_exact_uv_release_with_known_metadata(tmp_path, version):
+    env = source_tools(tmp_path, initialize(tmp_path), uv_version=version)
+    result = run('Record checked-out source and actual tools', env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    receipt = json.loads((Path(env['GATEWAY_CI_PARENT'])/'ci-source.json').read_text())
+    assert receipt['tools']['uv'] == version
+
+
+@pytest.mark.parametrize('version', UV_INVALID_VERSIONS)
+def test_source_receipt_rejects_wrong_uv_or_unrecognized_output(tmp_path, version):
+    env = source_tools(tmp_path, initialize(tmp_path), uv_version=version)
+    assert run('Record checked-out source and actual tools', env).returncode != 0
+    assert not (Path(env['GATEWAY_CI_PARENT'])/'ci-source.json').exists()
+
+
+@pytest.mark.parametrize('version', UV_RELEASE_VERSIONS)
+def test_summary_preserves_full_uv_release_metadata_without_widening_other_tools(tmp_path, version):
+    env = source_tools(tmp_path, initialize(tmp_path))
+    assert run('Record checked-out source and actual tools', env).returncode == 0
+    receipt_path = Path(env['GATEWAY_CI_PARENT'])/'ci-source.json'
+    receipt = json.loads(receipt_path.read_text())
+    receipt['tools'].update(uv=version, docker='28.5.1 (unapproved metadata)')
+    receipt_path.write_text(json.dumps(receipt))
+    result = run('Publish only allowlisted CI summary', env)
+    assert result.returncode == 1  # No runtime report is fabricated.
+    summary = json.loads(result.stdout)
+    assert summary['tools']['uv'] == version
+    assert 'docker' not in summary['tools']
+
+
+@pytest.mark.parametrize('version', UV_INVALID_VERSIONS)
+def test_summary_excludes_unrecognized_uv_output(tmp_path, version):
+    env = source_tools(tmp_path, initialize(tmp_path))
+    assert run('Record checked-out source and actual tools', env).returncode == 0
+    receipt_path = Path(env['GATEWAY_CI_PARENT'])/'ci-source.json'
+    receipt = json.loads(receipt_path.read_text())
+    receipt['tools']['uv'] = version
+    receipt_path.write_text(json.dumps(receipt))
+    result = run('Publish only allowlisted CI summary', env)
+    assert result.returncode == 1
+    assert 'uv' not in json.loads(result.stdout)['tools']
+
+
+@pytest.mark.parametrize('step_name', [
+    'Prepare exact Python dependencies', 'Record checked-out source and actual tools'])
+def test_invalid_uv_version_diagnostic_escapes_control_characters(tmp_path, step_name):
+    env = source_tools(tmp_path, initialize(tmp_path), uv_version='uv 0.12.23\nINJECTED')
+    result = run(step_name, env)
+    assert result.returncode != 0
+    assert 'INJECTED' in result.stdout + result.stderr
+    assert '\nINJECTED' not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('step_name', [
+    'Prepare exact Python dependencies', 'Record checked-out source and actual tools'])
+def test_invalid_uv_version_diagnostic_is_bounded(tmp_path, step_name):
+    env = source_tools(tmp_path, initialize(tmp_path), uv_version='uv ' + 'x'*16384)
+    result = run(step_name, env)
+    assert result.returncode != 0
+    assert len(result.stdout + result.stderr) < 512
+
+
+def source_tools(tmp_path, env, *, commit='a'*40, dirty=False,
+    uv_version='uv 0.12.23', uv_semantic_version='0.12.23'):
     bindir = tmp_path/'bin'; bindir.mkdir()
     fake_tool(bindir, 'git', 'case "$*" in\n'
         f'"rev-parse HEAD") echo {commit};;\n'
         '"rev-parse HEAD^{tree}") echo ' + 'c'*40 + ';;\n'
         + ('"status --porcelain --untracked-files=all") echo changed;;\n' if dirty else
            '"status --porcelain --untracked-files=all") :;;\n') + '*) exit 71;; esac')
-    fake_tool(bindir, 'uv', 'case "$*" in "--version") echo "uv 0.12.23";; '
-        '"run --locked --offline python --version") echo "Python 3.12.14";; *) exit 71;; esac')
+    uv_tool(bindir, uv_version, uv_semantic_version)
     fake_tool(bindir, 'docker', 'case "$*" in "compose version --short") echo 2.40.3;; '
         '*) echo "28.5.1 28.5.1";; esac')
     fake_tool(bindir, 'node', 'echo v24.19.0')
