@@ -228,7 +228,7 @@ jobs:
           umask 077
           python3 - <<'PY'
           from datetime import datetime, timezone
-          import hashlib, json, os, re, stat, sys
+          import hashlib, json, os, re, stat, subprocess, sys
           from pathlib import Path
           def read(path):
               if any(p.is_symlink() for p in (path, *path.parents)):
@@ -247,6 +247,14 @@ jobs:
               if not isinstance(value, str) or len(value) > 40: return None
               try: return datetime.fromisoformat(value).astimezone(timezone.utc).isoformat()
               except ValueError: return None
+          def failure_evidence(value):
+              # The validator is stdlib-only and admits fixed enums plus exact
+              # repository-source coordinates; it never reads private logs.
+              from scripts.pytest_runtime_diagnostics import validate_phase_failure_evidence, freeze_source
+              try: freeze_source(actual_source['commit'])
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  return {'reason': 'unavailable', 'details_status': 'invalid', 'markers': []}
+              return validate_phase_failure_evidence(value)
           uv_version_pattern = r'uv 0\.12\.23(?: \((?:[0-9a-f]{7,40} [0-9]{4}-[0-9]{2}-[0-9]{2} )?x86_64-unknown-linux-gnu\))?'
           summary = {'schema_version': 1, 'status': 'BLOCKED',
               'limitations': {'live_bigquery': 'NOT RUN', 'studio': 'NOT TESTED',
@@ -323,13 +331,17 @@ jobs:
               summary['phases'] = [{'phase': row['phase'], 'status': status(row.get('status')),
                   'exit_status': count(row.get('exit_status')), 'tests': count(row.get('tests')),
                   'timed_out': row.get('timed_out') is True, 'started_at': instant(row.get('started_at')),
-                  'finished_at': instant(row.get('finished_at'))}
+                  'finished_at': instant(row.get('finished_at')),
+                  **({'failure_evidence': failure_evidence(row['failure_evidence'])}
+                      if 'failure_evidence' in row and status(row.get('status')) != 'PASS' else {})}
                   for row in integration.get('phases', []) if row.get('phase') in phases]
               for phase in integration.get('phases', []):
                   if phase.get('phase') not in ('admit-state-a', 'admit-state-b'): continue
                   summary['cycles'][phase['phase'][-1]] = [
                       {'suite': row['suite'], 'classification': row['classification'],
-                          'status': status(row.get('status')), 'tests': count(row.get('tests'))}
+                          'status': status(row.get('status')), 'tests': count(row.get('tests')),
+                          **({'failure_evidence': failure_evidence(row['failure_evidence'])}
+                              if 'failure_evidence' in row and status(row.get('status')) != 'PASS' else {})}
                       for row in phase.get('suites', []) if row.get('suite') in suites
                           and row.get('classification') in ('actual', 'mocked')]
               summary['summary_recorded_at'] = datetime.now(timezone.utc).isoformat()
