@@ -22,26 +22,38 @@ PREFIX = "pytest diagnostic: "
 _failure_reported = False
 _structured_evidence = False
 _collected_tests = set()
+_progress_evidence = False
+_progress_collected = 0
+_progress_completed = 0
 _source_blobs = None
 _source_commit = None
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_PREFIX = 'GATEWAY_FAILURE_EVIDENCE '
 PHASE_PREFIX = 'GATEWAY_PHASE_FAILURE '
+PROGRESS_PREFIX = 'GATEWAY_PRIVATE_PYTEST_PROGRESS '
+MAX_PROGRESS_LINES = 10000
+MAX_PROGRESS_BYTES = 4 * 1024 * 1024
 CHECKPOINTS = frozenset('''cube-preflight cube-register-cleanup cube-create-secrets cube-images
     cube-secret-readability cube-probe-image cube-stack-readiness cube-role-initializers
     cube-runtime-versions cube-topology cube-node-security cube-auth-security cube-egress
     cube-probe-tests cube-junit-admission cube-restart cube-restart-tests registry-gate
     cube-evidence-admission registry-preflight registry-register-cleanup registry-create-secret
     registry-image registry-start registry-readiness registry-identity registry-tests
-    registry-junit-admission registry-acceptance'''.split())
+    registry-junit-admission registry-acceptance backend-preflight backend-collection
+    backend-tests backend-junit-admission backend-source-recheck backend-endpoint-recheck
+    backend-receipt-write backend-report-admission'''.split())
+PHASE_REASONS = frozenset(('process_exit', 'timeout', 'output_limit', 'interrupted',
+    'orphaned_descendants', 'unverified_cleanup', 'phase_budget', 'supervision_exception',
+    'work_interrupted', 'unavailable'))
 EXCEPTIONS = frozenset(('AssertionError', 'RuntimeError', 'ValueError', 'TypeError', 'KeyError',
     'TimeoutError', 'ConnectionError', 'OperationalError', 'ProgrammingError', 'IntegrityError',
     'PermissionError', 'FileNotFoundError', 'CalledProcessError', 'Failed', 'other'))
 
 
-def evidence_pytest_command(command):
+def evidence_pytest_command(command, *, progress=False):
     if command[:3] == [sys.executable, '-m', 'pytest']:
-        return [*command, '-p', 'scripts.pytest_runtime_diagnostics', '--gateway-failure-evidence']
+        return [*command, '-p', 'scripts.pytest_runtime_diagnostics', '--gateway-failure-evidence',
+            *(['--gateway-progress-evidence'] if progress else [])]
     return command
 
 
@@ -123,6 +135,20 @@ def validate_failure_marker(value):
         if (set(value) != {'kind', 'checkpoint', 'exit_status'} or value['checkpoint'] not in CHECKPOINTS
             or type(value['exit_status']) is not int or not 1 <= value['exit_status'] <= 255):
             raise ValueError()
+    elif value.get('kind') == 'phase':
+        if (set(value) != {'kind', 'phase', 'reason'} or value['phase'] != 'backends'
+            or value['reason'] not in PHASE_REASONS):
+            raise ValueError()
+    elif value.get('kind') == 'progress':
+        if (set(value) != {'kind', 'phase', 'test', 'stage', 'collected', 'completed'}
+            or value['phase'] != 'backends' or value['test'] is None
+            or source_test_identity(value['test']) != value['test']
+            or value['stage'] not in {'setup', 'call', 'teardown', 'complete'}
+            or type(value['collected']) is not int or not 1 <= value['collected'] <= 1000000
+            or type(value['completed']) is not int or not 0 <= value['completed'] <= value['collected']
+            or (value['stage'] == 'complete' and value['completed'] == 0)
+            or (value['stage'] != 'complete' and value['completed'] == value['collected'])):
+            raise ValueError()
     elif value.get('kind') == 'test':
         if (set(value) != {'kind', 'test', 'stage', 'exception', 'trace'}
             or source_test_identity(value['test']) != value['test'] or value['test'] is None
@@ -137,7 +163,15 @@ def validate_failure_marker(value):
     return value
 
 
-def phase_failure_evidence(path, result):
+def unique_marker_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value: raise ValueError()
+        value[key] = item
+    return value
+
+
+def phase_failure_evidence(path, result, *, progress=False):
     """Select only enum/source-bound markers. Redaction is not a log-export license."""
     reason = next((name for key, name in (('timed_out', 'timeout'), ('output_limit_exceeded', 'output_limit'),
         ('interrupted', 'interrupted'), ('orphaned_descendants', 'orphaned_descendants')) if result.get(key) is True), 'process_exit')
@@ -154,22 +188,38 @@ def phase_failure_evidence(path, result):
                 or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > 16 * 1024 * 1024): raise ValueError()
             consumed = 0
             encountered = 0
+            progress_lines = progress_bytes = 0
+            final_progress = None
             seen = set()
             while raw := stream.readline(LINE_BYTES + 1):
                 consumed += len(raw)
                 if consumed > 16 * 1024 * 1024: raise ValueError()
                 if len(raw) > LINE_BYTES:
-                    if raw.startswith(EVIDENCE_PREFIX.encode()): raise ValueError()
+                    if (raw.startswith(EVIDENCE_PREFIX.encode())
+                        or progress and raw.startswith(PROGRESS_PREFIX.encode())): raise ValueError()
                     while raw and not raw.endswith(b'\n'):
                         raw = stream.readline(LINE_BYTES + 1); consumed += len(raw)
                         if consumed > 16 * 1024 * 1024: raise ValueError()
+                    continue
+                if progress and raw.startswith(PROGRESS_PREFIX.encode()):
+                    progress_lines += 1; progress_bytes += len(raw)
+                    if progress_lines > MAX_PROGRESS_LINES or progress_bytes > MAX_PROGRESS_BYTES: raise ValueError()
+                    final_progress = raw[len(PROGRESS_PREFIX):]
                     continue
                 if not raw.startswith(EVIDENCE_PREFIX.encode()): continue
                 encountered += 1
                 if encountered > 32: raise ValueError()
                 if raw in seen: continue
                 seen.add(raw)
-                marker = validate_failure_marker(json.loads(raw[len(EVIDENCE_PREFIX):]))
+                marker = validate_failure_marker(json.loads(raw[len(EVIDENCE_PREFIX):], object_pairs_hook=unique_marker_object))
+                if marker not in evidence['markers']:
+                    if len(evidence['markers']) >= 8: raise ValueError()
+                    evidence['markers'].append(marker)
+            if final_progress is not None:
+                # Earlier snapshots remain private. Source binding is checked
+                # once here, rather than rereading/AST-parsing on every event.
+                marker = validate_failure_marker(json.loads(final_progress, object_pairs_hook=unique_marker_object))
+                if marker['kind'] != 'progress': raise ValueError()
                 if marker not in evidence['markers']:
                     if len(evidence['markers']) >= 8: raise ValueError()
                     evidence['markers'].append(marker)
@@ -181,7 +231,7 @@ def phase_failure_evidence(path, result):
 
 
 def validate_phase_failure_evidence(value):
-    reasons = {'process_exit', 'timeout', 'output_limit', 'interrupted', 'orphaned_descendants', 'unverified_cleanup', 'phase_budget', 'supervision_exception', 'work_interrupted', 'unavailable'}
+    reasons = PHASE_REASONS
     reason = value.get('reason') if type(value) is dict else None
     fallback = {'reason': reason if isinstance(reason, str) and reason in reasons else 'unavailable',
         'details_status': 'invalid', 'markers': []}
@@ -195,25 +245,35 @@ def validate_phase_failure_evidence(value):
     except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError): return fallback
 
 
-def emit_phase_failure(value):
+def emit_phase_failure(value, *, phase=None):
     value = validate_phase_failure_evidence(value)
     print(PHASE_PREFIX + json.dumps(value, sort_keys=True), file=sys.stderr, flush=True)
     # Nested phase/suite logs stay private. Re-emit selected, validated markers
     # so the supervising outer phase can retain them before runtime cleanup.
     for marker in value['markers']:
         print(EVIDENCE_PREFIX + json.dumps(marker, sort_keys=True), file=sys.stderr, flush=True)
+    # The enclosing process can exit normally with code 1 after its own child
+    # times out. Preserve that child's fixed classification without promoting it
+    # to the enclosing process's reason or copying commands/private diagnostics.
+    if phase == 'backends':
+        marker = {'kind': 'phase', 'phase': phase, 'reason': value['reason']}
+        print(EVIDENCE_PREFIX + json.dumps(validate_failure_marker(marker), sort_keys=True), file=sys.stderr, flush=True)
 
 
 def pytest_addoption(parser):
     parser.addoption('--gateway-failure-evidence', action='store_true', default=False)
     parser.addoption('--gateway-failure-source', default=None)
+    parser.addoption('--gateway-progress-evidence', action='store_true', default=False)
 
 
 def pytest_configure(config):
     global _structured_evidence, _failure_reported, _collected_tests
+    global _progress_evidence, _progress_collected, _progress_completed
     _structured_evidence = config.getoption('--gateway-failure-evidence')
     _failure_reported = False
     _collected_tests = set()
+    _progress_evidence = _structured_evidence and config.getoption('--gateway-progress-evidence')
+    _progress_collected = _progress_completed = 0
     if _structured_evidence:
         try: freeze_source(manifest=config.getoption('--gateway-failure-source'))
         except (OSError, ValueError, TypeError, UnicodeError, RecursionError, subprocess.SubprocessError):
@@ -224,6 +284,25 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(items):
     if _structured_evidence:
         _collected_tests.update(filter(None, (source_test_identity(item.nodeid) for item in items)))
+
+
+def pytest_collection_finish(session):
+    global _progress_collected
+    # Parameterized cases count individually, after final marker selection.
+    _progress_collected = len(session.items)
+
+
+def private_progress(nodeid, stage):
+    if not _progress_evidence: return
+    identity = nodeid.partition('[')[0]
+    value = {'kind': 'progress', 'phase': 'backends',
+        'test': identity if identity in _collected_tests else None, 'stage': stage,
+        'collected': _progress_collected, 'completed': _progress_completed}
+    print('\n' + PROGRESS_PREFIX + json.dumps(value, sort_keys=True), flush=True)
+
+
+def pytest_runtest_logstart(nodeid, location):
+    private_progress(nodeid, 'setup')
 
 
 def structured_test_failure(report):
@@ -252,7 +331,7 @@ def pytest_runtest_logreport(report):
     Loaded only by the diagnostic child; stdout still passes through the
     parent's redaction, line limit, and total output budget.
     """
-    global _failure_reported
+    global _failure_reported, _progress_completed
     if report.failed and not _failure_reported:
         _failure_reported = True
         if _structured_evidence:
@@ -261,6 +340,11 @@ def pytest_runtest_logreport(report):
                 print('\n' + EVIDENCE_PREFIX + json.dumps(validate_failure_marker(value), sort_keys=True), flush=True)
         else:
             print(f"\nFIRST FAILURE ({report.when}): {report.nodeid}\n{report.longreprtext}", flush=True)
+    if _progress_evidence and report.when in {'setup', 'call', 'teardown'}:
+        if report.when == 'teardown': _progress_completed += 1
+        stage = {'setup': 'call', 'call': 'teardown', 'teardown': 'complete'}[report.when]
+        if report.when == 'setup' and not report.passed: stage = 'teardown'
+        private_progress(report.nodeid, stage)
 
 
 def read_secrets(paths):

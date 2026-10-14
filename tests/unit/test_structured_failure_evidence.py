@@ -173,6 +173,231 @@ def test_nested_suite_evidence_reaches_parent_log_without_private_output(tmp_pat
     assert api.phase_failure_evidence(log, {'exit_status': 1, 'descendant_cleanup': True}) == evidence
 
 
+@pytest.mark.parametrize('failure', ['timeout', 'phase_budget'])
+def test_nested_backend_failure_retains_inner_reason_when_outer_process_did_not_timeout(tmp_path, capsys, failure):
+    api = diagnostics()
+    harness = importlib.import_module('scripts.gateway_integration')
+    command = [sys.executable, '-c', 'import time; time.sleep(30)']
+    budget, seconds = (harness.Budget(), .1) if failure == 'timeout' else (harness.Budget(1), 5)
+    row = harness.run_phase('backends', command, tmp_path, budget, seconds)
+    assert row['status'] == 'BLOCKED'
+    outer = tmp_path / 'outer.log'
+    outer.write_text('PRIVATE_SENTINEL\n' + capsys.readouterr().err)
+    outer.chmod(0o600)
+    evidence = api.phase_failure_evidence(outer,
+        {'exit_status': 1, 'timed_out': False, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available',
+        'markers': [{'kind': 'phase', 'phase': 'backends', 'reason': failure}]}
+    assert 'PRIVATE_SENTINEL' not in json.dumps(evidence)
+
+
+@pytest.mark.parametrize('marker', [
+    {'kind': 'phase', 'phase': 'PRIVATE_PHASE', 'reason': 'timeout'},
+    {'kind': 'phase', 'phase': 'backends', 'reason': 'PRIVATE_REASON'},
+    {'kind': 'phase', 'phase': 'backends', 'reason': 'timeout', 'raw': 'PRIVATE_SENTINEL'},
+])
+def test_nested_phase_metadata_rejects_unknown_or_extra_fields(tmp_path, marker):
+    api = diagnostics()
+    path = tmp_path / 'outer.log'
+    path.write_text(api.EVIDENCE_PREFIX + json.dumps(marker) + '\n'); path.chmod(0o600)
+    evidence = api.phase_failure_evidence(path, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'invalid', 'markers': []}
+
+
+def test_nested_phase_metadata_rejects_duplicate_json_keys(tmp_path):
+    api = diagnostics()
+    path = tmp_path / 'outer.log'
+    path.write_text(api.EVIDENCE_PREFIX + '{"kind":"phase","phase":"backends",'
+        '"reason":"PRIVATE_REASON","reason":"timeout"}\n'); path.chmod(0o600)
+    evidence = api.phase_failure_evidence(path, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'invalid', 'markers': []}
+
+
+def test_backend_timeout_keeps_only_final_source_bound_progress_before_cleanup(tmp_path, monkeypatch, capsys):
+    api = diagnostics()
+    harness = importlib.import_module('scripts.gateway_integration')
+    tests = tmp_path / 'tests'; tests.mkdir()
+    (tests / 'conftest.py').write_text('from pathlib import Path\n'
+        'from scripts import pytest_runtime_diagnostics as api\napi.ROOT = Path.cwd()\n')
+    (tests / 'test_progress.py').write_text('import time\nimport pytest\n'
+        '@pytest.fixture\ndef teardown():\n    yield\n    time.sleep(30)\n'
+        'def test_first():\n    assert True\n'
+        '@pytest.mark.parametrize("value", ["PRIVATE_PARAMETER"] )\n'
+        'def test_second(value, teardown):\n    assert value\n')
+    commit_fixture(tmp_path)
+    monkeypatch.setattr(api, 'ROOT', tmp_path)
+    monkeypatch.setattr(api, '_source_blobs', None)
+    monkeypatch.setattr(api, '_source_commit', None)
+    monkeypatch.setattr(harness, 'ROOT', tmp_path)
+    command = [sys.executable, '-m', 'pytest', 'tests/test_progress.py', '-q']
+    env = {**os.environ, 'PYTHONPATH': str(ROOT), 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1'}
+    row = harness.run_phase('backends', command, tmp_path, harness.Budget(), 1.5, env=env)
+    expected = {'kind': 'progress', 'phase': 'backends', 'test': 'tests/test_progress.py::test_second',
+        'stage': 'teardown', 'collected': 2, 'completed': 1}
+    assert row['timed_out'] and row['descendant_cleanup']
+    assert row['failure_evidence'] == {'reason': 'timeout', 'details_status': 'available', 'markers': [expected]}
+    outer = tmp_path / 'outer.log'; outer.write_text(capsys.readouterr().err); outer.chmod(0o600)
+    evidence = api.phase_failure_evidence(outer, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available',
+        'markers': [expected, {'kind': 'phase', 'phase': 'backends', 'reason': 'timeout'}]}
+    assert 'PRIVATE_PARAMETER' not in outer.read_text()
+
+
+@pytest.mark.parametrize('change', [
+    {'test': 'tests/unit/test_structured_failure_evidence.py::test_FORGED'},
+    {'test': 'tests/unit/test_structured_failure_evidence.py::test_nested_phase_metadata_rejects_duplicate_json_keys[PRIVATE_PARAMETER]'},
+    {'phase': 'PRIVATE_PHASE'}, {'stage': 'PRIVATE_STAGE'}, {'collected': True},
+    {'collected': 1000001}, {'completed': -1}, {'completed': 3}, {'completed': 2}, {'raw': 'PRIVATE_SENTINEL'},
+])
+def test_backend_progress_rejects_forged_identity_counts_stage_and_extra_fields(tmp_path, change):
+    api = diagnostics()
+    marker = {'kind': 'progress', 'phase': 'backends',
+        'test': 'tests/unit/test_gateway_integration_harness.py::test_modes_are_explicit_and_have_exact_argument_arity',
+        'stage': 'call', 'collected': 2, 'completed': 1, **change}
+    path = tmp_path / 'outer.log'; path.write_text(api.EVIDENCE_PREFIX + json.dumps(marker) + '\n'); path.chmod(0o600)
+    evidence = api.phase_failure_evidence(path, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'invalid', 'markers': []}
+
+
+@pytest.mark.parametrize('count', [1320, 10000, 10001])
+def test_private_progress_has_independent_encounter_limit_and_exports_one_snapshot(tmp_path, count):
+    api = diagnostics()
+    marker = {'kind': 'progress', 'phase': 'backends',
+        'test': 'tests/unit/test_gateway_integration_harness.py::test_modes_are_explicit_and_have_exact_argument_arity',
+        'stage': 'complete', 'collected': 329, 'completed': 329}
+    path = tmp_path / 'private.log'
+    path.write_text((api.PROGRESS_PREFIX + json.dumps(marker) + '\n') * count); path.chmod(0o600)
+    evidence = api.phase_failure_evidence(path, {'exit_status': 1, 'descendant_cleanup': True}, progress=True)
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available' if count <= 10000 else 'invalid',
+        'markers': [marker] if count <= 10000 else []}
+
+
+@pytest.mark.parametrize('excess', [False, True])
+def test_private_progress_has_independent_byte_limit(tmp_path, monkeypatch, excess):
+    api = diagnostics()
+    marker = {'kind': 'progress', 'phase': 'backends',
+        'test': 'tests/unit/test_gateway_integration_harness.py::test_modes_are_explicit_and_have_exact_argument_arity',
+        'stage': 'call', 'collected': 329, 'completed': 328}
+    line = api.PROGRESS_PREFIX + json.dumps(marker) + '\n'
+    monkeypatch.setattr(api, 'MAX_PROGRESS_BYTES', len(line.encode()) * 2 - int(excess))
+    path = tmp_path / 'private.log'; path.write_text(line * 2); path.chmod(0o600)
+    evidence = api.phase_failure_evidence(path, {'exit_status': 1, 'descendant_cleanup': True}, progress=True)
+    assert evidence['details_status'] == ('invalid' if excess else 'available')
+    assert evidence['markers'] == ([] if excess else [marker])
+
+
+def test_private_progress_totals_count_final_selected_parameterized_cases(tmp_path, monkeypatch):
+    api = diagnostics()
+    harness = importlib.import_module('scripts.gateway_integration')
+    tests = tmp_path / 'tests'; tests.mkdir()
+    (tests / 'conftest.py').write_text('from pathlib import Path\n'
+        'from scripts import pytest_runtime_diagnostics as api\napi.ROOT = Path.cwd()\n')
+    (tests / 'test_progress.py').write_text('import pytest\n'
+        '@pytest.mark.parametrize("value", ["PRIVATE_FIRST", "PRIVATE_SECOND"])\n'
+        'def test_selected(value):\n    assert value\n'
+        'def test_deselected():\n    assert True\n')
+    commit_fixture(tmp_path)
+    monkeypatch.setattr(api, 'ROOT', tmp_path)
+    monkeypatch.setattr(api, '_source_blobs', None)
+    monkeypatch.setattr(api, '_source_commit', None)
+    monkeypatch.setattr(harness, 'ROOT', tmp_path)
+    command = [sys.executable, '-m', 'pytest', 'tests/test_progress.py', '-q', '-k', 'test_selected']
+    env = {**os.environ, 'PYTHONPATH': str(ROOT), 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1'}
+    row = harness.run_phase('backends', command, tmp_path, harness.Budget(), 5, env=env)
+    assert row['status'] == 'PASS' and 'failure_evidence' not in row
+    # Simulate a later non-test failure solely to inspect the private progress;
+    # these counters are progress, never proof of testcase/JUnit acceptance.
+    evidence = api.phase_failure_evidence(tmp_path / 'backends.log',
+        {'exit_status': 1, 'descendant_cleanup': True}, progress=True)
+    assert evidence['markers'] == [{'kind': 'progress', 'phase': 'backends',
+        'test': 'tests/test_progress.py::test_selected', 'stage': 'complete', 'collected': 2, 'completed': 2}]
+    assert 'PRIVATE_' not in json.dumps(evidence)
+
+
+@pytest.mark.parametrize('setup_outcome', ['raise RuntimeError("PRIVATE_MESSAGE")', 'pytest.skip("PRIVATE_MESSAGE")'],
+    ids=['failed', 'skipped'])
+def test_unsuccessful_setup_progress_moves_directly_to_teardown(tmp_path, monkeypatch, setup_outcome):
+    api = diagnostics()
+    harness = importlib.import_module('scripts.gateway_integration')
+    tests = tmp_path / 'tests'; tests.mkdir()
+    (tests / 'conftest.py').write_text('from pathlib import Path\n'
+        'from scripts import pytest_runtime_diagnostics as api\napi.ROOT = Path.cwd()\n')
+    (tests / 'test_progress.py').write_text('import time\nimport pytest\n'
+        '@pytest.fixture\ndef fixture(request):\n'
+        '    request.addfinalizer(lambda: time.sleep(30))\n    ' + setup_outcome + '\n'
+        'def test_case(fixture):\n    assert False\n')
+    commit_fixture(tmp_path)
+    monkeypatch.setattr(api, 'ROOT', tmp_path)
+    monkeypatch.setattr(api, '_source_blobs', None)
+    monkeypatch.setattr(api, '_source_commit', None)
+    monkeypatch.setattr(harness, 'ROOT', tmp_path)
+    command = [sys.executable, '-m', 'pytest', 'tests/test_progress.py', '-q']
+    env = {**os.environ, 'PYTHONPATH': str(ROOT), 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1'}
+    row = harness.run_phase('backends', command, tmp_path, harness.Budget(), 1.5, env=env)
+    assert row['timed_out'] and row['descendant_cleanup']
+    assert row['failure_evidence']['markers'][-1] == {'kind': 'progress', 'phase': 'backends',
+        'test': 'tests/test_progress.py::test_case', 'stage': 'teardown', 'collected': 1, 'completed': 0}
+    assert 'PRIVATE_MESSAGE' not in json.dumps(row['failure_evidence'])
+
+
+@pytest.mark.parametrize('failure,checkpoint', [
+    ('preflight', 'backend-preflight'),
+    ('collection', 'backend-collection'),
+    ('tests', 'backend-tests'),
+    ('junit', 'backend-junit-admission'),
+    ('identity', 'backend-source-recheck'),
+    ('endpoint', 'backend-endpoint-recheck'),
+    ('write', 'backend-receipt-write'),
+    ('report', 'backend-report-admission'),
+])
+def test_backend_recorder_failure_retains_admission_checkpoint_without_exception_text(
+        tmp_path, monkeypatch, capsys, failure, checkpoint):
+    api = diagnostics()
+    harness = importlib.import_module('scripts.gateway_integration')
+    monkeypatch.setattr(harness.verify_demo, 'prerequisite_images', lambda _: {})
+    if failure == 'preflight':
+        def reject_images(*args): raise ValueError('PRIVATE_EXCEPTION_MESSAGE')
+        monkeypatch.setattr(harness.verify_demo, 'prerequisite_images', reject_images)
+    endpoint_calls = []
+    def endpoints(_):
+        endpoint_calls.append(None)
+        return {'identity': 'changed' if failure == 'endpoint' and len(endpoint_calls) > 1 else 'fixed'}
+    monkeypatch.setattr(harness.verify_demo, 'validate_backend_endpoints', endpoints)
+    source_calls = []
+    def source():
+        source_calls.append(None)
+        return {'identity': 'changed' if failure == 'identity' and len(source_calls) > 1 else 'fixed'}
+    monkeypatch.setattr(harness, 'current_source', source)
+    def collection():
+        if failure == 'collection': raise ValueError('PRIVATE_EXCEPTION_MESSAGE')
+        return {('tests.integration.test_registry', 'test_a')}
+    monkeypatch.setattr(harness, 'collect_backend_identities', collection)
+    def phase(name, command, root, *args, **kwargs):
+        actual = 'test_other' if failure == 'junit' else 'test_a'
+        (root / 'backends.xml').write_text('<testsuites><testsuite tests="1" errors="0" failures="0" skipped="0">'
+            '<testcase classname="tests.integration.test_registry" name="' + actual + '"/>'
+            '</testsuite></testsuites>')
+        return {'phase': name, 'status': 'BLOCKED' if failure == 'tests' else 'PASS',
+            'exit_status': 1 if failure == 'tests' else 0}
+    monkeypatch.setattr(harness, 'run_phase', phase)
+    if failure == 'write':
+        def reject_write(*args): raise OSError('PRIVATE_EXCEPTION_MESSAGE')
+        monkeypatch.setattr(harness.runtime, 'private_json', reject_write)
+    if failure == 'report':
+        def reject(*args): raise ValueError('PRIVATE_EXCEPTION_MESSAGE')
+        monkeypatch.setattr(harness, 'validate_backend_report', reject)
+    tmp_path.chmod(0o700)
+    with pytest.raises((ValueError, OSError, harness.Blocked)):
+        harness.record_backends(tmp_path / 'receipts')
+    output = capsys.readouterr().err
+    log = tmp_path / 'outer.log'; log.write_text(output); log.chmod(0o600)
+    evidence = api.phase_failure_evidence(log, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available',
+        'markers': [{'kind': 'checkpoint', 'checkpoint': checkpoint, 'exit_status': 1}]}
+    assert 'PRIVATE_EXCEPTION_MESSAGE' not in output
+    if failure != 'report': assert not (tmp_path / 'receipts' / 'backends.json').exists()
+
+
 def test_phase_budget_failure_emits_evidence_without_starting_work(tmp_path, capsys):
     api = diagnostics()
     harness = importlib.import_module('scripts.gateway_integration')
