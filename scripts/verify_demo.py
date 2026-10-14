@@ -117,7 +117,12 @@ def validate_backend_endpoints(images):
     if len(identifiers)!=1:raise ValueError('Ambiguous disposable registry container')
     postgres=json.loads(run(['docker','inspect',identifiers[0]],timeout=15).stdout)[0]
     if not postgres['Config']['Labels'].get('gateway.registry.run') or postgres['Image']!=images['registry-db']['image_id']:raise ValueError('Registry image identity mismatch')
-    if postgres['HostConfig']['PortBindings']!={'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':str(url.port)}]}:raise ValueError('Registry loopback identity mismatch')
+    assigned={'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':str(url.port)}]}
+    ephemeral={'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':''}]}
+    # HostConfig retains the requested empty port for --publish 127.0.0.1::5432.
+    # NetworkSettings contains the allocated binding; both must stay loopback-only.
+    if (postgres['HostConfig']['PortBindings'] not in (ephemeral,assigned)
+        or postgres['NetworkSettings']['Ports']!=assigned):raise ValueError('Registry loopback identity mismatch')
     if os.environ.get('GATEWAY_CUBE_TEST_AUTHORIZATION')!='private-synthetic-cube-only':raise ValueError('Disposable Cube authority required')
     hosts=json.loads(Path(os.environ['GATEWAY_CUBE_TEST_HOSTS_FILE']).read_text())
     if hosts['kind']!='private-synthetic-cube-only':raise ValueError('Invalid Cube evidence identity')
