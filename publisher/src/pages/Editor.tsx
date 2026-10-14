@@ -50,7 +50,13 @@ function fullDefinition(snapshot: Model<'DraftView'>): Record<string, unknown> |
   const definition = { ...snapshot.definition, content_digest: null };
   return snapshot.editable_full_definition && isManifest(definition) ? definition : null;
 }
-function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
+function DocumentEditor({
+  snapshot,
+  readReady = true,
+}: {
+  snapshot: Model<'DraftView'> | null;
+  readReady?: boolean;
+}) {
   const { client, generation, queries } = useGateway();
   const navigate = useNavigate();
   const access = useAccess();
@@ -67,6 +73,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
   const [error, setError] = useState<unknown>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [reloadOpen, setReloadOpen] = useState(false);
   const [locatorUnavailable, setLocatorUnavailable] = useState(false);
   const [uncertain, setUncertain] = useState(false);
@@ -132,6 +139,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
   const mayEdit = !snapshot || !!initial;
   const current = !snapshot || snapshot.is_current_revision === true;
   function change(key: string, next: unknown) {
+    if (reloading) return;
     leave.current = false;
     editGeneration.current++;
     form.setValue(
@@ -141,6 +149,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
     );
   }
   function template() {
+    if (reloading) return;
     leave.current = false;
     editGeneration.current++;
     form.setValue(
@@ -157,6 +166,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
   async function save() {
     if (
       guard.current ||
+      !readReady ||
       !mayEdit ||
       !current ||
       !binding ||
@@ -207,7 +217,8 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
     }
   }
   async function test() {
-    if (guard.current || !snapshot?.can_test || !current || dirty || uncertain) return;
+    if (guard.current || !readReady || !snapshot?.can_test || !current || dirty || uncertain)
+      return;
     guard.current = true;
     setTesting(true);
     setError(null);
@@ -231,6 +242,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
   async function reload() {
     if (!snapshot || guard.current) return;
     guard.current = true;
+    setReloading(true);
     setError(null);
     setReloadOpen(false);
     try {
@@ -259,6 +271,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
       setError(caught);
     } finally {
       guard.current = false;
+      setReloading(false);
     }
   }
   if (unavailable)
@@ -304,8 +317,11 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
                   : 'The current revision must be reloaded before saving again.'}
               </p>
               {snapshot ? (
-                <button onClick={() => (dirty ? setReloadOpen(true) : void reload())}>
-                  Reload current revision
+                <button
+                  disabled={reloading || saving || testing}
+                  onClick={() => (dirty ? setReloadOpen(true) : void reload())}
+                >
+                  {reloading ? 'Reloading current revision…' : 'Reload current revision'}
                 </button>
               ) : (
                 <p>
@@ -340,6 +356,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
               </p>
               <button
                 className="secondary"
+                disabled={reloading}
                 onClick={() => (dirty ? setTemplateOpen(true) : template())}
               >
                 Use synthetic revenue template
@@ -352,7 +369,10 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
               void save();
             }}
           >
-            <fieldset disabled={saving || !current || uncertain} className="editor-fields">
+            <fieldset
+              disabled={saving || reloading || !current || uncertain}
+              className="editor-fields"
+            >
               <legend className="sr-only">Definition values</legend>
               {groups.map(([name, keys]) => (
                 <section
@@ -412,6 +432,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
                       id="binding-choice"
                       value={binding ? `${binding.binding_id}:${binding.revision}` : ''}
                       onChange={(event) => {
+                        if (reloading) return;
                         const selected = choices.data?.bindings.find(
                           (item) => `${item.binding_id}:${item.revision}` === event.target.value,
                         );
@@ -481,7 +502,9 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
                   type="submit"
                   disabled={
                     !current ||
+                    !readReady ||
                     saving ||
+                    reloading ||
                     testing ||
                     !binding ||
                     !policy ||
@@ -496,7 +519,14 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
                   type="button"
                   className="secondary"
                   disabled={
-                    !snapshot?.can_test || !current || dirty || saving || testing || uncertain
+                    !readReady ||
+                    !snapshot?.can_test ||
+                    !current ||
+                    dirty ||
+                    saving ||
+                    reloading ||
+                    testing ||
+                    uncertain
                   }
                   onClick={() => void test()}
                 >
@@ -505,7 +535,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
                 <button
                   type="button"
                   className="secondary"
-                  disabled={!snapshot || dirty || saving || testing || uncertain}
+                  disabled={!snapshot || dirty || saving || testing || reloading || uncertain}
                   onClick={() =>
                     snapshot && navigate(`/drafts/${encodeURIComponent(snapshot.id)}/review`)
                   }
@@ -524,6 +554,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
         title="Discard unsaved changes?"
         description="Reload the current authorized revision. Your unsaved local changes will be discarded."
         confirmLabel="Discard and reload"
+        pending={reloading}
         onConfirm={() => void reload()}
       />
       <Confirm
@@ -532,6 +563,7 @@ function DocumentEditor({ snapshot }: { snapshot: Model<'DraftView'> | null }) {
         title="Replace this unsaved definition?"
         description="Use the synthetic revenue template in this unpublished editor."
         confirmLabel="Use template"
+        disabled={reloading}
         onConfirm={template}
       />
       <Confirm
@@ -558,14 +590,30 @@ function ExistingEditor({ id }: { id: string }) {
   });
   useAccess(query.error);
   if (query.isPending) return <Loading>Loading draft…</Loading>;
-  if (query.isError)
+  if (!query.data)
     return (
       <>
         <h1>Definition unavailable</h1>
         <ErrorNotice error={query.error} retry={() => void query.refetch()} />
       </>
     );
-  return <DocumentEditor key={query.data.id} snapshot={query.data} />;
+  return (
+    <>
+      {query.isError && (
+        <div className="notice warning">
+          <p>
+            Your local edits are preserved. Retry the draft read before saving or running tests.
+          </p>
+          <ErrorNotice error={query.error} retry={() => void query.refetch()} />
+        </div>
+      )}
+      <DocumentEditor
+        key={query.data.id}
+        snapshot={query.data}
+        readReady={query.isSuccess && !query.isFetching}
+      />
+    </>
+  );
 }
 export default function Editor() {
   const { draftId } = useParams();

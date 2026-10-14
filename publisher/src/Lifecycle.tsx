@@ -32,6 +32,12 @@ export function LifecycleActions({
   const [error, setError] = useState<unknown>(null);
   const [confirmed, setConfirmed] = useState('');
   const guard = useRef(false);
+  const intended = useRef<{
+    action: Action;
+    product_id: string;
+    version: string;
+    digest: string;
+  } | null>(null);
   if (!canPublish) return null;
   async function openExisting() {
     if (guard.current) return;
@@ -39,24 +45,35 @@ export function LifecycleActions({
     setPending(true);
     setTarget(null);
     setError(null);
+    const recovery = uncertain ? intended.current : null;
+    const targetId = recovery?.product_id ?? productId;
+    const targetVersion = recovery?.version ?? version;
     try {
-      const found = await client.product(productId, version);
+      const found = await client.product(targetId, targetVersion);
       if (!isCurrent()) return;
       if (
-        found.product_id !== productId ||
-        found.version !== version ||
+        found.product_id !== targetId ||
+        found.version !== targetVersion ||
         !['published', 'deprecated'].includes(found.status)
       )
         throw new GatewayError(404, 'NOT_FOUND_OR_FORBIDDEN');
+      if (recovery && found.digest !== recovery.digest) throw new GatewayError(409, 'CONFLICT');
       setTarget(found);
-      setUncertain(false);
+      // This DTO can prove deprecation of the exact immutable version. It cannot
+      // establish a rollback pointer or distinguish withdrawal from denied access.
+      if (recovery?.action === 'deprecate' && found.status === 'deprecated') {
+        setConfirmed(`Authorized version state: deprecated ${targetVersion}.`);
+        setReason('');
+        setUncertain(false);
+        intended.current = null;
+      }
     } catch (caught) {
       if (!isCurrent()) return;
       // A publisher may read a draft but lack consumer access to its published version.
       // This lookup denies only that lifecycle target, never infers a guessed version.
       if (isAccessDenied(caught)) {
-        void queries.cancelQueries({ queryKey: [generation, 'product', productId] });
-        queries.removeQueries({ queryKey: [generation, 'product', productId] });
+        void queries.cancelQueries({ queryKey: [generation, 'product', targetId] });
+        queries.removeQueries({ queryKey: [generation, 'product', targetId] });
         void queries.cancelQueries({ queryKey: [generation, 'execution'] });
         queries.removeQueries({ queryKey: [generation, 'execution'] });
       }
@@ -71,10 +88,18 @@ export function LifecycleActions({
     guard.current = true;
     setPending(true);
     setError(null);
+    setConfirmed('');
+    intended.current = {
+      action,
+      product_id: target.product_id,
+      version: target.version,
+      digest: target.digest,
+    };
     try {
       await client.lifecycle(target.product_id, { action, version: target.version, reason });
       if (!isCurrent()) return;
       setConfirmed(`Gateway confirmed: ${action} ${version}.`);
+      intended.current = null;
       setReason('');
       setTarget(null);
       await queries.invalidateQueries({ queryKey: [generation, 'catalog'] });
@@ -104,11 +129,12 @@ export function LifecycleActions({
           another change.
         </p>
       )}
-      {!target ? (
+      {(!target || uncertain) && (
         <button className="secondary" disabled={pending} onClick={() => void openExisting()}>
           {pending ? 'Opening existing version…' : 'Open existing published version'}
         </button>
-      ) : (
+      )}
+      {target && (
         <>
           <p>
             Reviewed target: {target.name} · {target.status} · Digest {target.digest}

@@ -50,7 +50,7 @@ function Layout() {
           <span className="brand-mark" aria-hidden="true">
             ▦
           </span>{' '}
-          Data Product Gateway
+          Spaceport
         </Link>
         <nav aria-label="Primary">
           <Link to="/catalog">Catalog</Link>

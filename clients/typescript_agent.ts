@@ -87,9 +87,18 @@ async function run() {
       sort: [{ field: 'day', direction: 'asc' }, { field: 'segment', direction: 'asc' }],
       idempotency_key: randomUUID(),
     } });
+    async function getResult(cursor?: string): Promise<any> {
+      const args: Record<string, any> = { execution_id: execution.execution_id };
+      if (cursor !== undefined) args.cursor = cursor;
+      const result = await call('get_result', args);
+      if (result.execution_id !== execution.execution_id) throw new Error('Result execution identity mismatch');
+      if (result.state === 'succeeded' && (result.product_id !== description.product_id
+        || result.product_digest !== description.digest || result.version !== description.version)) throw new Error('Result product identity mismatch');
+      return result;
+    }
     const deadline = performance.now() + 125000; let result: any;
     for (;;) {
-      result = await call('get_result', { execution_id: execution.execution_id });
+      result = await getResult();
       if (result.state === 'succeeded') break;
       if (!['accepted', 'running'].includes(result.state)) throw new Error('Execution terminated without results');
       if (performance.now() >= deadline) throw new Error('Execution deadline exceeded');
@@ -103,11 +112,11 @@ async function run() {
       if (!cursor) break;
       if (seen.has(cursor) || seen.size >= 1000) throw new Error('Repeated result cursor');
       seen.add(cursor);
-      result = await call('get_result', { execution_id: execution.execution_id, cursor });
+      result = await getResult(cursor);
       const left = normalize(first); const right = normalize(result); delete left.rows; delete right.rows;
       if (!equal(left, right)) throw new Error('Result page metadata changed');
     }
-    if (rows.length !== first.row_count || first.product_digest !== description.digest || first.version !== description.version) throw new Error('Result identity or count mismatch');
+    if (rows.length !== first.row_count) throw new Error('Result count mismatch');
     const answer = normalize(first); answer.rows = rows;
     return { compatibility: { sdk: '@modelcontextprotocol/client@2.3.1', protocol: transport.protocolVersion,
       transport: 'streamable-http-json', max_wire_bytes: MAX_WIRE_BYTES }, answer };

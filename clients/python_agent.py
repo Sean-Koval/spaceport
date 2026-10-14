@@ -93,9 +93,19 @@ async def run():
                 'sort':[{'field':'day','direction':'asc'},{'field':'segment','direction':'asc'}],
                 'idempotency_key':str(uuid4())}
             execution=await call('query_product',{'request':request})
+            async def get_result(cursor=None):
+                arguments={'execution_id':execution['execution_id']}
+                if cursor is not None:arguments['cursor']=cursor
+                result=await call('get_result',arguments)
+                if result['execution_id']!=execution['execution_id']:
+                    raise ValueError('Result execution identity mismatch')
+                if result['state']=='succeeded' and (result['product_id']!=description['product_id']
+                    or result['product_digest']!=description['digest'] or result['version']!=description['version']):
+                    raise ValueError('Result product identity mismatch')
+                return result
             deadline=time.monotonic()+125
             while True:
-                result=await call('get_result',{'execution_id':execution['execution_id']})
+                result=await get_result()
                 if result['state']=='succeeded':break
                 if result['state'] not in {'accepted','running'}:raise ValueError('Execution terminated without results')
                 if time.monotonic()>=deadline:raise ValueError('Execution deadline exceeded')
@@ -111,12 +121,11 @@ async def run():
                 if not cursor:break
                 if cursor in seen or len(seen)>=1000:raise ValueError('Repeated result cursor')
                 seen.add(cursor)
-                result=await call('get_result',{'execution_id':execution['execution_id'],'cursor':cursor})
+                result=await get_result(cursor)
                 left=normalize(first);right=normalize(result)
                 left.pop('rows',None);right.pop('rows',None)
                 if left!=right:raise ValueError('Result page metadata changed')
-            if len(rows)!=first['row_count'] or first['product_digest']!=description['digest'] or first['version']!=description['version']:
-                raise ValueError('Result identity or count mismatch')
+            if len(rows)!=first['row_count']:raise ValueError('Result count mismatch')
             answer=normalize(first);answer['rows']=rows
             return {'compatibility':{'sdk':'mcp==2.3.0','protocol':client.protocol_version,
                 'transport':'streamable-http-json','max_wire_bytes':MAX_WIRE_BYTES},'answer':answer}

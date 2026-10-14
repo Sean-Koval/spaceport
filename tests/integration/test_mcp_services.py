@@ -15,6 +15,7 @@ from gateway.auth.settings import Settings
 from gateway.auth.tokens import Authenticator
 from gateway.execution.service import ExecutionService
 from tests.contract.test_mcp import running,body,post
+from tests.contract.result_parity import assert_result_page_parity
 from tests.integration.test_results import seeded_result
 
 pytestmark=pytest.mark.postgres
@@ -50,7 +51,7 @@ def test_real_mcp_rest_catalog_result_pagination_revocation_and_identity(registr
                     page=result['structuredContent'];pages.extend(page['rows'])
                     # Reuse the exact MCP-issued cursor on REST: shared authority.
                     rest=(await client.get(base+'/v1/executions/execution-1',params={} if cursor is None else {'cursor':cursor})).json()
-                    assert {k:v for k,v in page.items() if k!='next_cursor'}=={k:v for k,v in rest.items() if k!='next_cursor'}
+                    assert_result_page_parity(page,rest,ctx.envelope.model_dump(mode='json'))
                     cursor=page['next_cursor']
                     if cursor is None:break
                 assert len(pages)==451 and pages==ctx.envelope.model_dump(mode='json')['rows']

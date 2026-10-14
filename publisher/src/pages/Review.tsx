@@ -244,7 +244,9 @@ function ReviewPage({ id }: { id: string }) {
         expected_revision: draft.revision,
         reason,
       });
-      if (!isCurrent()) return;
+      // Search/hash navigation keeps this immutable draft and its access scope mounted.
+      // Settle its operation, while navigation-changing reads retain the stricter guard.
+      if (!access.current()) return;
       if (
         receipt.product_id !== draft.product_id ||
         receipt.version !== version ||
@@ -257,7 +259,7 @@ function ReviewPage({ id }: { id: string }) {
       setOutcome('confirmed');
       await queries.invalidateQueries({ queryKey: [generation, 'catalog'] });
     } catch (caught) {
-      if (access.reject(caught) || !isCurrent()) return;
+      if (access.reject(caught) || !access.current()) return;
       setError(caught);
       setOutcome(
         caught instanceof GatewayError && caught.status === 409 ? 'conflict' : 'uncertain',

@@ -15,6 +15,7 @@ it('keeps the synthetic banner on sign-in and catalog, showing only authorized d
   vi.stubGlobal('fetch', async () => json({ items: [product], next_cursor: null }));
   render(<App />);
   expect(screen.getByText(/Synthetic demo/)).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Spaceport' })).toHaveAttribute('href', '/catalog');
   await signIn();
   expect(await screen.findByRole('link', { name: 'Daily revenue' })).toBeVisible();
   expect(screen.queryByText('restricted-revenue')).toBeNull();
