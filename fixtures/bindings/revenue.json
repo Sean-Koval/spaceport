@@ -1,0 +1,39 @@
+{
+  "binding_id": "revenue-orders",
+  "revision": 1,
+  "adapter_revision": "cube-rest-v1",
+  "model_bundle_digest": "228090dcbeaf8416a1e8a14d4e17c2873f9963ec3346d728650308ee5684d8ba",
+  "fields": {
+    "day": {
+      "member": "Orders.ordered_at",
+      "kind": "time",
+      "cube_type": "time",
+      "response_key": "Orders.ordered_at.day",
+      "granularity": "day"
+    },
+    "segment": {
+      "member": "Orders.segment",
+      "kind": "dimension",
+      "cube_type": "string",
+      "response_key": "Orders.segment",
+      "granularity": null
+    },
+    "revenue": {
+      "member": "Orders.revenue",
+      "kind": "measure",
+      "cube_type": "number",
+      "response_key": "Orders.revenue",
+      "granularity": null
+    }
+  },
+  "input_fields": {
+    "segment": "segment"
+  },
+  "constraint_members": [
+    "Orders.tenant_id",
+    "Orders.access_group",
+    "Orders.segment"
+  ],
+  "watermark_member": "Watermark.loaded_at",
+  "context": "consumer"
+}

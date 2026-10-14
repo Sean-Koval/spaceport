@@ -1,0 +1,2537 @@
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Search authorized published products with bounded pagination.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "query": {
+          "default": "",
+          "maxLength": 256,
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "title": "SearchArguments",
+      "type": "object"
+    },
+    "name": "search_products",
+    "outputSchema": {
+      "$defs": {
+        "DateBoundaries": {
+          "additionalProperties": false,
+          "properties": {
+            "end_input": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "End Input",
+              "type": "string"
+            },
+            "interval": {
+              "const": "[start,end)",
+              "title": "Interval",
+              "type": "string"
+            },
+            "start_input": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Start Input",
+              "type": "string"
+            }
+          },
+          "required": [
+            "start_input",
+            "end_input",
+            "interval"
+          ],
+          "title": "DateBoundaries",
+          "type": "object"
+        },
+        "DefaultValue": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "title": "DefaultValue",
+          "type": "object"
+        },
+        "Example": {
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "inputs": {
+              "maxProperties": 50,
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Inputs",
+              "type": "object"
+            }
+          },
+          "required": [
+            "description",
+            "inputs"
+          ],
+          "title": "Example",
+          "type": "object"
+        },
+        "FieldSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "default": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DefaultValue"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "enum": {
+              "anyOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enum"
+            },
+            "nullable": {
+              "default": false,
+              "title": "Nullable",
+              "type": "boolean"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Precision"
+            },
+            "required": {
+              "default": true,
+              "title": "Required",
+              "type": "boolean"
+            },
+            "scale": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Scale"
+            },
+            "type": {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "date",
+                "timestamp",
+                "decimal"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "FieldSchema",
+          "type": "object"
+        },
+        "FilterDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "max_values": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Max Values",
+              "type": "integer"
+            },
+            "operators": {
+              "items": {
+                "enum": [
+                  "eq",
+                  "ne",
+                  "lt",
+                  "lte",
+                  "gt",
+                  "gte",
+                  "in",
+                  "not_in",
+                  "is_null"
+                ],
+                "type": "string"
+              },
+              "maxItems": 9,
+              "minItems": 1,
+              "title": "Operators",
+              "type": "array"
+            }
+          },
+          "required": [
+            "operators"
+          ],
+          "title": "FilterDefinition",
+          "type": "object"
+        },
+        "FreshnessRequirement": {
+          "additionalProperties": false,
+          "properties": {
+            "max_age_seconds": {
+              "maximum": 31536000,
+              "minimum": 1,
+              "title": "Max Age Seconds",
+              "type": "integer"
+            },
+            "meaning": {
+              "const": "source_load",
+              "title": "Meaning",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "required",
+            "max_age_seconds",
+            "meaning"
+          ],
+          "title": "FreshnessRequirement",
+          "type": "object"
+        },
+        "Limits": {
+          "additionalProperties": false,
+          "properties": {
+            "deployment_concurrency": {
+              "default": 10,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Deployment Concurrency",
+              "type": "integer"
+            },
+            "execution_timeout_seconds": {
+              "default": 120,
+              "maximum": 120,
+              "minimum": 1,
+              "title": "Execution Timeout Seconds",
+              "type": "integer"
+            },
+            "max_bytes": {
+              "default": 1048576,
+              "maximum": 1048576,
+              "minimum": 1,
+              "title": "Max Bytes",
+              "type": "integer"
+            },
+            "max_date_range_days": {
+              "default": 366,
+              "maximum": 366,
+              "minimum": 1,
+              "title": "Max Date Range Days",
+              "type": "integer"
+            },
+            "max_rows": {
+              "default": 1000,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Max Rows",
+              "type": "integer"
+            },
+            "page_size": {
+              "default": 200,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            },
+            "per_principal_concurrency": {
+              "default": 2,
+              "maximum": 2,
+              "minimum": 1,
+              "title": "Per Principal Concurrency",
+              "type": "integer"
+            },
+            "sync_wait_seconds": {
+              "default": 5,
+              "maximum": 5,
+              "minimum": 0,
+              "title": "Sync Wait Seconds",
+              "type": "integer"
+            }
+          },
+          "title": "Limits",
+          "type": "object"
+        },
+        "Link": {
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label",
+            "url"
+          ],
+          "title": "Link",
+          "type": "object"
+        },
+        "ProductDescription": {
+          "additionalProperties": false,
+          "properties": {
+            "aggregation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Aggregation"
+            },
+            "date_boundaries": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DateBoundaries"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Digest",
+              "type": "string"
+            },
+            "domain": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Domain"
+            },
+            "examples": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Example"
+              },
+              "title": "Examples",
+              "type": "array"
+            },
+            "filters": {
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/FilterDefinition"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Filters",
+              "type": "object"
+            },
+            "freshness": {
+              "$ref": "#/$defs/FreshnessRequirement"
+            },
+            "grain": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grain"
+            },
+            "inputs": {
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/FieldSchema"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Inputs",
+              "type": "object"
+            },
+            "limits": {
+              "$ref": "#/$defs/Limits"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "title": "Links",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "outputs": {
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/FieldSchema"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Outputs",
+              "type": "object"
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner"
+            },
+            "partial": {
+              "title": "Partial",
+              "type": "boolean"
+            },
+            "product_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "sort": {
+              "$ref": "#/$defs/SortDefinition"
+            },
+            "status": {
+              "enum": [
+                "published",
+                "deprecated"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "timezone": {
+              "title": "Timezone",
+              "type": "string"
+            },
+            "units": {
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/Unit"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Units",
+              "type": "object"
+            },
+            "version": {
+              "maxLength": 64,
+              "minLength": 5,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?$",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "product_id",
+            "version",
+            "digest",
+            "name",
+            "status",
+            "inputs",
+            "outputs",
+            "filters",
+            "sort",
+            "units",
+            "timezone",
+            "date_boundaries",
+            "freshness",
+            "provenance",
+            "partial",
+            "limits"
+          ],
+          "title": "ProductDescription",
+          "type": "object"
+        },
+        "Provenance": {
+          "additionalProperties": false,
+          "properties": {
+            "adapter_revision": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Adapter Revision",
+              "type": "string"
+            },
+            "binding_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Binding Id",
+              "type": "string"
+            },
+            "binding_revision": {
+              "minimum": 1,
+              "title": "Binding Revision",
+              "type": "integer"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "maxItems": 20,
+              "title": "Links",
+              "type": "array"
+            },
+            "model_bundle_digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Model Bundle Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding_id",
+            "binding_revision",
+            "adapter_revision",
+            "model_bundle_digest"
+          ],
+          "title": "Provenance",
+          "type": "object"
+        },
+        "SortDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "fields": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "title": "Fields",
+              "type": "array"
+            },
+            "max_fields": {
+              "default": 5,
+              "maximum": 5,
+              "minimum": 0,
+              "title": "Max Fields",
+              "type": "integer"
+            }
+          },
+          "title": "SortDefinition",
+          "type": "object"
+        },
+        "Unit": {
+          "additionalProperties": false,
+          "properties": {
+            "currency": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Currency"
+            },
+            "unit": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit"
+          ],
+          "title": "Unit",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ProductDescription"
+          },
+          "maxItems": 50,
+          "title": "Items",
+          "type": "array"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Cursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "CatalogPage",
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Describe the authorized projection of one product version.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "product_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Product Id",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 5,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "product_id"
+      ],
+      "title": "DescribeArguments",
+      "type": "object"
+    },
+    "name": "describe_product",
+    "outputSchema": {
+      "$defs": {
+        "DateBoundaries": {
+          "additionalProperties": false,
+          "properties": {
+            "end_input": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "End Input",
+              "type": "string"
+            },
+            "interval": {
+              "const": "[start,end)",
+              "title": "Interval",
+              "type": "string"
+            },
+            "start_input": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Start Input",
+              "type": "string"
+            }
+          },
+          "required": [
+            "start_input",
+            "end_input",
+            "interval"
+          ],
+          "title": "DateBoundaries",
+          "type": "object"
+        },
+        "DefaultValue": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "title": "DefaultValue",
+          "type": "object"
+        },
+        "Example": {
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "inputs": {
+              "maxProperties": 50,
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Inputs",
+              "type": "object"
+            }
+          },
+          "required": [
+            "description",
+            "inputs"
+          ],
+          "title": "Example",
+          "type": "object"
+        },
+        "FieldSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "default": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DefaultValue"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "enum": {
+              "anyOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enum"
+            },
+            "nullable": {
+              "default": false,
+              "title": "Nullable",
+              "type": "boolean"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Precision"
+            },
+            "required": {
+              "default": true,
+              "title": "Required",
+              "type": "boolean"
+            },
+            "scale": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Scale"
+            },
+            "type": {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "date",
+                "timestamp",
+                "decimal"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "FieldSchema",
+          "type": "object"
+        },
+        "FilterDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "max_values": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Max Values",
+              "type": "integer"
+            },
+            "operators": {
+              "items": {
+                "enum": [
+                  "eq",
+                  "ne",
+                  "lt",
+                  "lte",
+                  "gt",
+                  "gte",
+                  "in",
+                  "not_in",
+                  "is_null"
+                ],
+                "type": "string"
+              },
+              "maxItems": 9,
+              "minItems": 1,
+              "title": "Operators",
+              "type": "array"
+            }
+          },
+          "required": [
+            "operators"
+          ],
+          "title": "FilterDefinition",
+          "type": "object"
+        },
+        "FreshnessRequirement": {
+          "additionalProperties": false,
+          "properties": {
+            "max_age_seconds": {
+              "maximum": 31536000,
+              "minimum": 1,
+              "title": "Max Age Seconds",
+              "type": "integer"
+            },
+            "meaning": {
+              "const": "source_load",
+              "title": "Meaning",
+              "type": "string"
+            },
+            "required": {
+              "title": "Required",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "required",
+            "max_age_seconds",
+            "meaning"
+          ],
+          "title": "FreshnessRequirement",
+          "type": "object"
+        },
+        "Limits": {
+          "additionalProperties": false,
+          "properties": {
+            "deployment_concurrency": {
+              "default": 10,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Deployment Concurrency",
+              "type": "integer"
+            },
+            "execution_timeout_seconds": {
+              "default": 120,
+              "maximum": 120,
+              "minimum": 1,
+              "title": "Execution Timeout Seconds",
+              "type": "integer"
+            },
+            "max_bytes": {
+              "default": 1048576,
+              "maximum": 1048576,
+              "minimum": 1,
+              "title": "Max Bytes",
+              "type": "integer"
+            },
+            "max_date_range_days": {
+              "default": 366,
+              "maximum": 366,
+              "minimum": 1,
+              "title": "Max Date Range Days",
+              "type": "integer"
+            },
+            "max_rows": {
+              "default": 1000,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Max Rows",
+              "type": "integer"
+            },
+            "page_size": {
+              "default": 200,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            },
+            "per_principal_concurrency": {
+              "default": 2,
+              "maximum": 2,
+              "minimum": 1,
+              "title": "Per Principal Concurrency",
+              "type": "integer"
+            },
+            "sync_wait_seconds": {
+              "default": 5,
+              "maximum": 5,
+              "minimum": 0,
+              "title": "Sync Wait Seconds",
+              "type": "integer"
+            }
+          },
+          "title": "Limits",
+          "type": "object"
+        },
+        "Link": {
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label",
+            "url"
+          ],
+          "title": "Link",
+          "type": "object"
+        },
+        "Provenance": {
+          "additionalProperties": false,
+          "properties": {
+            "adapter_revision": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Adapter Revision",
+              "type": "string"
+            },
+            "binding_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Binding Id",
+              "type": "string"
+            },
+            "binding_revision": {
+              "minimum": 1,
+              "title": "Binding Revision",
+              "type": "integer"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "maxItems": 20,
+              "title": "Links",
+              "type": "array"
+            },
+            "model_bundle_digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Model Bundle Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding_id",
+            "binding_revision",
+            "adapter_revision",
+            "model_bundle_digest"
+          ],
+          "title": "Provenance",
+          "type": "object"
+        },
+        "SortDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "fields": {
+              "default": [],
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "title": "Fields",
+              "type": "array"
+            },
+            "max_fields": {
+              "default": 5,
+              "maximum": 5,
+              "minimum": 0,
+              "title": "Max Fields",
+              "type": "integer"
+            }
+          },
+          "title": "SortDefinition",
+          "type": "object"
+        },
+        "Unit": {
+          "additionalProperties": false,
+          "properties": {
+            "currency": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Currency"
+            },
+            "unit": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit"
+          ],
+          "title": "Unit",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "aggregation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aggregation"
+        },
+        "date_boundaries": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateBoundaries"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "examples": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Example"
+          },
+          "title": "Examples",
+          "type": "array"
+        },
+        "filters": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+              "$ref": "#/$defs/FilterDefinition"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "title": "Filters",
+          "type": "object"
+        },
+        "freshness": {
+          "$ref": "#/$defs/FreshnessRequirement"
+        },
+        "grain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grain"
+        },
+        "inputs": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+              "$ref": "#/$defs/FieldSchema"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "title": "Inputs",
+          "type": "object"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        },
+        "links": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "outputs": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+              "$ref": "#/$defs/FieldSchema"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "title": "Outputs",
+          "type": "object"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "partial": {
+          "title": "Partial",
+          "type": "boolean"
+        },
+        "product_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Product Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "sort": {
+          "$ref": "#/$defs/SortDefinition"
+        },
+        "status": {
+          "enum": [
+            "published",
+            "deprecated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "timezone": {
+          "title": "Timezone",
+          "type": "string"
+        },
+        "units": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+              "$ref": "#/$defs/Unit"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "title": "Units",
+          "type": "object"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 5,
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product_id",
+        "version",
+        "digest",
+        "name",
+        "status",
+        "inputs",
+        "outputs",
+        "filters",
+        "sort",
+        "units",
+        "timezone",
+        "date_boundaries",
+        "freshness",
+        "provenance",
+        "partial",
+        "limits"
+      ],
+      "title": "ProductDescription",
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Submit one bounded product query; wait at most five seconds.",
+    "inputSchema": {
+      "$defs": {
+        "QueryFilter": {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Field",
+              "type": "string"
+            },
+            "operator": {
+              "enum": [
+                "eq",
+                "ne",
+                "lt",
+                "lte",
+                "gt",
+                "gte",
+                "in",
+                "not_in",
+                "is_null"
+              ],
+              "title": "Operator",
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "field",
+            "operator"
+          ],
+          "title": "QueryFilter",
+          "type": "object"
+        },
+        "QueryRequest": {
+          "additionalProperties": false,
+          "properties": {
+            "filters": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/QueryFilter"
+              },
+              "maxItems": 20,
+              "title": "Filters",
+              "type": "array"
+            },
+            "idempotency_key": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Idempotency Key"
+            },
+            "inputs": {
+              "maxProperties": 50,
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Inputs",
+              "type": "object"
+            },
+            "product_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "sort": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/QuerySort"
+              },
+              "maxItems": 5,
+              "title": "Sort",
+              "type": "array"
+            },
+            "version": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 5,
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Version"
+            }
+          },
+          "required": [
+            "product_id"
+          ],
+          "title": "QueryRequest",
+          "type": "object"
+        },
+        "QuerySort": {
+          "additionalProperties": false,
+          "properties": {
+            "direction": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Direction",
+              "type": "string"
+            },
+            "field": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Field",
+              "type": "string"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "title": "QuerySort",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/QueryRequest"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "title": "QueryArguments",
+      "type": "object"
+    },
+    "name": "query_product",
+    "outputSchema": {
+      "$defs": {
+        "ErrorView": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "pattern": "^(UNAUTHENTICATED|NOT_FOUND_OR_FORBIDDEN|INVALID_INPUT|BINDING_DRIFT|UPSTREAM_UNAVAILABLE|RESOURCE_LIMIT|EXECUTION_TIMEOUT|FRESHNESS_UNKNOWN|STALE_DATA|CONFLICT)$",
+              "title": "Code",
+              "type": "string"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "safe_message": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Safe Message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "request_id",
+            "safe_message"
+          ],
+          "title": "ErrorView",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "accepted_at": {
+          "format": "date-time",
+          "title": "Accepted At",
+          "type": "string"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "state": {
+          "enum": [
+            "accepted",
+            "running",
+            "succeeded",
+            "failed",
+            "timed_out",
+            "expired"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id",
+        "state",
+        "accepted_at"
+      ],
+      "title": "ExecutionView",
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read one authorized execution or its next bounded result page.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        },
+        "execution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Execution Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id"
+      ],
+      "title": "ResultArguments",
+      "type": "object"
+    },
+    "name": "get_result",
+    "outputSchema": {
+      "$defs": {
+        "DefaultValue": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "title": "DefaultValue",
+          "type": "object"
+        },
+        "EffectiveRange": {
+          "additionalProperties": false,
+          "properties": {
+            "end": {
+              "title": "End",
+              "type": "string"
+            },
+            "interval": {
+              "const": "[start,end)",
+              "title": "Interval",
+              "type": "string"
+            },
+            "start": {
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "interval"
+          ],
+          "title": "EffectiveRange",
+          "type": "object"
+        },
+        "ErrorView": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "pattern": "^(UNAUTHENTICATED|NOT_FOUND_OR_FORBIDDEN|INVALID_INPUT|BINDING_DRIFT|UPSTREAM_UNAVAILABLE|RESOURCE_LIMIT|EXECUTION_TIMEOUT|FRESHNESS_UNKNOWN|STALE_DATA|CONFLICT)$",
+              "title": "Code",
+              "type": "string"
+            },
+            "request_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Request Id",
+              "type": "string"
+            },
+            "safe_message": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Safe Message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "request_id",
+            "safe_message"
+          ],
+          "title": "ErrorView",
+          "type": "object"
+        },
+        "ExecutionView": {
+          "additionalProperties": false,
+          "properties": {
+            "accepted_at": {
+              "format": "date-time",
+              "title": "Accepted At",
+              "type": "string"
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ErrorView"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Execution Id",
+              "type": "string"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "state": {
+              "enum": [
+                "accepted",
+                "running",
+                "succeeded",
+                "failed",
+                "timed_out",
+                "expired"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "execution_id",
+            "state",
+            "accepted_at"
+          ],
+          "title": "ExecutionView",
+          "type": "object"
+        },
+        "FieldSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "default": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DefaultValue"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "enum": {
+              "anyOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enum"
+            },
+            "nullable": {
+              "default": false,
+              "title": "Nullable",
+              "type": "boolean"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Precision"
+            },
+            "required": {
+              "default": true,
+              "title": "Required",
+              "type": "boolean"
+            },
+            "scale": {
+              "anyOf": [
+                {
+                  "maximum": 38,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Scale"
+            },
+            "type": {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "date",
+                "timestamp",
+                "decimal"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "FieldSchema",
+          "type": "object"
+        },
+        "FreshnessAssessment": {
+          "additionalProperties": false,
+          "properties": {
+            "age_seconds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Age Seconds"
+            },
+            "assessed_at": {
+              "format": "date-time",
+              "title": "Assessed At",
+              "type": "string"
+            },
+            "max_age_seconds": {
+              "maximum": 31536000,
+              "minimum": 1,
+              "title": "Max Age Seconds",
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "fresh",
+                "unknown",
+                "stale"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "assessed_at",
+            "max_age_seconds"
+          ],
+          "title": "FreshnessAssessment",
+          "type": "object"
+        },
+        "Link": {
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label",
+            "url"
+          ],
+          "title": "Link",
+          "type": "object"
+        },
+        "Provenance": {
+          "additionalProperties": false,
+          "properties": {
+            "adapter_revision": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Adapter Revision",
+              "type": "string"
+            },
+            "binding_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Binding Id",
+              "type": "string"
+            },
+            "binding_revision": {
+              "minimum": 1,
+              "title": "Binding Revision",
+              "type": "integer"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "maxItems": 20,
+              "title": "Links",
+              "type": "array"
+            },
+            "model_bundle_digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Model Bundle Digest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding_id",
+            "binding_revision",
+            "adapter_revision",
+            "model_bundle_digest"
+          ],
+          "title": "Provenance",
+          "type": "object"
+        },
+        "ResultEnvelope": {
+          "additionalProperties": false,
+          "properties": {
+            "accepted_at": {
+              "format": "date-time",
+              "title": "Accepted At",
+              "type": "string"
+            },
+            "cache_status": {
+              "default": "unknown",
+              "enum": [
+                "hit",
+                "miss",
+                "unknown"
+              ],
+              "title": "Cache Status",
+              "type": "string"
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Completed At"
+            },
+            "effective_range": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/EffectiveRange"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ErrorView"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "execution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Execution Id",
+              "type": "string"
+            },
+            "freshness": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FreshnessAssessment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "grain": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Grain",
+              "type": "string"
+            },
+            "next_cursor": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Next Cursor"
+            },
+            "product_digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Product Digest",
+              "type": "string"
+            },
+            "product_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "row_count": {
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Row Count",
+              "type": "integer"
+            },
+            "rows": {
+              "default": [],
+              "items": {
+                "patternProperties": {
+                  "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1
+                },
+                "type": "object"
+              },
+              "maxItems": 1000,
+              "title": "Rows",
+              "type": "array"
+            },
+            "source_watermark": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Watermark"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "state": {
+              "enum": [
+                "accepted",
+                "running",
+                "succeeded",
+                "failed",
+                "timed_out",
+                "expired"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "timezone": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Timezone",
+              "type": "string"
+            },
+            "truncated": {
+              "const": false,
+              "default": false,
+              "title": "Truncated",
+              "type": "boolean"
+            },
+            "typed_schema": {
+              "maxProperties": 50,
+              "minProperties": 1,
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/FieldSchema"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Typed Schema",
+              "type": "object"
+            },
+            "units": {
+              "maxProperties": 50,
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9_.-]*$": {
+                  "$ref": "#/$defs/Unit"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "title": "Units",
+              "type": "object"
+            },
+            "version": {
+              "maxLength": 64,
+              "minLength": 5,
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?$",
+              "title": "Version",
+              "type": "string"
+            },
+            "warnings": {
+              "default": [],
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 20,
+              "title": "Warnings",
+              "type": "array"
+            }
+          },
+          "required": [
+            "execution_id",
+            "state",
+            "accepted_at",
+            "product_id",
+            "version",
+            "product_digest",
+            "typed_schema",
+            "units",
+            "grain",
+            "effective_range",
+            "timezone",
+            "provenance",
+            "row_count",
+            "source_watermark",
+            "freshness"
+          ],
+          "title": "ResultEnvelope",
+          "type": "object"
+        },
+        "Unit": {
+          "additionalProperties": false,
+          "properties": {
+            "currency": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Currency"
+            },
+            "unit": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Unit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit"
+          ],
+          "title": "Unit",
+          "type": "object"
+        }
+      },
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionView"
+        },
+        {
+          "$ref": "#/$defs/ResultEnvelope"
+        }
+      ]
+    }
+  }
+]

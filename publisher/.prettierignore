@@ -1,0 +1,6 @@
+src/generated/
+node_modules/
+dist/
+evidence/
+test-results/
+Dockerfile

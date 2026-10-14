@@ -1,0 +1,39 @@
+[project]
+name = "data-product-gateway"
+version = "0.1.0"
+description = "Strict contracts for the self-hosted Data Product Gateway"
+requires-python = "==3.12.14"
+dependencies = [
+    "alembic==1.20.0",
+    "cryptography==50.0.2",
+    "fastapi==0.143.0",
+    "httpx==0.28.1",
+    "mcp==2.3.0",
+    "psycopg[binary]==3.3.6",
+    "pydantic==2.14.1",
+    "pyjwt[crypto]==2.15.1",
+    "rfc8785==0.1.4",
+    "sqlalchemy[asyncio]==2.0.54",
+    "starlette==1.8.0",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[tool.uv]
+package = false
+required-version = "==0.12.23"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers --strict-config -ra"
+markers = [
+    "unit: deterministic unit tests",
+    "contract: shared contract and mocked adapter compatibility tests",
+    "postgres: real disposable PostgreSQL integration tests",
+    "cube: real pinned Cube integration tests",
+    "e2e: end-to-end demo tests",
+    "live_bigquery: optional live BigQuery smoke tests",
+]

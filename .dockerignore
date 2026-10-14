@@ -1,0 +1,14 @@
+.git
+.superpowers
+.venv
+.pytest_cache
+**/__pycache__
+**/node_modules
+**/dist
+**/evidence
+**/test-results
+**/playwright-report
+.env
+*.pem
+*.key
+runtime-secrets

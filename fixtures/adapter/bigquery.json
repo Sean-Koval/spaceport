@@ -1,0 +1,94 @@
+{
+  "evidence_kind": "mock-contract-only",
+  "source_settings": {
+    "project_id": "gateway-mock-123",
+    "dataset_id": "reviewed_orders",
+    "region": "US",
+    "dataset_region": "US",
+    "secret_ref": "/run/secrets/bigquery_reader",
+    "cube_version": "1.8.5",
+    "read_only": true,
+    "pre_aggregations": false,
+    "export_bucket": null,
+    "max_rows": 1000,
+    "max_bytes": 1048576,
+    "maximum_bytes_billed": null
+  },
+  "metadata": {
+    "cubes": [
+      {
+        "name": "Orders",
+        "measures": [
+          {
+            "name": "Orders.revenue",
+            "type": "number"
+          }
+        ],
+        "dimensions": [
+          {
+            "name": "Orders.ordered_at",
+            "type": "time"
+          },
+          {
+            "name": "Orders.segment",
+            "type": "string"
+          },
+          {
+            "name": "Orders.tenant_id",
+            "type": "string"
+          },
+          {
+            "name": "Orders.access_group",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "Watermark",
+        "measures": [],
+        "dimensions": [
+          {
+            "name": "Watermark.loaded_at",
+            "type": "time"
+          }
+        ]
+      }
+    ]
+  },
+  "raw_rows": [
+    {
+      "Orders.ordered_at.day": "2024-03-09T00:00:00.000",
+      "Orders.segment": "A",
+      "Orders.revenue": "10.10"
+    },
+    {
+      "Orders.ordered_at.day": "2024-03-10T00:00:00.000",
+      "Orders.segment": null,
+      "Orders.revenue": "20.20"
+    },
+    {
+      "Orders.ordered_at.day": "2024-03-11T00:00:00.000",
+      "Orders.segment": "A",
+      "Orders.revenue": "9007199254740993.01"
+    }
+  ],
+  "expected_rows": [
+    {
+      "day": "2024-03-09",
+      "segment": "A",
+      "revenue": "10.10"
+    },
+    {
+      "day": "2024-03-10",
+      "segment": null,
+      "revenue": "20.20"
+    },
+    {
+      "day": "2024-03-11",
+      "segment": "A",
+      "revenue": "9007199254740993.01"
+    }
+  ],
+  "watermark": "2024-03-12T00:00:00Z",
+  "notes": "Hand-authored mock Cube shapes against reviewed synthetic members; neither actual BigQuery metadata nor a BigQuery model/deployment. No key material or external account exists."
+}

@@ -1,0 +1,183 @@
+{
+  "schema_version": "1.0",
+  "product_id": "revenue",
+  "version": "1.0.0",
+  "name": "Daily revenue",
+  "description": "Daily sum of order amounts, including unassigned segments.",
+  "examples": [
+    {
+      "description": "Three-day north revenue",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      }
+    }
+  ],
+  "owner": "analytics",
+  "domain": "finance",
+  "links": [
+    {
+      "label": "Definition",
+      "url": "https://example.com/revenue"
+    }
+  ],
+  "inputs": {
+    "start": {
+      "type": "date"
+    },
+    "end": {
+      "type": "date"
+    },
+    "segment": {
+      "type": "string",
+      "nullable": true,
+      "required": false,
+      "enum": [
+        "A",
+        "B"
+      ],
+      "default": {
+        "value": null
+      }
+    }
+  },
+  "outputs": {
+    "day": {
+      "type": "date"
+    },
+    "segment": {
+      "type": "string",
+      "nullable": true
+    },
+    "revenue": {
+      "type": "decimal",
+      "precision": 38,
+      "scale": 2
+    }
+  },
+  "filters": {
+    "segment": {
+      "operators": [
+        "eq",
+        "in",
+        "is_null"
+      ],
+      "max_values": 10
+    },
+    "day": {
+      "operators": [
+        "eq",
+        "gte",
+        "lt"
+      ]
+    }
+  },
+  "sort": {
+    "fields": [
+      "day",
+      "segment"
+    ],
+    "max_fields": 2
+  },
+  "grain": "daily",
+  "units": {
+    "revenue": {
+      "unit": "money",
+      "currency": "USD"
+    }
+  },
+  "timezone": "America/New_York",
+  "date_boundaries": {
+    "start_input": "start",
+    "end_input": "end",
+    "interval": "[start,end)"
+  },
+  "aggregation": "Sum of order amounts",
+  "freshness": {
+    "required": true,
+    "max_age_seconds": 86400,
+    "meaning": "source_load"
+  },
+  "binding_id": "revenue-orders",
+  "binding_revision": 1,
+  "adapter_revision": "cube-rest-v1",
+  "policy_id": "revenue-access",
+  "classification": "internal",
+  "redaction": {
+    "start": "digest",
+    "end": "digest",
+    "segment": "omit"
+  },
+  "fixtures": [
+    {
+      "id": "north-total",
+      "version": "1",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      },
+      "expected_rows": [
+        {
+          "day": "2024-03-09",
+          "segment": "A",
+          "revenue": "10.10"
+        },
+        {
+          "day": "2024-03-10",
+          "segment": null,
+          "revenue": "20.20"
+        },
+        {
+          "day": "2024-03-11",
+          "segment": "A",
+          "revenue": "9007199254740993.01"
+        }
+      ],
+      "tolerance": "0.00",
+      "source_watermark": "2024-03-12T00:00:00Z"
+    },
+    {
+      "id": "south-total",
+      "version": "1",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      },
+      "expected_rows": [
+        {
+          "day": "2024-03-09",
+          "segment": "A",
+          "revenue": "100.00"
+        },
+        {
+          "day": "2024-03-10",
+          "segment": "B",
+          "revenue": "0.01"
+        }
+      ],
+      "tolerance": "0.00",
+      "source_watermark": "2024-03-12T00:00:00Z"
+    },
+    {
+      "id": "empty",
+      "version": "1",
+      "inputs": {
+        "start": "2025-01-01",
+        "end": "2025-01-02"
+      },
+      "expected_rows": [],
+      "source_watermark": "2024-03-12T00:00:00Z"
+    },
+    {
+      "id": "range-367",
+      "version": "1",
+      "inputs": {
+        "start": "2024-01-01",
+        "end": "2025-01-02"
+      },
+      "expected_error": "INVALID_INPUT"
+    }
+  ],
+  "content_digest": null,
+  "model_bundle_digest": "228090dcbeaf8416a1e8a14d4e17c2873f9963ec3346d728650308ee5684d8ba"
+}

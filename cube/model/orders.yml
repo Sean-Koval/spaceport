@@ -1,0 +1,28 @@
+cubes:
+  - name: Orders
+    sql: SELECT id, tenant_id, access_group, ordered_at, segment, amount FROM demo_source.orders
+    refresh_key:
+      every: 1 second
+      sql: SELECT MAX(loaded_at) FROM demo_source.watermark
+    measures:
+      - name: revenue
+        sql: amount
+        type: sum
+    dimensions:
+      - name: id
+        sql: id
+        type: string
+        primary_key: true
+        public: true
+      - name: tenant_id
+        sql: tenant_id
+        type: string
+      - name: access_group
+        sql: access_group
+        type: string
+      - name: ordered_at
+        sql: ordered_at
+        type: time
+      - name: segment
+        sql: segment
+        type: string

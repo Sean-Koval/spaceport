@@ -1,0 +1,14 @@
+cubes:
+  - name: Watermark
+    sql: SELECT tenant_id, loaded_at FROM test_source.watermark
+    refresh_key:
+      every: 1 second
+      sql: SELECT MAX(loaded_at) FROM test_source.watermark
+    dimensions:
+      - name: tenant_id
+        sql: tenant_id
+        type: string
+        primary_key: true
+      - name: loaded_at
+        sql: loaded_at
+        type: time

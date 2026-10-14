@@ -1,0 +1,238 @@
+
+react
+{
+  "version": "19.3.0",
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "license": "MIT"
+}
+
+react-dom
+{
+  "version": "19.3.0",
+  "peerDependencies": {
+    "react": "^19.3.0"
+  },
+  "license": "MIT"
+}
+
+vite
+{
+  "version": "8.3.4",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "peerDependencies": {
+    "tsx": "^4.8.1",
+    "jiti": ">=1.21.0",
+    "less": "^4.0.0",
+    "sass": "^1.70.0",
+    "yaml": "^2.4.2",
+    "stylus": ">=0.54.8",
+    "terser": "^5.16.0",
+    "esbuild": "^0.27.0 || ^0.28.0",
+    "sugarss": "^5.0.0",
+    "@types/node": "^20.19.0 || >=22.12.0",
+    "sass-embedded": "^1.70.0",
+    "@vitejs/devtools": "^0.7.1"
+  },
+  "license": "MIT"
+}
+
+typescript
+{
+  "version": "7.0.2",
+  "engines": {
+    "node": ">=16.20.0"
+  },
+  "license": "Apache-2.0"
+}
+
+@vitejs/plugin-react
+{
+  "version": "6.1.2",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0",
+    "oxc-transform-react": "^0.152.0",
+    "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0",
+    "babel-plugin-react-compiler": "^1.0.0"
+  },
+  "license": "MIT"
+}
+
+vitest
+{
+  "version": "5.0.4",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "peerDependencies": {
+    "vite": "^6.4.0 || ^7.0.0 || ^8.0.0",
+    "jsdom": "*",
+    "happy-dom": "*",
+    "@vitest/ui": "5.0.4",
+    "@types/node": "^22.0.0 || >=24.0.0",
+    "@edge-runtime/vm": "*",
+    "@opentelemetry/api": "^1.9.0",
+    "@vitest/coverage-v8": "5.0.4",
+    "@vitest/browser-preview": "5.0.4",
+    "@vitest/coverage-istanbul": "5.0.4",
+    "@vitest/browser-playwright": "5.0.4",
+    "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0"
+  },
+  "license": "MIT"
+}
+
+@playwright/test
+{
+  "version": "1.64.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0"
+}
+
+openapi-typescript
+{
+  "version": "7.13.0",
+  "peerDependencies": {
+    "typescript": "^5.x"
+  },
+  "license": "MIT"
+}
+
+openapi-fetch
+{
+  "version": "0.17.0",
+  "license": "MIT"
+}
+
+@tanstack/react-query
+{
+  "version": "5.104.2",
+  "peerDependencies": {
+    "react": "^18 || ^19"
+  },
+  "license": "MIT"
+}
+
+react-router-dom
+{
+  "version": "7.18.4",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "license": "MIT"
+}
+
+react-hook-form
+{
+  "version": "7.90.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17 || ^18 || ^19",
+    "@types/react": "*"
+  },
+  "license": "MIT"
+}
+
+@radix-ui/themes
+{
+  "version": "3.3.0",
+  "peerDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "react": "16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc",
+    "react-dom": "16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+  },
+  "license": "MIT"
+}
+
+@testing-library/react
+{
+  "version": "16.3.3",
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "@types/react": "^18.0.0 || ^19.0.0",
+    "@types/react-dom": "^18.0.0 || ^19.0.0",
+    "@testing-library/dom": "^10.0.0"
+  },
+  "license": "MIT"
+}
+
+@testing-library/user-event
+{
+  "version": "14.6.8",
+  "engines": {
+    "npm": ">=6",
+    "node": ">=12"
+  },
+  "peerDependencies": {
+    "@testing-library/dom": ">=7.21.4"
+  },
+  "license": "MIT"
+}
+
+@testing-library/jest-dom
+{
+  "version": "7.0.1",
+  "engines": {
+    "npm": ">=6",
+    "node": ">=22",
+    "yarn": ">=1"
+  },
+  "peerDependencies": {
+    "vitest": ">= 0.32",
+    "@testing-library/dom": ">=10 <11"
+  },
+  "license": "MIT"
+}
+
+jsdom
+{
+  "version": "30.1.2",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "peerDependencies": {
+    "canvas": "^3.2.3"
+  },
+  "license": "MIT"
+}
+
+@types/react
+{
+  "version": "19.3.0",
+  "peerDependencies": {},
+  "license": "MIT"
+}
+
+@types/react-dom
+{
+  "version": "19.3.0",
+  "peerDependencies": {
+    "@types/react": "^19.3.0"
+  },
+  "license": "MIT"
+}
+
+@types/node
+{
+  "version": "26.6.5",
+  "peerDependencies": {},
+  "license": "MIT"
+}

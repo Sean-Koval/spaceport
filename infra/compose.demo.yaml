@@ -1,0 +1,347 @@
+{
+  "services": {
+    "gateway": {
+      "image": "${GATEWAY_APP_IMAGE:?Prepared immutable application image required}",
+      "pull_policy": "never",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "entrypoint": [
+        "python"
+      ],
+      "command": [
+        "-m",
+        "uvicorn",
+        "gateway.runtime:app_factory",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--no-access-log",
+        "--no-proxy-headers",
+        "--timeout-graceful-shutdown",
+        "125"
+      ],
+      "secrets": [
+        "registry_app",
+        "cube_signing_key",
+        "cube_test_signing_key",
+        "audit_hmac",
+        "cursor_key"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "user": "65532:65532",
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?Explicit synthetic run identity required}"
+      },
+      "stop_grace_period": "130s",
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "GATEWAY_DEMO_PORT": "${GATEWAY_DEMO_PORT:-8080}",
+        "OTEL_SDK_DISABLED": "true",
+        "DO_NOT_TRACK": "1"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200"
+        ],
+        "interval": "3s",
+        "timeout": "5s",
+        "retries": 30
+      },
+      "volumes": [
+        "${GATEWAY_RUNTIME_AUTH_DIR:?Private hash-only directory required}:/run/auth:ro"
+      ]
+    },
+    "worker": {
+      "image": "${GATEWAY_APP_IMAGE:?Prepared immutable application image required}",
+      "pull_policy": "never",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "entrypoint": [
+        "python"
+      ],
+      "command": [
+        "-m",
+        "gateway.runtime",
+        "worker"
+      ],
+      "secrets": [
+        "registry_app",
+        "cube_signing_key",
+        "cube_test_signing_key",
+        "audit_hmac",
+        "cursor_key"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "user": "65532:65532",
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?Explicit synthetic run identity required}"
+      },
+      "stop_grace_period": "130s",
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "OTEL_SDK_DISABLED": "true",
+        "DO_NOT_TRACK": "1"
+      },
+      "volumes": [
+        "${GATEWAY_RUNTIME_AUTH_DIR:?Private hash-only directory required}:/run/auth:ro"
+      ]
+    },
+    "retention": {
+      "image": "${GATEWAY_APP_IMAGE:?Prepared immutable application image required}",
+      "pull_policy": "never",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "entrypoint": [
+        "python"
+      ],
+      "command": [
+        "-m",
+        "gateway.runtime",
+        "retention"
+      ],
+      "secrets": [
+        "registry_app",
+        "registry_audit_retention"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "user": "65532:65532",
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?Explicit synthetic run identity required}"
+      },
+      "stop_grace_period": "130s",
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "OTEL_SDK_DISABLED": "true",
+        "DO_NOT_TRACK": "1"
+      }
+    },
+    "migrate": {
+      "image": "${GATEWAY_APP_IMAGE:?Prepared immutable application image required}",
+      "pull_policy": "never",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "entrypoint": [
+        "python"
+      ],
+      "command": [
+        "-m",
+        "gateway.bootstrap",
+        "migrate"
+      ],
+      "secrets": [
+        "registry_owner"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "user": "65532:65532",
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?Explicit synthetic run identity required}"
+      },
+      "stop_grace_period": "130s",
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "OTEL_SDK_DISABLED": "true",
+        "DO_NOT_TRACK": "1"
+      },
+      "profiles": [
+        "operator"
+      ]
+    },
+    "bootstrap": {
+      "image": "${GATEWAY_APP_IMAGE:?Prepared immutable application image required}",
+      "pull_policy": "never",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "entrypoint": [
+        "python"
+      ],
+      "command": [
+        "-m",
+        "gateway.bootstrap",
+        "provision"
+      ],
+      "secrets": [
+        "registry_owner"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp"
+      ],
+      "user": "65532:65532",
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "384m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?Explicit synthetic run identity required}"
+      },
+      "stop_grace_period": "130s",
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "OTEL_SDK_DISABLED": "true",
+        "DO_NOT_TRACK": "1"
+      },
+      "profiles": [
+        "operator"
+      ]
+    },
+    "edge": {
+      "image": "${GATEWAY_EDGE_IMAGE:?Prepared immutable publisher image required}",
+      "pull_policy": "never",
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "user": "101:101",
+      "volumes": [
+        "./edge.demo.conf:/etc/nginx/nginx.conf:ro"
+      ],
+      "ports": [
+        {
+          "target": 8080,
+          "published": "${GATEWAY_DEMO_PORT:-8080}",
+          "host_ip": "127.0.0.1",
+          "protocol": "tcp"
+        }
+      ],
+      "depends_on": {
+        "gateway": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "registry-db": {
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "pull_policy": "never"
+    },
+    "demo-db": {
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "pull_policy": "never"
+    },
+    "cube": {
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "pull_policy": "never"
+    },
+    "cube-test": {
+      "networks": [
+        "private"
+      ],
+      "dns": [
+        "127.0.0.1"
+      ],
+      "pull_policy": "never"
+    }
+  },
+  "secrets": {
+    "audit_hmac": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?Private secret directory required}/audit_hmac"
+    },
+    "cursor_key": {
+      "file": "${GATEWAY_RUNTIME_SECRET_DIR:?Private secret directory required}/cursor_key"
+    }
+  }
+}
