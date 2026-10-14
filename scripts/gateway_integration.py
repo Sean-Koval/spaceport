@@ -133,9 +133,13 @@ def parse_collection(text):
     nodes = [line.strip() for line in text.splitlines() if line.startswith('tests/') and '::' in line]
     identities = []
     for node in nodes:
-        parts = node.split('::')
-        if not parts[0].endswith('.py') or any(not part for part in parts):
+        # Pytest treats everything from the first '[' as the parameter suffix.
+        # Separators inside that suffix belong to the testcase name, not its class.
+        address, bracket, parameters = node.partition('[')
+        parts = address.split('::')
+        if len(parts) < 2 or not parts[0].endswith('.py') or any(not part for part in parts):
             raise ValueError('Invalid collected identity')
+        parts[-1] += bracket + parameters
         identities.append((parts[0][:-3].replace('/', '.') + ('.' + '.'.join(parts[1:-1]) if len(parts) > 2 else ''), parts[-1]))
     if not identities or len(set(identities)) != len(identities):
         raise ValueError('Missing or duplicate collected identity')

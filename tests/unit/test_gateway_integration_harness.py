@@ -74,6 +74,41 @@ def test_collection_rejects_empty_duplicate_and_unexpected_lines(harness):
         with pytest.raises(ValueError):harness.parse_collection(source)
 
 
+def test_collection_rejects_filename_parameter_without_structural_testcase(harness):
+    with pytest.raises(ValueError,match='Invalid collected identity'):
+        harness.parse_collection('tests/unit/test_examples.py[::1]\n')
+
+
+@pytest.mark.parametrize('payload',['::1','a::b','quote"[\'::]tail','é::雪'])
+def test_collection_preserves_parameter_payload_after_class_method_boundary(harness,payload):
+    name='test_case['+payload+']'
+    source='tests/unit/test_examples.py::TestExamples::'+name+'\n'
+    expected={('tests.unit.test_examples.TestExamples',name)}
+    assert harness.parse_collection(source)==expected
+    with pytest.raises(ValueError,match='duplicate'):
+        harness.parse_collection(source+source)
+
+
+def test_real_pytest_class_parameter_collection_matches_complete_junit(harness,tmp_path):
+    directory=tmp_path/'tests/unit';directory.mkdir(parents=True)
+    selection=['tests/unit/test_parameter_payloads.py']
+    (directory/'test_parameter_payloads.py').write_text(
+        'import pytest\nclass TestParameterPayloads:\n'
+        '    @pytest.mark.parametrize("value", '+repr(['::1','quote"[\'::]tail','é::雪'])+')\n'
+        '    def test_parameter(self, value):\n        assert isinstance(value, str)\n')
+    command=[sys.executable,'-m','pytest',*selection]
+    options={'cwd':tmp_path,'env':harness.verify_demo.pytest_environment(),
+        'capture_output':True,'text':True,'check':True,'timeout':10}
+    collected=subprocess.run([*command,'--collect-only','-q'],**options)
+    expected=harness.parse_collection(collected.stdout)
+    classname='tests.unit.test_parameter_payloads.TestParameterPayloads'
+    assert expected=={(classname,name) for name in (
+        'test_parameter[::1]','test_parameter[quote"[\'::]tail]',r'test_parameter[\xe9::\u96ea]')}
+    output=tmp_path/'cases.xml'
+    subprocess.run([*command,'-q','--junitxml='+str(output)],**options)
+    assert harness.validate_backend_junit(output,expected)==3
+
+
 def test_failure_summary_never_contains_raw_diagnostics(harness, tmp_path):
     program = tmp_path / 'private-program.py'
     program.write_text('print("PRIVATE_SENTINEL");raise SystemExit(7)')
