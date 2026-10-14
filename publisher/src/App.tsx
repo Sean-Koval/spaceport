@@ -10,6 +10,7 @@ import {
 import { Theme } from '@radix-ui/themes';
 import { AuthProvider, AuthGate, useAuth } from './auth';
 import { ProtectedView } from './access';
+import { Icon } from './Icon';
 const Catalog = lazy(() => import('./pages/Catalog'));
 const Product = lazy(() => import('./pages/Product'));
 const Editor = lazy(() => import('./pages/Editor'));
@@ -47,9 +48,7 @@ function Layout() {
       </div>
       <header>
         <Link className="brand" to="/catalog">
-          <span className="brand-mark" aria-hidden="true">
-            ▦
-          </span>{' '}
+          <Icon name="port" className="brand-mark" />
           Spaceport
         </Link>
         <nav aria-label="Primary">
@@ -58,6 +57,7 @@ function Layout() {
             <>
               <Link to="/drafts/new">Create draft</Link>
               <button className="text-button" onClick={end}>
+                <Icon name="exit" />
                 End session
               </button>
             </>
@@ -108,7 +108,7 @@ export function App() {
   );
   useEffect(() => () => router.dispose(), [router]);
   return (
-    <Theme accentColor="teal" grayColor="slate" radius="medium">
+    <Theme accentColor="orange" grayColor="gray" radius="none">
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>

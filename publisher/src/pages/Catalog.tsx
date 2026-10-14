@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useGateway } from '../auth';
 import { useAccess } from '../access';
 import { ErrorNotice, Loading } from '../ui';
+import { Icon } from '../Icon';
 export default function Catalog() {
   const { client, generation } = useGateway();
   const [params, setParams] = useSearchParams();
@@ -19,11 +20,12 @@ export default function Catalog() {
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">Discover · understand · use</p>
+          <p className="eyebrow">Data products</p>
           <h1>Catalog</h1>
-          <p>Named data products with explicit meaning and reviewed versions.</p>
+          <p>Browse product definitions, contracts, and published versions.</p>
         </div>
         <Link className="button secondary" to="/drafts/new">
+          <Icon name="plus" />
           Create draft
         </Link>
       </div>
@@ -43,7 +45,10 @@ export default function Catalog() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button>Search</button>
+          <button>
+            <Icon name="search" />
+            Search
+          </button>
         </div>
       </form>
       {result.isPending ? (
@@ -58,14 +63,19 @@ export default function Catalog() {
             <ul className="catalog-grid">
               {result.data.items.map((item) => (
                 <li className="panel product-card" key={`${item.product_id}:${item.version}`}>
-                  <p className="eyebrow">
-                    {item.domain ?? 'Data product'} · {item.status}
-                  </p>
+                  <div className="card-meta">
+                    <p className="eyebrow">{item.domain ?? 'Data product'}</p>
+                    <span className="product-status">
+                      {item.status === 'published' && <Icon name="check" />}
+                      {item.status}
+                    </span>
+                  </div>
                   <h2>
                     <Link
                       to={`/products/${encodeURIComponent(item.product_id)}?version=${encodeURIComponent(item.version)}`}
                     >
                       {item.name}
+                      <Icon name="arrow-up-right" />
                     </Link>
                   </h2>
                   <p>{item.description ?? 'Description not provided in this view.'}</p>

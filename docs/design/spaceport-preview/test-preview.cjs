@@ -17,6 +17,21 @@ function check(name, fn) { fn(); passed++; console.log(`PASS ${name}`); }
 function input(selector, value) { $(selector).value = value; $(selector).dispatchEvent(new w.Event('input', { bubbles: true })); }
 function route(hash) { w.location.hash = hash; w.dispatchEvent(new w.HashChangeEvent('hashchange')); }
 check('catalog displays six synthetic products', () => assert.equal(d.querySelectorAll('.card').length, 6));
+check('visual language uses SVG icons rather than decorative glyphs', () => {
+  assert.ok(!/[\p{Extended_Pictographic}\uFE0F\u{1F1E6}-\u{1F1FF}✓◇◐↗←→↓▦]/u.test(html));
+  for (const selector of ['#theme', '.status', '.card h2 a', '.check-icon', '#copy']) {
+    assert.ok($(selector).querySelector('svg'), selector);
+  }
+  for (const icon of d.querySelectorAll('svg')) {
+    assert.equal(icon.getAttribute('aria-hidden'), 'true');
+    assert.equal(icon.getAttribute('focusable'), 'false');
+  }
+});
+check('headings describe the current task directly', () => {
+  assert.equal($('#catalog-title').textContent, 'Data catalog');
+  assert.equal($('#review-title').textContent, 'Review publication');
+  assert.equal($('#overview h2').textContent, 'Product definition');
+});
 check('search filters by meaning', () => { input('#search', 'refunds'); assert.equal(d.querySelectorAll('.card').length, 2); });
 check('empty state safely handles markup-shaped input', () => { input('#search', '<img src=x onerror=alert(1)>'); assert.equal(d.querySelectorAll('.card').length, 0); assert.ok($('#clear')); assert.equal(d.querySelectorAll('img').length, 0); });
 check('clear filters restores catalog', () => { $('#clear').click(); assert.equal(d.querySelectorAll('.card').length, 6); });

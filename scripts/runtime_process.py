@@ -151,7 +151,7 @@ def supervise(command, output_fd, timeout, env, cwd, limit_bytes, expected_paren
                         selector.unregister(key.fileobj)
                         continue
                     allowed = min(len(data), max(0, limit_bytes-count))
-                    output.write(data[:allowed]); count += len(data)
+                    output.write(data[:allowed]); output.flush(); count += len(data)
                     if count > limit_bytes:
                         result.update(exit_status=125, output_limit_exceeded=True)
                         break

@@ -4,6 +4,14 @@ set -euo pipefail
 VERIFY_MODE=full
 INTEGRATION_STATE=""
 INTEGRATION_RECEIPTS=""
+CHECKPOINT=cube-preflight
+failure_checkpoint() {
+  local result="$1"
+  if (( result != 0 )); then
+    printf 'GATEWAY_FAILURE_EVIDENCE {"kind":"checkpoint","checkpoint":"%s","exit_status":%d}\n' "$CHECKPOINT" "$result" >&2
+  fi
+}
+trap 'failure_checkpoint "$?"' EXIT
 usage() {
   printf 'Usage: %s [--diagnostic | --backend-acceptance RECEIPTS_DIR | --demo-prerequisites STATE_DIR RECEIPTS_DIR]\n' "$0" >&2
   exit 2
@@ -48,6 +56,7 @@ export GATEWAY_RUNTIME_EVIDENCE_DIR="$TEMP_DIR/evidence"
 export GATEWAY_PROBE_IMAGE="$PROJECT-probe:local"
 export GATEWAY_CUBE_RUN_LABEL="${GITHUB_RUN_ID:-$PROJECT}-${GITHUB_RUN_ATTEMPT:-local}"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
+  CHECKPOINT=cube-register-cleanup
   export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"
   uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
@@ -70,6 +79,7 @@ start_private_stack() {
   return "$result"
 }
 cleanup() {
+  failure_checkpoint "$?"
   bounded 45 "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   bounded 15 docker image rm "$GATEWAY_PROBE_IMAGE" >/dev/null 2>&1 || true
   rm -rf -- "$TEMP_DIR"
@@ -78,9 +88,11 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir "$GATEWAY_RUNTIME_SECRET_DIR" "$GATEWAY_RUNTIME_EVIDENCE_DIR" "$TEMP_DIR/build"
+CHECKPOINT=cube-create-secrets
 uv run --locked --offline python scripts/cube_runtime_secrets.py --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR"
 # Preparation happens before the internally isolated services start. Exact
 # official images only; this process has no registry login or external secrets.
+CHECKPOINT=cube-images
 uv run --locked --offline python - "$TEMP_DIR/images.txt" <<'PY'
 import json
 from pathlib import Path
@@ -112,6 +124,7 @@ PYIMAGE
 done < "$TEMP_DIR/images.txt"
 # File-backed Compose secrets retain source permissions. Verify the actual
 # intended non-root UID against individual read-only mounts before initialization.
+CHECKPOINT=cube-secret-readability
 for service in registry-db demo-db; do
   readarray -t names < <(uv run --locked --offline python - "$service" <<'PYNAMES'
 import json
@@ -139,6 +152,7 @@ PYNAMES
 done
 # Copy the exact already-installed uv-managed Python and locked package set.
 # No pip, curl, apt or mutable image/dependency resolution occurs in the build.
+CHECKPOINT=cube-probe-image
 python_root=$(uv run --locked --offline python -c 'import sys; print(sys.base_prefix)')
 packages=$(uv run --locked --offline python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
 cp -a "$python_root" "$TEMP_DIR/build/python"
@@ -147,9 +161,11 @@ cp infra/Probe.Dockerfile "$TEMP_DIR/build/Dockerfile"
 bounded 120 docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_PROBE_IMAGE" "$TEMP_DIR/build"
 bounded 15 docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
 bounded 15 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
+CHECKPOINT=cube-stack-readiness
 start_private_stack registry-db demo-db cube cube-test edge
 # Initialization must succeed after the official entrypoint drops to UID999.
 # Read-only per-service mounts are unchanged; no contents/passwords are logged.
+CHECKPOINT=cube-role-initializers
 for service in registry-db demo-db; do
   bounded 15 "${COMPOSE[@]}" exec -T --user 999:999 "$service" sh -c '
     set -eu
@@ -163,12 +179,14 @@ test "$registry_roles" = 4
 demo_roles=$(bounded 15 "${COMPOSE[@]}" exec -T --user 999:999 demo-db psql --no-psqlrc -U synthetic_admin -d gateway_demo -Atqc "SELECT count(*) FROM pg_roles WHERE rolname IN ('source_owner','demo_reader','fixture_reader','fixture_observer') AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")
 test "$demo_roles" = 4
 printf 'Observed both private PostgreSQL initializers with four non-elevated synthetic roles each\n'
+CHECKPOINT=cube-runtime-versions
 bounded 15 "${COMPOSE[@]}" exec -T cube node -p 'require("@cubejs-backend/server-core/package.json").version'
 bounded 15 "${COMPOSE[@]}" exec -T cube node -p 'require("jsonwebtoken/package.json").version'
 bounded 15 "${COMPOSE[@]}" exec -T demo-db postgres --version
 bounded 15 "${COMPOSE[@]}" exec -T edge nginx -v
 bounded 15 "${COMPOSE[@]}" exec -T cube sh -c 'test "$(node -p '\''require("@cubejs-backend/server-core/package.json").version'\'')" = "1.8.5"'
 # Record safe topology only. Never dump container env, mounts or credentials.
+CHECKPOINT=cube-topology
 container_ids=$(bounded 15 "${COMPOSE[@]}" ps --all --quiet)
 record_private_topology() {
 bounded 60 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
@@ -217,8 +235,11 @@ PY
 }
 record_private_topology
 # Real release Node process executes the same security tests, without substitutes.
+CHECKPOINT=cube-node-security
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=/cube/conf/security.js cube node --test tests/runtime/context.test.js
+CHECKPOINT=cube-auth-security
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube.js cube node --test tests/runtime/auth-wrapper.test.js
+CHECKPOINT=cube-egress
 for service in cube cube-test; do
   bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'
 const net=require('node:net');
@@ -234,7 +255,16 @@ done
 # The bind-mounted evidence is also written by host pytest after restart.
 # Keep both probe phases on the host writer UID/GID instead of creating root-owned
 # files; no permission changes to evidence, secrets, or repository are needed.
-bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe
+CHECKPOINT=cube-probe-tests
+uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/diagnostic-source.json" <<'PYSOURCE'
+from pathlib import Path
+import sys
+from scripts.demo_runtime import private_json
+from scripts.pytest_runtime_diagnostics import freeze_source
+private_json(Path(sys.argv[1]), freeze_source())
+PYSOURCE
+bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe tests/integration/test_cube_compatibility.py -m cube -q --junitxml=/evidence/cube.xml -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
+CHECKPOINT=cube-junit-admission
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
@@ -244,12 +274,16 @@ assert all(int(s.get(k,'0'))==0 for s in suites for k in ('errors','failures','s
 print('Real pinned Cube gate: '+str(sum(int(s.get('tests','0')) for s in suites))+' tests, zero skips/errors/failures')
 PY
 # Restart the actual databases and both Cube endpoints, preserving named volumes.
+CHECKPOINT=cube-restart
 bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
 # A restart can reassign bridge addresses. Re-inspect the original container
 # IDs and all existing trust boundaries after readiness before host-side tests.
+CHECKPOINT=cube-stack-readiness
 start_private_stack registry-db demo-db cube cube-test
+CHECKPOINT=cube-topology
 record_private_topology
-bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart'
+CHECKPOINT=cube-restart-tests
+bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart' -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
 # Existing registry verifier defaults to full acceptance; diagnostics are explicit.
 # Its project pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads
@@ -268,8 +302,10 @@ run_registry_verification() {
     bounded 360 bash scripts/verify_registry_postgres.sh
   fi
 }
+CHECKPOINT=registry-gate
 run_registry_verification
 # Selected, sanitized actual response shapes and source/network evidence only.
+CHECKPOINT=cube-evidence-admission
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR" <<'PY'
 import json
 from pathlib import Path

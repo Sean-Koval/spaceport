@@ -101,20 +101,39 @@ def utc_now():
 def run_phase(name, command, output, budget, seconds, *, env=None):
     """Run a fixed command with a bounded log and exact descendant supervision."""
     from scripts.runtime_process import bounded_process
+    from scripts.pytest_runtime_diagnostics import emit_phase_failure, phase_failure_evidence, evidence_pytest_command, freeze_source
     row = {'phase': name, 'command': command, 'started_at': utc_now(),
         'status': 'BLOCKED', 'exit_status': None, 'timed_out': False,
         'output_limit_exceeded': False}
     try:
         budget.admit(seconds)
     except Blocked:
+        row['failure_evidence'] = {'reason': 'phase_budget', 'details_status': 'unavailable', 'markers': []}
+        emit_phase_failure(row['failure_evidence'])
         return {**row, 'finished_at': utc_now(), 'reason': 'insufficient_remaining_phase_budget'}
     path = output / (name + '.log')
-    result = bounded_process(command, path, timeout=seconds, env=env, cwd=ROOT, limit_bytes=MAX_LOG_BYTES)
-    if result.get('descendant_cleanup') is not True:
-        raise Blocked('Owned process cleanup is unverified; later phases must not start')
-    return {**row, **result, 'finished_at': utc_now(),
-        'status': 'PASS' if result['exit_status'] == 0 and result['descendant_cleanup'] else 'BLOCKED',
-        'log': path.name, 'log_sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    command = evidence_pytest_command(command)
+    try:
+        if name != 'exact-cleanup': freeze_source()
+        result = bounded_process(command, path, timeout=seconds, env=env, cwd=ROOT, limit_bytes=MAX_LOG_BYTES)
+        if result.get('exit_status') != 0 or result.get('descendant_cleanup') is not True:
+            row['failure_evidence'] = phase_failure_evidence(path, result)
+            emit_phase_failure(row['failure_evidence'])
+        if result.get('descendant_cleanup') is not True:
+            blocked = Blocked('Owned process cleanup is unverified; later phases must not start')
+            blocked.phase_row = {**row, **result, 'finished_at': utc_now()}
+            raise blocked
+        return {**row, **result, 'finished_at': utc_now(),
+            'status': 'PASS' if result['exit_status'] == 0 and result['descendant_cleanup'] else 'BLOCKED',
+            'log': path.name, 'log_sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        if isinstance(error, Blocked) and hasattr(error, 'phase_row'): raise
+        row['failure_evidence'] = {'reason': 'work_interrupted' if isinstance(error, Blocked) else 'supervision_exception',
+            'details_status': 'unavailable', 'markers': []}
+        emit_phase_failure(row['failure_evidence'])
+        blocked = Blocked('Owned phase supervision did not return a verified result; later phases must not start')
+        blocked.phase_row = {**row, 'finished_at': utc_now()}
+        raise blocked from None
 
 
 def current_source():
@@ -474,9 +493,11 @@ def integrate(mode, root):
         if current_source() != report['source']:
             raise Blocked('Source changed during integration')
         report['status'] = 'PASS' if all(row['status'] == 'PASS' for row in rows) else 'BLOCKED'
-    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError):
+    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
         # Exact commands/timestamps/status are retained; subprocess output stays
         # private. Never print arbitrary exceptions containing environment data.
+        if isinstance(error, Blocked) and hasattr(error, 'phase_row'):
+            rows.append(error.phase_row)
         report['blocked_reason'] = 'Required tools, source, phase budget, runtime gate or evidence admission failed'
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -484,9 +505,16 @@ def integrate(mode, root):
         try:
             remaining = cleanup_remaining(root)
             cleanup = run_phase('exact-cleanup', [sys.executable, '-m', 'scripts.gateway_integration', '--cleanup-run', str(root)], root, Budget(remaining), remaining - 10)
-        except (ValueError, OSError, RuntimeError, subprocess.SubprocessError):
-            cleanup = {'phase': 'exact-cleanup', 'status': 'BLOCKED', 'exit_status': None,
-                'reason': 'Shared cleanup deadline or exact process termination could not be verified'}
+        except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
+            if isinstance(error, Blocked) and hasattr(error, 'phase_row'):
+                cleanup = error.phase_row
+            else:
+                cleanup = {'phase': 'exact-cleanup', 'status': 'BLOCKED', 'exit_status': None,
+                    'reason': 'Shared cleanup deadline or exact process termination could not be verified',
+                    'failure_evidence': {'reason': 'phase_budget' if isinstance(error, Blocked) else 'supervision_exception',
+                        'details_status': 'unavailable', 'markers': []}}
+                from scripts.pytest_runtime_diagnostics import emit_phase_failure
+                emit_phase_failure(cleanup['failure_evidence'])
         rows.append(cleanup)
         if cleanup['status'] != 'PASS':
             report['status'] = 'BLOCKED'

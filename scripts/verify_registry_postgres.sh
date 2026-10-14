@@ -4,6 +4,14 @@ set -euo pipefail
 VERIFY_MODE=full
 INTEGRATION_STATE=""
 INTEGRATION_RECEIPTS=""
+CHECKPOINT=registry-preflight
+failure_checkpoint() {
+  local result="$1"
+  if (( result != 0 )); then
+    printf 'GATEWAY_FAILURE_EVIDENCE {"kind":"checkpoint","checkpoint":"%s","exit_status":%d}\n' "$CHECKPOINT" "$result" >&2
+  fi
+}
+trap 'failure_checkpoint "$?"' EXIT
 usage() {
   printf 'Usage: %s [--diagnostic | --backend-acceptance RECEIPTS_DIR | --demo-prerequisites STATE_DIR RECEIPTS_DIR]\n' "$0" >&2
   exit 2
@@ -35,6 +43,7 @@ readonly TEMP_DIR="$(mktemp -d)"
 readonly CONTAINER="$RUN_ID"
 RUN_LABEL="${GITHUB_RUN_ID:-$RUN_ID}-${GITHUB_RUN_ATTEMPT:-local}"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
+  CHECKPOINT=registry-register-cleanup
   RUN_LABEL="$RUN_ID-local"
   uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$RUN_ID" "$RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
@@ -46,12 +55,14 @@ fi
 readonly RUN_LABEL
 CONTAINER_ID=""
 cleanup() {
+  failure_checkpoint "$?"
   if [[ -n "$CONTAINER_ID" ]]; then docker rm --force --volumes "$CONTAINER_ID" >/dev/null 2>&1 || true; fi
   rm -rf -- "$TEMP_DIR"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+CHECKPOINT=registry-create-secret
 uv run --locked --offline python - "$TEMP_DIR" <<'PY'
 from pathlib import Path
 import secrets
@@ -62,6 +73,7 @@ password=secrets.token_urlsafe(32)
 (path/'password').write_text(password)
 PY
 # Pull preparation is explicit. No source credentials/secrets enter this container.
+CHECKPOINT=registry-image
 docker pull --platform linux/amd64 "$POSTGRES_IMAGE"
 docker buildx imagetools inspect "$POSTGRES_IMAGE" --raw > "$TEMP_DIR/postgres-index.json"
 uv run --locked --offline python - "$TEMP_DIR/postgres-index.json" <<'PYIMAGE'
@@ -75,6 +87,7 @@ print('Verified PostgreSQL linux/amd64 manifest: '+children[0])
 PYIMAGE
 printf 'PostgreSQL requested index: %s\n' "$POSTGRES_IMAGE"
 docker image inspect "$POSTGRES_IMAGE" --format 'Pulled image ID: {{.Id}}; repo digests: {{json .RepoDigests}}'
+CHECKPOINT=registry-start
 CONTAINER_ID="$(docker run --detach --name "$CONTAINER" --platform linux/amd64 \
   --label gateway.registry.run="$RUN_LABEL" \
   --env-file "$TEMP_DIR/postgres.env" --publish 127.0.0.1::5432 \
@@ -82,10 +95,12 @@ CONTAINER_ID="$(docker run --detach --name "$CONTAINER" --platform linux/amd64 \
   "$POSTGRES_IMAGE")"
 readonly PORT="$(docker inspect "$CONTAINER" --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}')"
 [[ "$PORT" =~ ^[0-9]+$ ]]
+CHECKPOINT=registry-readiness
 if ! uv run --locked --offline python scripts/wait_registry_postgres.py "$TEMP_DIR/password" "$PORT" --timeout 60; then
   docker inspect "$CONTAINER" --format 'Container state={{.State.Status}}, exit={{.State.ExitCode}}' >&2
   exit 1
 fi
+CHECKPOINT=registry-identity
 docker exec "$CONTAINER" postgres --version
 docker inspect "$CONTAINER" --format 'Actual port bindings={{json .HostConfig.PortBindings}}'
 export GATEWAY_TEST_POSTGRES_AUTHORIZATION=disposable-local-postgres-only
@@ -99,7 +114,9 @@ PY
 # No connection URL, password, environment dump or database contents are logged.
 # Explicit integration recorders run the complete selection themselves.
 if [[ "$VERIFY_MODE" == full || "$VERIFY_MODE" == diagnostic ]]; then
+CHECKPOINT=registry-tests
 uv run --locked --offline pytest tests/integration/test_registry.py -m postgres -q --junitxml "$TEMP_DIR/registry.xml"
+CHECKPOINT=registry-junit-admission
 uv run --locked --offline python - "$TEMP_DIR/registry.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
@@ -129,4 +146,5 @@ run_project_verification() {
     uv run --locked --offline pytest -q
   fi
 }
+CHECKPOINT=registry-acceptance
 run_project_verification

@@ -276,6 +276,8 @@ class SuiteSupervisionFailure(RuntimeError):
 
 
 def execute_suite(name,command,evidence,*,env=None,timeout=600,junit=None,binding=None):
+    from scripts.pytest_runtime_diagnostics import emit_phase_failure, phase_failure_evidence, evidence_pytest_command
+    command=evidence_pytest_command(command)
     path=evidence/(name+'.log')
     # Raw output stays private. Unknown process ownership is fatal to the
     # dependent sequence, unlike an ordinary test failure after verified cleanup.
@@ -309,6 +311,9 @@ def execute_suite(name,command,evidence,*,env=None,timeout=600,junit=None,bindin
         if junit is not None and valid_evidence_path(evidence,junit.name) and junit.stat().st_size<=8*1024*1024:paths.append(junit.name)
     row={'suite':name,'classification':'actual','status':status,'tests':count,'junit':junit.name if junit else None,'binding':binding,
         'process':supervision,'evidence_paths':paths,'evidence_sha256':{name:hashlib.sha256((evidence/name).read_bytes()).hexdigest() for name in paths}}
+    if status!='PASS':
+        row['failure_evidence']=phase_failure_evidence(path,supervision or {'descendant_cleanup':False})
+        emit_phase_failure(row['failure_evidence'])
     if fatal:
         row['reason']=fatal
         raise SuiteSupervisionFailure(row)

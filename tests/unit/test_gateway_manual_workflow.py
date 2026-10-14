@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import stat
 import subprocess
 import time
@@ -315,7 +316,9 @@ def source_tools(tmp_path, env, *, commit='a'*40, dirty=False,
         f'"rev-parse HEAD") echo {commit};;\n'
         '"rev-parse HEAD^{tree}") echo ' + 'c'*40 + ';;\n'
         + ('"status --porcelain --untracked-files=all") echo changed;;\n' if dirty else
-           '"status --porcelain --untracked-files=all") :;;\n') + '*) exit 71;; esac')
+           '"status --porcelain --untracked-files=all") :;;\n')
+        + '*" ls-tree -r -z "*) ' + shlex.quote(shutil.which('git')) + ' -C ' + shlex.quote(str(ROOT))
+        + ' ls-tree -r -z HEAD -- tests scripts gateway;;\n*) exit 71;; esac')
     uv_tool(bindir, uv_version, uv_semantic_version)
     fake_tool(bindir, 'docker', 'case "$*" in "compose version --short") echo 2.40.3;; '
         '*) echo "28.5.1 28.5.1";; esac')
@@ -411,3 +414,33 @@ def test_summary_never_promotes_missing_or_untrusted_reports(tmp_path, problem):
     value = json.loads(result.stdout)
     assert value['status'] == 'BLOCKED'
     assert 'Traceback' not in result.stderr
+
+
+@pytest.mark.parametrize('mode', ['backend', 'demo'])
+@pytest.mark.parametrize('kind', ['checkpoint', 'test', 'forged'])
+def test_summary_projects_only_source_bound_failure_evidence(tmp_path, mode, kind):
+    env = source_tools(tmp_path, initialize(tmp_path, INTEGRATION_MODE=mode))
+    assert run('Record checked-out source and actual tools', env).returncode == 0
+    # The hosted summary checks out source before importing its stdlib-only validator.
+    env['PYTHONPATH'] = str(ROOT)
+    marker = {'kind': 'checkpoint', 'checkpoint': 'cube-images', 'exit_status': 7}
+    if kind == 'test':
+        marker = {'kind': 'test', 'test': 'tests/unit/test_gateway_integration_harness.py::test_modes_are_explicit_and_have_exact_argument_arity',
+            'stage': 'call', 'exception': 'AssertionError', 'trace': [{'file': 'tests/unit/test_gateway_integration_harness.py', 'line': 1}]}
+    if kind == 'forged': marker['raw'] = 'PRIVATE_SENTINEL'
+    evidence = {'reason': 'process_exit', 'details_status': 'available', 'markers': [marker]}
+    root = Path(env['GATEWAY_INTEGRATION_ROOT']); root.mkdir(mode=0o700)
+    integration = {'status': 'BLOCKED', 'mode': mode, 'source': {'git_commit': 'a'*40, 'git_tree': 'c'*40},
+        'phases': [{'phase': 'backend-compatibility' if mode == 'backend' else 'verify-state-a',
+            'status': 'BLOCKED', 'exit_status': 7, 'failure_evidence': evidence}]}
+    for name, value in [('integration', integration), ('cleanup', {'status': 'PASS'})]:
+        path = root/(name+'.json'); path.write_text(json.dumps(value)); path.chmod(0o600)
+    result = run('Publish only allowlisted CI summary', env)
+    assert result.returncode == 1
+    value = json.loads(result.stdout)
+    actual = value['phases'][0].get('failure_evidence')
+    assert actual is not None, 'The hosted outer summary must expose bounded failure evidence'
+    if kind == 'forged':
+        assert actual == {'reason': 'process_exit', 'details_status': 'invalid', 'markers': []}
+        assert 'PRIVATE_SENTINEL' not in result.stdout
+    else: assert actual == evidence
