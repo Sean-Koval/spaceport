@@ -135,6 +135,27 @@ def migrate(url, roles, target="head"):
         pytest.fail("Disposable owner migration failed: " + safe_migration_error(completed, url), pytrace=False)
 
 
+def run_migration_pair(url, roles, target="head"):
+    from tests.integration.registry_migration_pair import parse_receipt
+    env = {**os.environ, "GATEWAY_MIGRATION_DATABASE_URL": url.render_as_string(hide_password=False),
+        **{f"GATEWAY_{key.upper()}_ROLE": value for key, value in roles.items()}}
+    try:
+        # One fresh interpreter, still two upgrades and two real snapshots.
+        # The whole pair keeps the existing 60s subprocess ceiling, stricter
+        # than the previous two independent 60s migration invocations.
+        completed = subprocess.run([sys.executable, "-m", "tests.integration.registry_migration_pair", target],
+            cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        pytest.fail("Disposable owner migration pair did not complete", pytrace=False)
+    if completed.returncode:
+        pytest.fail("Disposable owner migration pair failed", pytrace=False)
+    try:
+        value = parse_receipt(completed.stdout, url, target)
+    except ValueError:
+        pytest.fail("Disposable owner migration pair evidence is invalid", pytrace=False)
+    return value['first'], value['second']
+
+
 @pytest.fixture
 def registry_database(request):
     options = getattr(request, "param", {})
@@ -194,10 +215,7 @@ def registry_database(request):
         initial_revision = options.get("initial_revision", "head")
         if initial_revision not in {"head", "0001_registry"}:
             pytest.fail("The disposable fixture accepts only the reviewed migration targets", pytrace=False)
-        migrate(urls["owner"], roles, initial_revision)
-        first = migration_snapshot(urls["owner"])
-        migrate(urls["owner"], roles, initial_revision)
-        second = migration_snapshot(urls["owner"])
+        first, second = run_migration_pair(urls["owner"], roles, initial_revision)
         with psycopg.connect(**connection_kwargs(urls["owner"])) as owner:
             head = owner.execute("SELECT version_num FROM public.alembic_version").fetchone()[0]
             owner.execute("CREATE SCHEMA fixture_source; CREATE TABLE fixture_source.orders (id text PRIMARY KEY, amount numeric(38,2)); INSERT INTO fixture_source.orders VALUES ('synthetic-order',10.10)")
