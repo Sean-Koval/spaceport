@@ -20,7 +20,7 @@ def shell_function(path, name):
 
 
 @pytest.mark.parametrize("script", ["verify_cube_runtime.sh", "verify_registry_postgres.sh"])
-@pytest.mark.parametrize("arguments", [["--unknown"], ["--diagnostic", "extra"]])
+@pytest.mark.parametrize("arguments", [["--unknown"], ["--diagnostic", "extra"], ["--demo-prerequisites"], ["--backend-acceptance"], ["--backend-acceptance", "relative"], ["--demo-prerequisites", "relative", "also-relative"]])
 def test_harness_rejects_unknown_modes_before_any_docker_call(tmp_path, script, arguments):
     marker = tmp_path / "docker-called"
     docker = tmp_path / "docker"
@@ -42,7 +42,7 @@ def invoke_dispatcher(tmp_path, script, function, mode, boundary, status=0):
         f"raise SystemExit({status})\n")
     code = ('set -euo pipefail\n' + shell_function(script, function) + '\n'
         f'{boundary}() {{ "$PYTHON" "$RECORDER" "$@"; }}\n'
-        f'VERIFY_MODE="$MODE"\nTEMP_DIR="$TEMP"\nunset GATEWAY_RUNTIME_SECRET_DIR\n{function}\n')
+        f'VERIFY_MODE="$MODE"\nTEMP_DIR="$TEMP"\nINTEGRATION_STATE="$TEMP/state"\nINTEGRATION_RECEIPTS="$TEMP/receipts"\nunset GATEWAY_RUNTIME_SECRET_DIR\n{function}\n')
     result = subprocess.run(["bash", "-c", code], text=True, capture_output=True,
         env={**os.environ, "CAPTURE": str(output), "RECORDER": str(recorder),
             "PYTHON": sys.executable, "MODE": mode, "TEMP": str(tmp_path)}, timeout=5)
@@ -96,3 +96,24 @@ def test_workflow_mode_is_explicit_and_strict(tmp_path, mode, expected):
             " --diagnostic" if mode == "diagnostic" else "")
     else:
         assert "SCRIPT:" not in result.stdout
+
+
+@pytest.mark.parametrize("mode", ["demo-prerequisites", "backend-acceptance"])
+def test_cube_explicit_integration_modes_keep_bound_and_exact_paths(tmp_path, mode):
+    result, arguments = invoke_dispatcher(tmp_path, "scripts/verify_cube_runtime.sh",
+        "run_registry_verification", mode, "bounded")
+    assert result.returncode == 0
+    assert arguments == ["600" if mode == "backend-acceptance" else "360", "bash", "scripts/verify_registry_postgres.sh", "--" + mode] + (
+        [str(tmp_path / "state"), str(tmp_path / "receipts")] if mode == "demo-prerequisites" else [str(tmp_path / "receipts")])
+
+
+@pytest.mark.parametrize("mode", ["demo-prerequisites", "backend-acceptance"])
+@pytest.mark.parametrize("status", [0, 1, 2])
+def test_registry_explicit_integration_modes_do_not_fall_through_to_full_pytest(tmp_path, mode, status):
+    result, arguments = invoke_dispatcher(tmp_path, "scripts/verify_registry_postgres.sh",
+        "run_project_verification", mode, "uv", status)
+    assert result.returncode == status
+    prefix = ["run", "--locked", "--offline", "python", "-m"]
+    assert arguments == prefix + (
+        ["scripts.verify_demo", "--record-prerequisites", "--state-dir", str(tmp_path / "state"), "--prerequisites-dir", str(tmp_path / "receipts")]
+        if mode == "demo-prerequisites" else ["scripts.gateway_integration", "--record-backends", str(tmp_path / "receipts")])

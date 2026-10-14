@@ -81,3 +81,46 @@ Task 1 tests only these pure contracts. Docker, PostgreSQL, Cube, HTTP transport
 Full immutable image pins, operator bundle digests, upstream source observations and the mandatory test command are in [Cube compatibility](cube.md). The official metadata-only CI job verified Cube v1.8.5's index/platform digests. This is not yet a real-stack pass: actual image/version agreement, single-instance production-mode memory cache/queue, authenticated responses, cache isolation, pending behavior, source-side timeout, restart persistence and blocked egress remain PENDING the reviewed manual runtime job. PostgreSQL 17.11 and Nginx 1.30.5-trixie are pinned by official OCI index and selected linux/amd64 manifest digests. No original-code license or production deployment was authorized.
 
 Task 5 adds no Python package or lock changes. Its local Node tests used v24.19.0; the Cube image's actual packaged Node and jsonwebtoken versions must be recorded by the runtime job. Tagged Cube Docker source refers to Node 24.21.0-trixie-slim, which is a source observation rather than an observed runtime version. Model digests cover config/security/model bytes and must change together with reviewed assets; catalog and Compose values are checked against recomputation.
+
+## Task 10 REST and shared discovery candidate
+
+Exact additions checked against official package metadata on 13 October 2026:
+
+| Package | Exact version | Official source |
+| --- | --- | --- |
+| FastAPI (bare, no standard extras) | 0.143.0 | <https://pypi.org/pypi/fastapi/0.143.0/json> |
+| Starlette | 1.8.0 | <https://pypi.org/pypi/starlette/1.8.0/json> |
+| Uvicorn (bare, no standard extras) | 0.54.0 | <https://pypi.org/pypi/uvicorn/0.54.0/json> |
+| annotated-doc (transitive) | 0.0.5 | Exact artifact hashes in `uv.lock` |
+| opentelemetry-api (FastAPI transitive) | 1.45.1 | Exact artifact hashes in `uv.lock` |
+| click (Uvicorn transitive) | 8.5.0 | Exact artifact hashes in `uv.lock` |
+
+Existing Pydantic 2.14.1 and HTTPX 0.28.1 remain unchanged. The resolved tree adds only these six packages; no OpenTelemetry SDK, exporter, agent instrumentation, FastAPI CLI, Uvicorn standard extras, or replacement HTTP client is installed by this change. Import/ASGI tests with outbound socket connections forbidden establish no unexpected network activity for the tested local factory/catalog paths. They do not replace the mandatory actual blocked-egress demonstration. Authentication can intentionally retrieve the operator-configured OIDC JWKS in non-demo mode.
+
+`gateway.api.app.create_app(services, settings=..., lifespan=...)` composes explicit shared services. The caller owns dependency creation, shutdown, runtime/bootstrap/worker assembly, and any MCP lifespan/root mount. `TransportSettings` requires explicit trusted hosts and exact browser origins; defaults are loopback-only hosts and no cross-origin access. No hosted Swagger/ReDoc assets or public OpenAPI endpoint are enabled. `docs/compatibility/openapi.json` is the deterministic local API/client-generation snapshot, including strict request/response projections, bearer security, page/query inputs, and safe error schemas.
+
+The ASGI boundary caps actual receive bytes at 65,536 before parsing, checks declared length, rejects duplicate JSON/header/query keys and unsafe JSON numbers/depth, uses generated request IDs, applies fixed safe errors and `no-store`, and authenticates configured path prefixes freshly. Input validation does not echo bodies, credentials, or raw service errors. Finished execution failures stay within their authorized `ExecutionView`; public fetch always uses `ResultService`.
+
+Catalog, attachment choices and scoped audit access are shared ordinary Python services. They filter before pagination and audit before release; no unrestricted counts are returned. Catalog continuations use an operator-supplied 32-byte AES-GCM key, five-minute expiry, and encrypted identity/grant/current-policy/query/purpose bindings. These are distinct from stored result cursors. Key rotation invalidates active continuations. Discovery scans at most 1,000 candidates and fails explicitly if this work bound is exceeded. Partial descriptions omit unreviewed prose/examples/links; examples with current visibility/value conflicts are omitted. Descriptions include effective authorized limits. Fixture review responses whitelist display checks and exclude execution authority and isolated fixture-source proof.
+
+Readiness checks the deployed Alembic single head against the app-role registry head, current identity/grants/digest-valid policy, immutable consumer binding and retained bundle, and the private metadata endpoint for an operator-configured published probe product/principal under a shared short deadline. It does not call `/load`. Before that product is provisioned readiness is false while authenticated publishing remains usable. This check is not cache-isolation, source-bound, production, or full-demonstration acceptance.
+
+New genuine PostgreSQL API/service tests are mandatory and separately reported. Mocked ASGI/service checks establish transport behavior only. Runtime ingress/edge wiring belongs to Task 14; the local app factory does not claim that it is deployed or externally reachable.
+
+## Task 11 fixed MCP and independent SDK clients
+
+Selected and locally exercised on 13 October 2026: Python `mcp==2.3.0`, `mcp-types==2.3.0`, TypeScript `@modelcontextprotocol/client@2.3.1`, and protocol `2026-07-28`. Exact artifacts/integrities are locked in `uv.lock` and `clients/package-lock.json`. The combined graph uses HTTPX2/httpcore2 2.13.1, SSE-Starlette 3.5.0 and AnyIO 4.15.1 alongside the unchanged FastAPI 0.143.0 / Starlette 1.8.0 / Uvicorn 0.54.0 / Pydantic 2.14.1 stack. Existing HTTPX 0.28.1 remains the Cube/JWKS client. SDK installation added no CLI or telemetry-exporter extras. No npm audit was transmitted by Task 11.
+
+Observed Python 3.12.14 and Node 24.19.0 clients independently queried the combined app through real loopback Uvicorn HTTP, with pinned modern negotiation, strict tool inputs, fresh per-request auth and lossless structured responses. Explicit service doubles establish only transport/SDK compatibility. Two actual SDK subprocesses also consumed 451 rows across bounded pages and an escaping-heavy 1,048,498-byte canonical business envelope whose observed wire response was 1,739,972 bytes. The MCP wire ceiling is separately bounded at 8,388,608 bytes; the business cap is unchanged.
+
+See [MCP profile and evidence](mcp.md) and [exact tool schemas](mcp-tools.json). Genuine app-role PostgreSQL/REST/MCP parity and full gateway/worker/PostgreSQL/Cube two-profile acceptance have mandatory fail-on-missing-setup suites and remain NOT RUN here. Studio, live OIDC delegation, blocked-egress operation and production gates remain open. Cross-origin browser MCP preflight and legacy MCP are not supported acceptance profiles; the demo uses direct SDK JSON Streamable HTTP.
+
+Task 14 supplied these official Docker Hub metadata-verified build candidates; neither this section nor Task 11 claims they have been built or run:
+
+| Build image | Exact tag | OCI index SHA-256 |
+| --- | --- | --- |
+| Python | `python:3.12.14-slim-bookworm` | `392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e` |
+| Node | `node:24.19.0-bookworm-slim` | `a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df` |
+| uv | `astral/uv:0.12.23` | `61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21` |
+
+The selected-platform image identities, runtime versions, image builds and offline operation must still be verified by Task 14's actual runtime gate.

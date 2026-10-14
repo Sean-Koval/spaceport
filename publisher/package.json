@@ -1,0 +1,48 @@
+{
+  "name": "data-product-publisher",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.19.0",
+    "npm": "11.9.0"
+  },
+  "packageManager": "npm@11.9.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:e2e": "playwright test",
+    "preview": "vite preview --host 127.0.0.1",
+    "generate": "openapi-typescript ../docs/compatibility/openapi.json -o src/generated/api.ts",
+    "check:generated": "node scripts/check-generated.mjs",
+    "format:check": "prettier --check src scripts e2e *.ts *.json *.html ../tests/e2e/publisher.spec.ts"
+  },
+  "dependencies": {
+    "@radix-ui/themes": "3.3.0",
+    "@tanstack/react-query": "5.104.2",
+    "openapi-fetch": "0.17.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "7.90.0",
+    "react-router-dom": "7.18.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "jsdom": "30.1.2",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  }
+}

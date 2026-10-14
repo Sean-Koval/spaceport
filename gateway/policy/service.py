@@ -108,6 +108,15 @@ def derive_decision(grants: PrincipalGrants, action: str, product: PinnedProduct
         raise policy_unavailable() from None
 
 
+class ScopedAuthorization(StrictModel):
+    """Internal metadata scope proof, never executable authority or public input."""
+    principal_id: Identifier
+    policy_id: Identifier
+    policy_revision: int = Field(ge=1)
+    tenant_id: Identifier
+    action: Literal["author", "policy_admin", "audit_view"]
+
+
 class PolicyService:
     def __init__(self, registry: Registry, principals: PrincipalStore, audit: AuditWriter):
         self.registry, self.principals, self.audit = registry, principals, audit
@@ -189,6 +198,47 @@ class PolicyService:
         except (ValidationError, ValueError, TypeError, AttributeError):
             await uow.session.rollback()
             raise GatewayError(ErrorCode.UPSTREAM_UNAVAILABLE, request_id, "Current access policy is unavailable.") from None
+
+    async def authorize_scope(self, principal: Principal, policy_id: str, action: str,
+                              uow: UnitOfWork, *, correlation_id: str | None = None) -> ScopedAuthorization:
+        """Fresh exact-scope administrative permission with mandatory allow/deny audit.
+
+        No product, row constraints, or consumer authority is constructed. Denial
+        aborts the caller transaction, exactly as product authorization does.
+        """
+        if action not in {"author", "policy_admin", "audit_view"}:
+            raise invalid_input("The authorization action is invalid.")
+        request_id = str(uuid4())
+        revision = None
+        try:
+            principal = Principal.model_validate(principal.model_dump(mode="python", warnings=False))
+            request_id = self.audit.event(principal, action, policy_id=policy_id,
+                decision="deny", correlation_id=correlation_id).correlation_id
+            await self._identity(principal, uow)
+            grants = await self.principals.get_current(principal.id, session=uow.session)
+            current, content = await self._current(policy_id, uow)
+            revision = current.revision
+            grant = _scope(grants, policy_id, action, content.rules)
+            authorization = ScopedAuthorization(principal_id=principal.id, policy_id=policy_id,
+                policy_revision=revision, tenant_id=grant.tenant_id, action=action)
+            await self.audit.append(uow, self.audit.event(principal, action, policy_id=policy_id,
+                policy_revision=revision, decision="allow", correlation_id=request_id))
+            return authorization
+        except GatewayError as error:
+            if error.code in {ErrorCode.NOT_FOUND_OR_FORBIDDEN, ErrorCode.UPSTREAM_UNAVAILABLE}:
+                await self._deny(uow, principal, action, product=None, policy_id=policy_id,
+                    policy_revision=revision, correlation_id=request_id)
+            else:
+                await uow.session.rollback()
+            message = "The requested product is unavailable." if error.code == ErrorCode.NOT_FOUND_OR_FORBIDDEN else error.safe_message
+            raise GatewayError(error.code, request_id, message) from None
+        except SQLAlchemyError:
+            await self._deny(uow, principal, action, product=None, policy_id=policy_id,
+                policy_revision=revision, correlation_id=request_id)
+            raise policy_unavailable() from None
+        except (ValidationError, ValueError, TypeError, AttributeError):
+            await uow.session.rollback()
+            raise policy_unavailable() from None
 
     async def change_policy(self, actor: Principal, policy_id: str, rules: dict, reason: str) -> int:
         """Separate policy-admin permission; append revision, head and audit atomically."""

@@ -6,12 +6,16 @@ requires-python = "==3.12.14"
 dependencies = [
     "alembic==1.20.0",
     "cryptography==50.0.2",
+    "fastapi==0.143.0",
     "httpx==0.28.1",
+    "mcp==2.3.0",
     "psycopg[binary]==3.3.6",
     "pydantic==2.14.1",
     "pyjwt[crypto]==2.15.1",
     "rfc8785==0.1.4",
     "sqlalchemy[asyncio]==2.0.54",
+    "starlette==1.8.0",
+    "uvicorn==0.54.0",
 ]
 
 [dependency-groups]

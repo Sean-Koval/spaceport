@@ -2,23 +2,48 @@
 # Disposable synthetic PostgreSQL gate. Never accepts an existing database URL.
 set -euo pipefail
 VERIFY_MODE=full
-if (( $# != 0 )); then
-  if (( $# != 1 )) || [[ "$1" != --diagnostic ]]; then
-    printf 'Usage: %s [--diagnostic]\n' "$0" >&2
-    exit 2
-  fi
-  VERIFY_MODE=diagnostic
-fi
-readonly VERIFY_MODE
+INTEGRATION_STATE=""
+INTEGRATION_RECEIPTS=""
+usage() {
+  printf 'Usage: %s [--diagnostic | --backend-acceptance RECEIPTS_DIR | --demo-prerequisites STATE_DIR RECEIPTS_DIR]\n' "$0" >&2
+  exit 2
+}
+case "${1:-}" in
+  '') (( $# == 0 )) || usage ;;
+  --diagnostic) (( $# == 1 )) || usage; VERIFY_MODE=diagnostic ;;
+  --backend-acceptance)
+    (( $# == 2 )) && [[ "$2" == /* ]] || usage
+    VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$2" ;;
+  --demo-prerequisites)
+    (( $# == 3 )) && [[ "$2" == /* && "$3" == /* ]] || usage
+    VERIFY_MODE=demo-prerequisites; INTEGRATION_STATE="$2"; INTEGRATION_RECEIPTS="$3" ;;
+  *) usage ;;
+esac
+readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS
 umask 077
 cd "$(dirname "$0")/.."
+if [[ "$VERIFY_MODE" == backend-acceptance ]]; then
+  uv run --locked --offline python -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
+elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
+  uv run --locked --offline python -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
+fi
 command -v docker >/dev/null || { printf 'BLOCKED: Docker is required for the real PostgreSQL gate.\n' >&2; exit 1; }
 docker info --format '{{.ServerVersion}}' >/dev/null || { printf 'BLOCKED: Docker daemon unavailable.\n' >&2; exit 1; }
 readonly POSTGRES_IMAGE='postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826'
 readonly RUN_ID="gateway-registry-test-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
 readonly TEMP_DIR="$(mktemp -d)"
 readonly CONTAINER="$RUN_ID"
-readonly RUN_LABEL="${GITHUB_RUN_ID:-$RUN_ID}-${GITHUB_RUN_ATTEMPT:-local}"
+RUN_LABEL="${GITHUB_RUN_ID:-$RUN_ID}-${GITHUB_RUN_ATTEMPT:-local}"
+if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
+  RUN_LABEL="$RUN_ID-local"
+  uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$RUN_ID" "$RUN_LABEL" <<'PYCLEANUP'
+from pathlib import Path
+import sys
+from scripts.gateway_integration import register_compatibility
+register_compatibility(Path(sys.argv[1]), 'registry', sys.argv[2], sys.argv[3])
+PYCLEANUP
+fi
+readonly RUN_LABEL
 CONTAINER_ID=""
 cleanup() {
   if [[ -n "$CONTAINER_ID" ]]; then docker rm --force --volumes "$CONTAINER_ID" >/dev/null 2>&1 || true; fi
@@ -72,6 +97,8 @@ print(URL.create('postgresql+psycopg',username='gateway_test_admin',password=Pat
 PY
 )"
 # No connection URL, password, environment dump or database contents are logged.
+# Explicit integration recorders run the complete selection themselves.
+if [[ "$VERIFY_MODE" == full || "$VERIFY_MODE" == diagnostic ]]; then
 uv run --locked --offline pytest tests/integration/test_registry.py -m postgres -q --junitxml "$TEMP_DIR/registry.xml"
 uv run --locked --offline python - "$TEMP_DIR/registry.xml" <<'PY'
 import sys
@@ -81,6 +108,7 @@ assert suites and sum(int(s.get('tests','0')) for s in suites)>0, 'PostgreSQL ga
 assert all(int(s.get(k,'0'))==0 for s in suites for k in ('failures','errors','skipped')), 'PostgreSQL gate must not skip or fail'
 print('Real PostgreSQL gate: '+str(sum(int(s.get('tests','0')) for s in suites))+' tests, zero skips/errors/failures')
 PY
+fi
 # Full acceptance stays the default. Diagnostic runs are never acceptance.
 run_project_verification() {
   if [[ "$VERIFY_MODE" == diagnostic ]]; then
@@ -93,6 +121,10 @@ run_project_verification() {
       done
     fi
     uv run --locked --offline python scripts/pytest_runtime_diagnostics.py "${secret_arguments[@]}"
+  elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
+    uv run --locked --offline python -m scripts.verify_demo --record-prerequisites --state-dir "$INTEGRATION_STATE" --prerequisites-dir "$INTEGRATION_RECEIPTS"
+  elif [[ "$VERIFY_MODE" == backend-acceptance ]]; then
+    uv run --locked --offline python -m scripts.gateway_integration --record-backends "$INTEGRATION_RECEIPTS"
   else
     uv run --locked --offline pytest -q
   fi

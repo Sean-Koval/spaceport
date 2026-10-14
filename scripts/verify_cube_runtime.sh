@@ -2,16 +2,31 @@
 # Run-private synthetic gate. Never accepts an existing URL/database/secrets.
 set -euo pipefail
 VERIFY_MODE=full
-if (( $# != 0 )); then
-  if (( $# != 1 )) || [[ "$1" != --diagnostic ]]; then
-    printf 'Usage: %s [--diagnostic]\n' "$0" >&2
-    exit 2
-  fi
-  VERIFY_MODE=diagnostic
-fi
-readonly VERIFY_MODE
+INTEGRATION_STATE=""
+INTEGRATION_RECEIPTS=""
+usage() {
+  printf 'Usage: %s [--diagnostic | --backend-acceptance RECEIPTS_DIR | --demo-prerequisites STATE_DIR RECEIPTS_DIR]\n' "$0" >&2
+  exit 2
+}
+case "${1:-}" in
+  '') (( $# == 0 )) || usage ;;
+  --diagnostic) (( $# == 1 )) || usage; VERIFY_MODE=diagnostic ;;
+  --backend-acceptance)
+    (( $# == 2 )) && [[ "$2" == /* ]] || usage
+    VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$2" ;;
+  --demo-prerequisites)
+    (( $# == 3 )) && [[ "$2" == /* && "$3" == /* ]] || usage
+    VERIFY_MODE=demo-prerequisites; INTEGRATION_STATE="$2"; INTEGRATION_RECEIPTS="$3" ;;
+  *) usage ;;
+esac
+readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS
 umask 077
 cd "$(dirname "$0")/.."
+if [[ "$VERIFY_MODE" == backend-acceptance ]]; then
+  uv run --locked --offline python -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
+elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
+  uv run --locked --offline python -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
+fi
 bounded() {
   local seconds="$1"
   shift
@@ -32,6 +47,15 @@ export GATEWAY_RUNTIME_SECRET_DIR="$TEMP_DIR/secrets"
 export GATEWAY_RUNTIME_EVIDENCE_DIR="$TEMP_DIR/evidence"
 export GATEWAY_PROBE_IMAGE="$PROJECT-probe:local"
 export GATEWAY_CUBE_RUN_LABEL="${GITHUB_RUN_ID:-$PROJECT}-${GITHUB_RUN_ATTEMPT:-local}"
+if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
+  export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"
+  uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYCLEANUP'
+from pathlib import Path
+import sys
+from scripts.gateway_integration import register_compatibility
+register_compatibility(Path(sys.argv[1]), 'cube', sys.argv[2], sys.argv[3])
+PYCLEANUP
+fi
 COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml)
 start_private_stack() {
   local result=0
@@ -236,6 +260,10 @@ export GATEWAY_CUBE_RESTART_PHASE=after
 run_registry_verification() {
   if [[ "$VERIFY_MODE" == diagnostic ]]; then
     bounded 360 bash scripts/verify_registry_postgres.sh --diagnostic
+  elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
+    bounded 360 bash scripts/verify_registry_postgres.sh --demo-prerequisites "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS"
+  elif [[ "$VERIFY_MODE" == backend-acceptance ]]; then
+    bounded 600 bash scripts/verify_registry_postgres.sh --backend-acceptance "$INTEGRATION_RECEIPTS"
   else
     bounded 360 bash scripts/verify_registry_postgres.sh
   fi
