@@ -1,0 +1,330 @@
+name: Verify reviewed gateway integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed 40-character commit SHA in this repository
+        required: true
+        type: string
+      integration_mode:
+        description: Separate backend gate or composed demo evidence
+        required: true
+        default: backend
+        type: choice
+        options:
+          - backend
+          - demo
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-product-gateway-manual-verification
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Validate inputs and initialize private CI identity
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+          INTEGRATION_MODE: ${{ inputs.integration_mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          case "$INTEGRATION_MODE" in backend|demo) ;; *) exit 2 ;; esac
+          umask 077
+          export GATEWAY_INTEGRATION_FIRST_STEP_EPOCH=$(date +%s)
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          import json, os, re, tempfile
+          from pathlib import Path
+          env = os.environ
+          temporary = Path(env['RUNNER_TEMP'])
+          workspace = Path(env['GITHUB_WORKSPACE']).resolve()
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary, *temporary.parents))
+              or temporary == workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary parent required')
+          workflow_ref = env['GITHUB_WORKFLOW_REF']
+          if (not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}', workflow_ref)
+              or not workflow_ref.startswith(env['GITHUB_REPOSITORY'] + '/.github/workflows/verify-gateway.yml@')
+              or not re.fullmatch(r'[0-9a-f]{40}', env['GITHUB_WORKFLOW_SHA'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}', env[key]) for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable executing workflow identity required')
+          started = int(env['GATEWAY_INTEGRATION_FIRST_STEP_EPOCH'])
+          parent = Path(tempfile.mkdtemp(prefix='gateway-integration.', dir=temporary))
+          receipt = {'schema_version': 1, 'mode': env['INTEGRATION_MODE'],
+              'requested_source_sha': env['REVIEWED_SOURCE_SHA'], 'first_step_epoch': started,
+              'first_step_utc': datetime.fromtimestamp(started, timezone.utc).isoformat(),
+              'job_timeout_seconds': 1200, 'finalization_margin_seconds': 60,
+              'shared_cleanup_window_seconds': 120,
+              'timing_basis': 'first_step; actual_job_start_unavailable',
+              'executing_workflow': {'ref': workflow_ref, 'sha': env['GITHUB_WORKFLOW_SHA'],
+                  'file': '.github/workflows/verify-gateway.yml', 'run_id': env['GITHUB_RUN_ID'],
+                  'run_attempt': env['GITHUB_RUN_ATTEMPT']},
+              'action_pins': {'checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
+                  'setup_uv': '1c37ad07a6a961277cf70c0d37d6f313000f5884',
+                  'setup_node': '820762786026740c76f36085b0efc47a31fe5020'}}
+          with (parent / 'ci-identity.json').open('x') as output:
+              json.dump(receipt, output, sort_keys=True)
+          with open(env['GITHUB_ENV'], 'a') as output:
+              for key, value in {'GATEWAY_CI_PARENT': parent, 'GATEWAY_INTEGRATION_ROOT': parent / 'run',
+                  'PLAYWRIGHT_BROWSERS_PATH': parent / 'browsers',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH': started}.items():
+                  output.write(f'{key}={value}\n')
+          PY
+      - name: Check out reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up pinned uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Prepare exact Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.12.14
+          uv sync --locked --dev
+          [[ "$(uv --version)" == 'uv 0.12.23' ]]
+          [[ "$(uv run --locked --offline python --version)" == 'Python 3.12.14' ]]
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Record checked-out source and actual tools
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+          INTEGRATION_MODE: ${{ inputs.integration_mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          import json, os, re, subprocess, time
+          from pathlib import Path
+          def observed(command, pattern):
+              value = subprocess.check_output(command, text=True, stderr=subprocess.DEVNULL, timeout=15).strip()
+              if not re.fullmatch(pattern, value):
+                  raise ValueError('Unexpected tool or source identity')
+              return value
+          try:
+              env = os.environ
+              commit = observed(['git', 'rev-parse', 'HEAD'], r'[0-9a-f]{40}')
+              tree = observed(['git', 'rev-parse', 'HEAD^{tree}'], r'[0-9a-f]{40}')
+              if commit != env['REVIEWED_SOURCE_SHA']:
+                  raise ValueError('Reviewed source mismatch')
+              observed(['git', 'status', '--porcelain', '--untracked-files=all'], r'')
+              version = r'[A-Za-z0-9v.+ _-]{1,128}'
+              tools = {'uv': observed(['uv', '--version'], r'uv 0\.12\.23'),
+                  'python': observed(['uv', 'run', '--locked', '--offline', 'python', '--version'], r'Python 3\.12\.14'),
+                  'docker': observed(['docker', 'version', '--format', '{{.Client.Version}} {{.Server.Version}}'], version),
+                  'compose': observed(['docker', 'compose', 'version', '--short'], version),
+                  'node': observed(['node', '--version'], r'v24\.19\.0'),
+                  'npm': observed(['npm', '--version'], r'11\.9\.0')}
+              runner_image = env.get('ImageVersion', 'unavailable')
+              if not re.fullmatch(version, runner_image): raise ValueError('Invalid runner image identity')
+              started = int(env['GATEWAY_INTEGRATION_FIRST_STEP_EPOCH'])
+              now = int(time.time())
+              if not started <= now < started + 1020: raise ValueError('Setup exhausted work budget')
+              receipt = {'schema_version': 1, 'source': {'commit': commit, 'tree': tree},
+                  'tools': tools, 'runner_image': runner_image,
+                  'recorded_at': datetime.now(timezone.utc).isoformat(),
+                  'setup_elapsed_seconds': now - started, 'work_seconds_remaining': started + 1020 - now}
+              with (Path(env['GATEWAY_CI_PARENT']) / 'ci-source.json').open('x') as output:
+                  json.dump(receipt, output, sort_keys=True)
+          except (ValueError, KeyError, OSError, subprocess.SubprocessError):
+              raise SystemExit('BLOCKED: exact source, tools or remaining job budget unavailable')
+          PY
+      - name: Run explicit integration
+        env:
+          INTEGRATION_MODE: ${{ inputs.integration_mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -e "$GATEWAY_INTEGRATION_ROOT" && ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          [[ "$GATEWAY_INTEGRATION_FIRST_STEP_EPOCH" =~ ^[0-9]{10}$ ]]
+          now=$(date +%s)
+          (( now >= GATEWAY_INTEGRATION_FIRST_STEP_EPOCH && now < GATEWAY_INTEGRATION_FIRST_STEP_EPOCH + 1020 ))
+          case "$INTEGRATION_MODE" in
+            backend) bash scripts/verify_gateway_integration.sh --backend "$GATEWAY_INTEGRATION_ROOT" > "$GATEWAY_CI_PARENT/integration-console.log" 2>&1 ;;
+            demo) bash scripts/verify_gateway_integration.sh --demo "$GATEWAY_INTEGRATION_ROOT" > "$GATEWAY_CI_PARENT/integration-console.log" 2>&1 ;;
+            *) exit 2 ;;
+          esac
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          umask 077
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_FIRST_STEP_EPOCH" =~ ^[0-9]{10}$ ]]
+          now=$(date +%s)
+          (( now >= GATEWAY_INTEGRATION_FIRST_STEP_EPOCH ))
+          remaining=$((GATEWAY_INTEGRATION_FIRST_STEP_EPOCH + 1140 - now - 5))
+          (( remaining > 0 ))
+          if (( remaining > 110 )); then remaining=110; fi
+          began=$(date +%s)
+          if timeout --signal=TERM --kill-after=5s "${remaining}s" \
+            uv run --locked --offline python -m scripts.gateway_integration \
+            --cleanup-run "$GATEWAY_INTEGRATION_ROOT"; then
+            cleanup_status=0
+          else
+            cleanup_status=$?
+          fi
+          finished=$(date +%s)
+          [[ ! -L "$GATEWAY_CI_PARENT/ci-cleanup-attempt.json" ]]
+          printf '{"started_epoch":%s,"finished_epoch":%s,"exit_status":%s}\n' \
+            "$began" "$finished" "$cleanup_status" > "$GATEWAY_CI_PARENT/ci-cleanup-attempt.json"
+          exit "$cleanup_status"
+      - name: Publish only allowlisted CI summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          import hashlib, json, os, re, stat, sys
+          from pathlib import Path
+          def read(path):
+              if any(p.is_symlink() for p in (path, *path.parents)):
+                  raise ValueError('Symlink receipt')
+              info = path.stat()
+              if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600
+                  or info.st_uid != os.getuid() or info.st_size > 1024 * 1024):
+                  raise ValueError('Unbounded or nonprivate receipt')
+              raw = path.read_bytes()
+              return json.loads(raw), hashlib.sha256(raw).hexdigest()
+          def status(value):
+              return value if value in ('PASS', 'BLOCKED', 'FAIL') else 'BLOCKED'
+          def count(value):
+              return value if type(value) is int and 0 <= value <= 1000000 else None
+          def instant(value):
+              if not isinstance(value, str) or len(value) > 40: return None
+              try: return datetime.fromisoformat(value).astimezone(timezone.utc).isoformat()
+              except ValueError: return None
+          summary = {'schema_version': 1, 'status': 'BLOCKED',
+              'limitations': {'live_bigquery': 'NOT RUN', 'studio': 'NOT TESTED',
+                  'domo': 'NOT IMPLEMENTED', 'production': 'NOT APPROVED'}}
+          try:
+              parent = Path(os.environ['GATEWAY_CI_PARENT'])
+              root = Path(os.environ['GATEWAY_INTEGRATION_ROOT'])
+              if not parent.is_absolute() or root != parent / 'run': raise ValueError('Wrong exact root')
+              identity, _ = read(parent / 'ci-identity.json')
+              source, _ = read(parent / 'ci-source.json')
+              mode = identity['mode']
+              if mode not in ('backend', 'demo'): raise ValueError('Wrong mode')
+              workflow = identity['executing_workflow']
+              expected_workflow = {'ref': os.environ['GITHUB_WORKFLOW_REF'], 'sha': os.environ['GITHUB_WORKFLOW_SHA'],
+                  'file': '.github/workflows/verify-gateway.yml', 'run_id': os.environ['GITHUB_RUN_ID'],
+                  'run_attempt': os.environ['GITHUB_RUN_ATTEMPT']}
+              if workflow != expected_workflow: raise ValueError('Workflow identity changed')
+              actual_source = {key: source['source'][key] for key in ('commit', 'tree')}
+              if (any(not re.fullmatch(r'[0-9a-f]{40}', value) for value in actual_source.values())
+                  or actual_source['commit'] != identity['requested_source_sha']):
+                  raise ValueError('Source identity changed')
+              summary.update(mode=mode, executing_workflow=expected_workflow, source=actual_source,
+                  action_pins={key: value for key, value in identity['action_pins'].items()
+                      if key in ('checkout', 'setup_uv', 'setup_node') and re.fullmatch(r'[0-9a-f]{40}', value)},
+                  first_step_utc=instant(identity['first_step_utc']),
+                  setup_elapsed_seconds=count(source['setup_elapsed_seconds']),
+                  work_seconds_remaining=count(source['work_seconds_remaining']),
+                  shared_cleanup_window_seconds=120, finalization_margin_seconds=60,
+                  timing_basis='first_step; actual_job_start_unavailable',
+                  tools={key: value for key, value in source['tools'].items()
+                      if key in ('python', 'uv', 'docker', 'compose', 'node', 'npm')
+                      and isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9v.+ _-]{1,128}', value)},
+                  runner_image=source['runner_image'] if re.fullmatch(r'[A-Za-z0-9v.+ _-]{1,128}', source['runner_image']) else 'unavailable')
+              integration, integration_hash = read(root / 'integration.json')
+              cleanup, cleanup_hash = read(root / 'cleanup.json')
+              if (integration.get('mode') != mode
+                  or integration.get('source', {}).get('git_commit') != actual_source['commit']
+                  or integration.get('source', {}).get('git_tree') != actual_source['tree']):
+                  raise ValueError('Integration source or mode mismatch')
+              summary.update(status=status(integration.get('status')), cleanup_status=status(cleanup.get('status')),
+                  integration_started_at=instant(integration.get('started_at')),
+                  integration_finished_at=instant(integration.get('finished_at')),
+                  backend_tests=count(integration.get('backend_tests')),
+                  report_sha256={'integration': integration_hash, 'cleanup': cleanup_hash})
+              attempt_path = parent / 'ci-cleanup-attempt.json'
+              if attempt_path.exists():
+                  attempt, _ = read(attempt_path)
+                  if any(type(attempt.get(key)) is not int or not 1000000000 <= attempt[key] <= 9999999999
+                      for key in ('started_epoch', 'finished_epoch')):
+                      raise ValueError('Invalid cleanup attempt timing')
+                  summary['always_cleanup_attempt'] = {
+                      'started_at': datetime.fromtimestamp(attempt['started_epoch'], timezone.utc).isoformat(),
+                      'finished_at': datetime.fromtimestamp(attempt['finished_epoch'], timezone.utc).isoformat(),
+                      'exit_status': count(attempt.get('exit_status'))}
+                  if attempt.get('exit_status') != 0: summary['status'] = 'BLOCKED'
+              if summary['cleanup_status'] != 'PASS': summary['status'] = 'BLOCKED'
+              if mode == 'demo':
+                  observer = integration.get('observer_preflight') or {}
+                  packet = {'status': status(observer.get('status')),
+                      'reason': 'approved_scoped_observer_not_available' if observer.get('reason') == 'approved_scoped_observer_not_available'
+                          else 'observer_evidence_unavailable'}
+                  summary['packet_gate'] = packet
+                  if packet['status'] != 'PASS': summary['status'] = 'BLOCKED'
+              suites = {'backend_compatibility', 'runtime_dependencies', 'publisher_browser', 'readiness',
+                  'consumer_rest', 'mcp_clients', 'restart_persistence', 'backup_restore', 'readiness_faults',
+                  'retention', 'redacted_logs', 'authentication_replacement', 'offline_egress', 'acceptance_security'}
+              summary['cycles'] = {}
+              phases = {'units-contracts', 'admit-units-contracts', 'backend-compatibility',
+                  'publisher-dependencies', 'client-dependencies', 'browser-acquisition', 'prepare-state-a',
+                  'compatibility-prerequisites', 'stop-state-a', 'prepare-state-b-offline', 'exact-cleanup',
+                  'start-state-a', 'verify-state-a', 'evidence-state-a', 'admit-state-a',
+                  'start-state-b', 'verify-state-b', 'evidence-state-b', 'admit-state-b'}
+              summary['phases'] = [{'phase': row['phase'], 'status': status(row.get('status')),
+                  'exit_status': count(row.get('exit_status')), 'tests': count(row.get('tests')),
+                  'timed_out': row.get('timed_out') is True, 'started_at': instant(row.get('started_at')),
+                  'finished_at': instant(row.get('finished_at'))}
+                  for row in integration.get('phases', []) if row.get('phase') in phases]
+              for phase in integration.get('phases', []):
+                  if phase.get('phase') not in ('admit-state-a', 'admit-state-b'): continue
+                  summary['cycles'][phase['phase'][-1]] = [
+                      {'suite': row['suite'], 'classification': row['classification'],
+                          'status': status(row.get('status')), 'tests': count(row.get('tests'))}
+                      for row in phase.get('suites', []) if row.get('suite') in suites
+                          and row.get('classification') in ('actual', 'mocked')]
+              summary['summary_recorded_at'] = datetime.now(timezone.utc).isoformat()
+              with (parent / 'ci-summary.json').open('x') as output:
+                  json.dump(summary, output, sort_keys=True)
+          except (ValueError, TypeError, KeyError, OSError, AttributeError):
+              summary.update(status='BLOCKED', summary_reason='Required bounded CI receipts unavailable or inconsistent')
+          print(json.dumps(summary, sort_keys=True))
+          sys.exit(0 if summary['status'] == 'PASS' else 1)
+          PY
