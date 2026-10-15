@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 import pytest
+from tests.unit.ci_shell_probes import legacy_initialization
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
 ROOT = Path(__file__).resolve().parents[2]
@@ -51,7 +52,7 @@ def topology_harness(monkeypatch, tmp_path):
     restart = "# Restart the actual databases" + source.split("# Restart the actual databases", 1)[1].split("# Existing registry verifier", 1)[0]
     bounded = source.split("bounded() {", 1)[1].split("\n}", 1)[0]
     startup = source.split("start_private_stack() {", 1)[1].split("\n}", 1)[0]
-    driver = ("set -euo pipefail\n" + "bounded() {" + bounded + "\n}\n" +
+    driver = ("set -euo pipefail\n" + legacy_initialization(source) + "bounded() {" + bounded + "\n}\n" +
         "start_private_stack() {" + startup + "\n}\n" +
         f"COMPOSE=(docker compose --project-name {shlex.quote(PROJECT)} -f infra/compose.yaml -f infra/compose.test.yaml)\n" +
         capture + restart)

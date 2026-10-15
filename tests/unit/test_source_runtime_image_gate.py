@@ -25,7 +25,7 @@ def test_image_receipt_is_closed_and_fails_unsupported_package_families(mutate):
     with pytest.raises(ValueError):receipt(PREFIX+json.dumps(v))
 
 
-@pytest.mark.parametrize('output',['',PREFIX+'{}',PREFIX+'{"schema_version":1,"schema_version":1}', 'x'*65537])
+@pytest.mark.parametrize('output',['',PREFIX+'{}',PREFIX+'{"schema_version":1,"schema_version":1}', 'x'*65537], ids=['missing', 'malformed', 'duplicate', 'oversized'])
 def test_image_receipt_rejects_missing_duplicate_malformed_or_oversize(output):
     with pytest.raises(ValueError):receipt(output)
 

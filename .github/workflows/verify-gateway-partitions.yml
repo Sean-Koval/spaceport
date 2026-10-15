@@ -1,0 +1,1086 @@
+name: Verify complete backend in bounded serial partitions
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed 40-character candidate commit SHA
+        type: string
+        required: true
+      manifest_sha256:
+        description: Independently reviewed canonical manifest SHA256 for this exact candidate and trusted controller
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-product-gateway-manual-verification
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      manifest_count: ${{ steps.evidence.outputs.manifest_count }}
+      manifest_encoded_length: ${{ steps.evidence.outputs.manifest_encoded_length }}
+      manifest_decoded_length: ${{ steps.evidence.outputs.manifest_decoded_length }}
+      manifest_sha256: ${{ steps.evidence.outputs.manifest_sha256 }}
+      manifest_chunk_0: ${{ steps.evidence.outputs.manifest_chunk_0 }}
+      manifest_chunk_1: ${{ steps.evidence.outputs.manifest_chunk_1 }}
+      manifest_chunk_2: ${{ steps.evidence.outputs.manifest_chunk_2 }}
+      manifest_chunk_3: ${{ steps.evidence.outputs.manifest_chunk_3 }}
+      manifest_chunk_4: ${{ steps.evidence.outputs.manifest_chunk_4 }}
+      manifest_chunk_5: ${{ steps.evidence.outputs.manifest_chunk_5 }}
+      manifest_chunk_6: ${{ steps.evidence.outputs.manifest_chunk_6 }}
+      manifest_chunk_7: ${{ steps.evidence.outputs.manifest_chunk_7 }}
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job source > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  sql_owners:
+    needs: [source]
+    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Admit same-attempt source proof before setup
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" admit-lane \
+            --candidate "$GITHUB_WORKSPACE/candidate" --job sql_owners
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed sql_owners gate
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job sql_owners > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  sql_execution:
+    needs: [source, sql_owners]
+    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Admit same-attempt source proof before setup
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" admit-lane \
+            --candidate "$GITHUB_WORKSPACE/candidate" --job sql_execution
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed sql_execution gate
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job sql_execution > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  sql_publishing:
+    needs: [source, sql_execution]
+    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Admit same-attempt source proof before setup
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" admit-lane \
+            --candidate "$GITHUB_WORKSPACE/candidate" --job sql_publishing
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed sql_publishing gate
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job sql_publishing > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  sql_registry_results:
+    needs: [source, sql_publishing]
+    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Admit same-attempt source proof before setup
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" admit-lane \
+            --candidate "$GITHUB_WORKSPACE/candidate" --job sql_registry_results
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed sql_registry_results gate
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job sql_registry_results > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  runtime_process_socket:
+    needs: [source, sql_registry_results]
+    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      receipt_count: ${{ steps.evidence.outputs.receipt_count }}
+      receipt_encoded_length: ${{ steps.evidence.outputs.receipt_encoded_length }}
+      receipt_decoded_length: ${{ steps.evidence.outputs.receipt_decoded_length }}
+      receipt_sha256: ${{ steps.evidence.outputs.receipt_sha256 }}
+      receipt_chunk_0: ${{ steps.evidence.outputs.receipt_chunk_0 }}
+      receipt_chunk_1: ${{ steps.evidence.outputs.receipt_chunk_1 }}
+      receipt_chunk_2: ${{ steps.evidence.outputs.receipt_chunk_2 }}
+    env:
+      REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+      REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+      npm_config_audit: 'false'
+      npm_config_fund: 'false'
+      DO_NOT_TRACK: '1'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - name: Initialize bounded private job
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$REVIEWED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          python3 - <<'PYINIT'
+          import os, re, tempfile, time
+          from pathlib import Path
+          env=os.environ
+          workspace=Path(env['GITHUB_WORKSPACE']).resolve()
+          temporary=Path(env['RUNNER_TEMP'])
+          if (not temporary.is_absolute() or not temporary.is_dir() or '..' in temporary.parts
+              or any(p.is_symlink() for p in (temporary,*temporary.parents))
+              or temporary==workspace or workspace in temporary.parents):
+              raise SystemExit('BLOCKED: private external temporary root required')
+          if (not re.fullmatch(r'[0-9a-f]{40}',env['GITHUB_WORKFLOW_SHA'])
+              or not env['GITHUB_WORKFLOW_REF'].startswith(env['GITHUB_REPOSITORY']+'/.github/workflows/verify-gateway-partitions.yml@')
+              or not re.fullmatch(r'[A-Za-z0-9_./@-]{1,512}',env['GITHUB_WORKFLOW_REF'])
+              or any(not re.fullmatch(r'[1-9][0-9]{0,19}',env[k]) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'))):
+              raise SystemExit('BLOCKED: immutable workflow identity required')
+          parent=Path(tempfile.mkdtemp(prefix='gateway-partition.',dir=temporary))
+          with open(env['GITHUB_ENV'],'a') as stream:
+              for key,value in {'GATEWAY_CI_PARENT':parent,'GATEWAY_INTEGRATION_ROOT':parent/'run',
+                  'GATEWAY_INTEGRATION_FIRST_STEP_EPOCH':int(time.time())}.items():
+                  stream.write(f'{key}={value}\n')
+          PYINIT
+      - name: Check out trusted bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Admit same-attempt source proof before setup
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" admit-lane \
+            --candidate "$GITHUB_WORKSPACE/candidate" --job runtime_process_socket
+      - name: Set up exact uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.12.23'
+          python-version: '3.12.14'
+          enable-cache: false
+      - name: Install separate locked controller and workload dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+          uv python install 3.12.14
+          uv sync --locked --dev --project trusted
+          uv sync --locked --dev --project candidate
+          [[ "$(uv self version --short)" == 0.12.23 ]]
+          [[ "$(trusted/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          [[ "$(candidate/.venv/bin/python --version)" == 'Python 3.12.14' ]]
+          } > "$GATEWAY_CI_PARENT/python-setup.log" 2>&1
+      - name: Set up exact Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.19.0'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+      - name: Prepare exact run-private npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$(node --version)" == v24.19.0 ]]
+          {
+          npm install --global --prefix "$GATEWAY_CI_PARENT/npm-tool" \
+            --ignore-scripts --no-audit --no-fund npm@11.9.0
+          [[ "$("$GATEWAY_CI_PARENT/npm-tool/bin/npm" --version)" == 11.9.0 ]]
+          } > "$GATEWAY_CI_PARENT/npm-setup.log" 2>&1
+          printf '%s/npm-tool/bin\n' "$GATEWAY_CI_PARENT" >> "$GITHUB_PATH"
+      - name: Run fixed runtime_process_socket gate
+        env:
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" run --candidate "$GITHUB_WORKSPACE/candidate" \
+            --root "$GATEWAY_INTEGRATION_ROOT" --job runtime_process_socket > "$GATEWAY_CI_PARENT/console.log" 2>&1
+      - name: Always verify exact registered cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GATEWAY_INTEGRATION_ROOT:-}" ]]; then exit 0; fi
+          [[ "$GATEWAY_INTEGRATION_ROOT" == "$GATEWAY_CI_PARENT/run" ]]
+          [[ ! -L "$GATEWAY_INTEGRATION_ROOT" ]]
+          if [[ ! -e "$GATEWAY_INTEGRATION_ROOT/context.json" ]]; then exit 0; fi
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" cleanup --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+      - name: Finalize closed evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+
+  aggregate:
+    needs: [source, sql_owners, sql_execution, sql_publishing, sql_registry_results, runtime_process_socket]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out trusted aggregate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Require exact same-attempt full union
+        env:
+          REVIEWED_SOURCE_SHA: ${{ inputs.source_sha }}
+          REVIEWED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+          SOURCE_MANIFEST_COUNT: ${{ needs.source.outputs.manifest_count }}
+          SOURCE_MANIFEST_ENCODED_LENGTH: ${{ needs.source.outputs.manifest_encoded_length }}
+          SOURCE_MANIFEST_DECODED_LENGTH: ${{ needs.source.outputs.manifest_decoded_length }}
+          SOURCE_MANIFEST_SHA256: ${{ needs.source.outputs.manifest_sha256 }}
+          SOURCE_MANIFEST_CHUNK_0: ${{ needs.source.outputs.manifest_chunk_0 }}
+          SOURCE_MANIFEST_CHUNK_1: ${{ needs.source.outputs.manifest_chunk_1 }}
+          SOURCE_MANIFEST_CHUNK_2: ${{ needs.source.outputs.manifest_chunk_2 }}
+          SOURCE_MANIFEST_CHUNK_3: ${{ needs.source.outputs.manifest_chunk_3 }}
+          SOURCE_MANIFEST_CHUNK_4: ${{ needs.source.outputs.manifest_chunk_4 }}
+          SOURCE_MANIFEST_CHUNK_5: ${{ needs.source.outputs.manifest_chunk_5 }}
+          SOURCE_MANIFEST_CHUNK_6: ${{ needs.source.outputs.manifest_chunk_6 }}
+          SOURCE_MANIFEST_CHUNK_7: ${{ needs.source.outputs.manifest_chunk_7 }}
+          SOURCE_RECEIPT_COUNT: ${{ needs.source.outputs.receipt_count }}
+          SOURCE_RECEIPT_ENCODED_LENGTH: ${{ needs.source.outputs.receipt_encoded_length }}
+          SOURCE_RECEIPT_DECODED_LENGTH: ${{ needs.source.outputs.receipt_decoded_length }}
+          SOURCE_RECEIPT_SHA256: ${{ needs.source.outputs.receipt_sha256 }}
+          SOURCE_RECEIPT_CHUNK_0: ${{ needs.source.outputs.receipt_chunk_0 }}
+          SOURCE_RECEIPT_CHUNK_1: ${{ needs.source.outputs.receipt_chunk_1 }}
+          SOURCE_RECEIPT_CHUNK_2: ${{ needs.source.outputs.receipt_chunk_2 }}
+          SQL_OWNERS_RECEIPT_COUNT: ${{ needs.sql_owners.outputs.receipt_count }}
+          SQL_OWNERS_RECEIPT_ENCODED_LENGTH: ${{ needs.sql_owners.outputs.receipt_encoded_length }}
+          SQL_OWNERS_RECEIPT_DECODED_LENGTH: ${{ needs.sql_owners.outputs.receipt_decoded_length }}
+          SQL_OWNERS_RECEIPT_SHA256: ${{ needs.sql_owners.outputs.receipt_sha256 }}
+          SQL_OWNERS_RECEIPT_CHUNK_0: ${{ needs.sql_owners.outputs.receipt_chunk_0 }}
+          SQL_OWNERS_RECEIPT_CHUNK_1: ${{ needs.sql_owners.outputs.receipt_chunk_1 }}
+          SQL_OWNERS_RECEIPT_CHUNK_2: ${{ needs.sql_owners.outputs.receipt_chunk_2 }}
+          SQL_EXECUTION_RECEIPT_COUNT: ${{ needs.sql_execution.outputs.receipt_count }}
+          SQL_EXECUTION_RECEIPT_ENCODED_LENGTH: ${{ needs.sql_execution.outputs.receipt_encoded_length }}
+          SQL_EXECUTION_RECEIPT_DECODED_LENGTH: ${{ needs.sql_execution.outputs.receipt_decoded_length }}
+          SQL_EXECUTION_RECEIPT_SHA256: ${{ needs.sql_execution.outputs.receipt_sha256 }}
+          SQL_EXECUTION_RECEIPT_CHUNK_0: ${{ needs.sql_execution.outputs.receipt_chunk_0 }}
+          SQL_EXECUTION_RECEIPT_CHUNK_1: ${{ needs.sql_execution.outputs.receipt_chunk_1 }}
+          SQL_EXECUTION_RECEIPT_CHUNK_2: ${{ needs.sql_execution.outputs.receipt_chunk_2 }}
+          SQL_PUBLISHING_RECEIPT_COUNT: ${{ needs.sql_publishing.outputs.receipt_count }}
+          SQL_PUBLISHING_RECEIPT_ENCODED_LENGTH: ${{ needs.sql_publishing.outputs.receipt_encoded_length }}
+          SQL_PUBLISHING_RECEIPT_DECODED_LENGTH: ${{ needs.sql_publishing.outputs.receipt_decoded_length }}
+          SQL_PUBLISHING_RECEIPT_SHA256: ${{ needs.sql_publishing.outputs.receipt_sha256 }}
+          SQL_PUBLISHING_RECEIPT_CHUNK_0: ${{ needs.sql_publishing.outputs.receipt_chunk_0 }}
+          SQL_PUBLISHING_RECEIPT_CHUNK_1: ${{ needs.sql_publishing.outputs.receipt_chunk_1 }}
+          SQL_PUBLISHING_RECEIPT_CHUNK_2: ${{ needs.sql_publishing.outputs.receipt_chunk_2 }}
+          SQL_REGISTRY_RESULTS_RECEIPT_COUNT: ${{ needs.sql_registry_results.outputs.receipt_count }}
+          SQL_REGISTRY_RESULTS_RECEIPT_ENCODED_LENGTH: ${{ needs.sql_registry_results.outputs.receipt_encoded_length }}
+          SQL_REGISTRY_RESULTS_RECEIPT_DECODED_LENGTH: ${{ needs.sql_registry_results.outputs.receipt_decoded_length }}
+          SQL_REGISTRY_RESULTS_RECEIPT_SHA256: ${{ needs.sql_registry_results.outputs.receipt_sha256 }}
+          SQL_REGISTRY_RESULTS_RECEIPT_CHUNK_0: ${{ needs.sql_registry_results.outputs.receipt_chunk_0 }}
+          SQL_REGISTRY_RESULTS_RECEIPT_CHUNK_1: ${{ needs.sql_registry_results.outputs.receipt_chunk_1 }}
+          SQL_REGISTRY_RESULTS_RECEIPT_CHUNK_2: ${{ needs.sql_registry_results.outputs.receipt_chunk_2 }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_COUNT: ${{ needs.runtime_process_socket.outputs.receipt_count }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_ENCODED_LENGTH: ${{ needs.runtime_process_socket.outputs.receipt_encoded_length }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_DECODED_LENGTH: ${{ needs.runtime_process_socket.outputs.receipt_decoded_length }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_SHA256: ${{ needs.runtime_process_socket.outputs.receipt_sha256 }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_CHUNK_0: ${{ needs.runtime_process_socket.outputs.receipt_chunk_0 }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_CHUNK_1: ${{ needs.runtime_process_socket.outputs.receipt_chunk_1 }}
+          RUNTIME_PROCESS_SOCKET_RECEIPT_CHUNK_2: ${{ needs.runtime_process_socket.outputs.receipt_chunk_2 }}
+          SOURCE_RESULT: ${{ needs.source.result }}
+          SQL_OWNERS_RESULT: ${{ needs.sql_owners.result }}
+          SQL_EXECUTION_RESULT: ${{ needs.sql_execution.result }}
+          SQL_PUBLISHING_RESULT: ${{ needs.sql_publishing.result }}
+          SQL_REGISTRY_RESULTS_RESULT: ${{ needs.sql_registry_results.result }}
+          RUNTIME_PROCESS_SOCKET_RESULT: ${{ needs.runtime_process_socket.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" aggregate

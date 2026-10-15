@@ -2,6 +2,11 @@
 # Run-private synthetic gate. Never accepts an existing URL/database/secrets.
 set -euo pipefail
 VERIFY_MODE=full
+PARTITION_MODE=false
+PARTITION_CANDIDATE=""
+PARTITION_ROOT=""
+readonly TRUSTED_SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+GATE_PYTHON=(uv run --locked --offline python)
 INTEGRATION_STATE=""
 INTEGRATION_RECEIPTS=""
 CHECKPOINT=cube-preflight
@@ -19,6 +24,10 @@ usage() {
 case "${1:-}" in
   '') (( $# == 0 )) || usage ;;
   --diagnostic) (( $# == 1 )) || usage; VERIFY_MODE=diagnostic ;;
+  --partition-acceptance)
+    (( $# == 3 )) && [[ "$2" == /* && "$3" == /* ]] || usage
+    PARTITION_MODE=true; PARTITION_CANDIDATE="$2"; PARTITION_ROOT="$3"
+    VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$3/backends" ;;
   --backend-acceptance)
     (( $# == 2 )) && [[ "$2" == /* ]] || usage
     VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$2" ;;
@@ -27,13 +36,19 @@ case "${1:-}" in
     VERIFY_MODE=demo-prerequisites; INTEGRATION_STATE="$2"; INTEGRATION_RECEIPTS="$3" ;;
   *) usage ;;
 esac
-readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS
+readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS PARTITION_MODE PARTITION_CANDIDATE PARTITION_ROOT
 umask 077
-cd "$(dirname "$0")/.."
+if [[ "$PARTITION_MODE" == true ]]; then
+  GATE_PYTHON=("$TRUSTED_SCRIPT_ROOT/.venv/bin/python" -I -S "$TRUSTED_SCRIPT_ROOT/scripts/ci_partition_driver.py"
+    helper --candidate "$PARTITION_CANDIDATE" --root "$PARTITION_ROOT" --)
+  cd "$PARTITION_CANDIDATE"
+else
+  cd "$TRUSTED_SCRIPT_ROOT"
+fi
 if [[ "$VERIFY_MODE" == backend-acceptance ]]; then
-  uv run --locked --offline python -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
+  "${GATE_PYTHON[@]}" -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
 elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
-  uv run --locked --offline python -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
+  "${GATE_PYTHON[@]}" -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
 fi
 bounded() {
   local seconds="$1"
@@ -50,7 +65,7 @@ else
   exit "$result"
 fi
 readonly TEMP_DIR="$(mktemp -d)"
-readonly PROJECT="gateway-cube-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
+readonly PROJECT="gateway-cube-$("${GATE_PYTHON[@]}" -c 'import secrets; print(secrets.token_hex(8))')"
 export GATEWAY_RUNTIME_SECRET_DIR="$TEMP_DIR/secrets"
 export GATEWAY_SOURCE_SECRET_DIR="$TEMP_DIR/source-secrets"
 export GATEWAY_SOURCE_FIXTURE_DIR="$TEMP_DIR/source-fixture"
@@ -62,7 +77,7 @@ export GATEWAY_SOURCE_JOURNEY_IMAGE_TAG="$PROJECT-journey:local"
 export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
   CHECKPOINT=cube-register-cleanup
-  uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYCLEANUP'
+  "${GATE_PYTHON[@]}" - "${INTEGRATION_RECEIPTS%/*}" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
 import sys
 from scripts.gateway_integration import register_compatibility
@@ -76,7 +91,7 @@ start_private_stack() {
   if (( result != 0 )); then
     # Only the fixed current Cube instances; redact every generated value before
     # bounded log emission. Preserve the readiness failure and cleanup behavior.
-    bounded 30 uv run --locked --offline python scripts/cube_runtime_diagnostics.py \
+    bounded 30 "${GATE_PYTHON[@]}" scripts/cube_runtime_diagnostics.py \
       --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR" --project "$PROJECT" \
       --run-label "$GATEWAY_CUBE_RUN_LABEL" || true
   fi
@@ -99,7 +114,7 @@ cleanup() {
   fi
   # Exact-label cleanup owns ambiguous docker creates even without a returned CID.
   # Keep the private recovery record if removal or absence cannot be verified.
-  bounded 45 uv run --locked --offline python - "$TEMP_DIR" <<'PYCLEANLOCAL' || cleanup_status=$?
+  bounded 45 "${GATE_PYTHON[@]}" - "$TEMP_DIR" <<'PYCLEANLOCAL' || cleanup_status=$?
 from pathlib import Path
 import sys
 from scripts.gateway_integration import cleanup_compatibility
@@ -114,7 +129,7 @@ PYCLEANLOCAL
   return "$cleanup_status"
 }
 # Every mode owns an exact private recovery record before allocating resources.
-uv run --locked --offline python - "$TEMP_DIR" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYREGISTERLOCAL'
+"${GATE_PYTHON[@]}" - "$TEMP_DIR" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYREGISTERLOCAL'
 from pathlib import Path
 import sys
 from scripts.gateway_integration import register_compatibility
@@ -129,13 +144,13 @@ mkdir "$GATEWAY_RUNTIME_SECRET_DIR" "$GATEWAY_SOURCE_SECRET_DIR" "$GATEWAY_RUNTI
 # directory traversal by Cube's distinct non-root UID.
 mkdir -m 0755 "$GATEWAY_SOURCE_FIXTURE_DIR"
 CHECKPOINT=cube-create-secrets
-uv run --locked --offline python scripts/cube_runtime_secrets.py --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR"
+"${GATE_PYTHON[@]}" scripts/cube_runtime_secrets.py --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR"
 CHECKPOINT=source-create-secrets
-uv run --locked --offline python scripts/source_runtime_secrets.py --secret-dir "$GATEWAY_SOURCE_SECRET_DIR"
+"${GATE_PYTHON[@]}" scripts/source_runtime_secrets.py --secret-dir "$GATEWAY_SOURCE_SECRET_DIR"
 # Preparation happens before the internally isolated services start. Exact
 # official images only; this process has no registry login or external secrets.
 CHECKPOINT=cube-images
-uv run --locked --offline python - "$TEMP_DIR/images.txt" <<'PY'
+"${GATE_PYTHON[@]}" - "$TEMP_DIR/images.txt" <<'PY'
 import json
 from pathlib import Path
 import re
@@ -149,7 +164,7 @@ while IFS= read -r image; do
   bounded 180 docker pull --platform linux/amd64 "$image"
   bounded 15 docker image inspect "$image" --format 'Prepared image={{json .RepoDigests}}'
   bounded 30 docker buildx imagetools inspect "$image" --raw > "$TEMP_DIR/image-index.json"
-  uv run --locked --offline python - "$image" "$TEMP_DIR/image-index.json" <<'PYIMAGE'
+  "${GATE_PYTHON[@]}" - "$image" "$TEMP_DIR/image-index.json" <<'PYIMAGE'
 import json
 from pathlib import Path
 import sys
@@ -168,7 +183,7 @@ done < "$TEMP_DIR/images.txt"
 # intended non-root UID against individual read-only mounts before initialization.
 CHECKPOINT=cube-secret-readability
 for service in registry-db demo-db; do
-  readarray -t names < <(uv run --locked --offline python - "$service" <<'PYNAMES'
+  readarray -t names < <("${GATE_PYTHON[@]}" - "$service" <<'PYNAMES'
 import json
 from pathlib import Path
 import sys
@@ -195,8 +210,8 @@ done
 # Copy the exact already-installed uv-managed Python and locked package set.
 # No pip, curl, apt or mutable image/dependency resolution occurs in the build.
 CHECKPOINT=cube-probe-image
-python_root=$(uv run --locked --offline python -c 'import sys; print(sys.base_prefix)')
-packages=$(uv run --locked --offline python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+python_root=$("${GATE_PYTHON[@]}" -c 'import sys; print(sys.base_prefix)')
+packages=$("${GATE_PYTHON[@]}" -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
 cp -a "$python_root" "$TEMP_DIR/build/python"
 cp -a "$packages" "$TEMP_DIR/build/packages"
 cp infra/Probe.Dockerfile "$TEMP_DIR/build/Dockerfile"
@@ -216,7 +231,7 @@ bounded 15 docker run --rm --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --
 CHECKPOINT=source-image-build
 bounded 120 docker build --network none --platform linux/amd64 --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_BIGQUERY_PROBE_IMAGE" -f cube/bigquery-runtime/Dockerfile .
 CHECKPOINT=source-image-smoke
-bounded 30 uv run --locked --offline python -m tests.integration.source_runtime_image_gate --image "$GATEWAY_BIGQUERY_PROBE_IMAGE" --run-label "$GATEWAY_CUBE_RUN_LABEL"
+bounded 30 "${GATE_PYTHON[@]}" -m tests.integration.source_runtime_image_gate --image "$GATEWAY_BIGQUERY_PROBE_IMAGE" --run-label "$GATEWAY_CUBE_RUN_LABEL"
 # Full gateway journey copies the same locked Python inputs into the pinned Cube base.
 # Related image IDs are evidence references, not ancestry or copied-byte attestations.
 # The one ordinary backend testcase invokes its exact image; no selection is omitted.
@@ -232,7 +247,7 @@ GATEWAY_SOURCE_JOURNEY_IMAGE_ID="$(bounded 15 docker image inspect "$GATEWAY_SOU
 [[ "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
 export GATEWAY_SOURCE_JOURNEY_IMAGE_ID
 CHECKPOINT=source-journey-smoke
-bounded 20 uv run --locked --offline python - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL" <<'PYJOURNEYSMOKE'
+bounded 20 "${GATE_PYTHON[@]}" - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL" <<'PYJOURNEYSMOKE'
 import json
 import sys
 from scripts.pytest_runtime_diagnostics import EVIDENCE_PREFIX, validate_failure_marker
@@ -279,7 +294,7 @@ bounded 15 "${COMPOSE[@]}" exec -T cube sh -c 'test "$(node -p '\''require("@cub
 CHECKPOINT=cube-topology
 container_ids=$(bounded 15 "${COMPOSE[@]}" ps --all --quiet)
 record_private_topology() {
-bounded 60 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
+bounded 60 "${GATE_PYTHON[@]}" - "$GATEWAY_RUNTIME_EVIDENCE_DIR/topology.json" $container_ids <<'PY'
 import json
 import os
 from pathlib import Path
@@ -341,7 +356,7 @@ bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/b
 CHECKPOINT=source-fixture-bootstrap
 bounded 60 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" source-bootstrap
 CHECKPOINT=cube-bigquery-serving
-bounded 120 uv run --locked --offline python scripts/source_runtime_gate.py --project "$PROJECT" --run-label "$GATEWAY_CUBE_RUN_LABEL"
+bounded 120 "${GATE_PYTHON[@]}" scripts/source_runtime_gate.py --project "$PROJECT" --run-label "$GATEWAY_CUBE_RUN_LABEL"
 CHECKPOINT=cube-egress
 for service in cube cube-test cube-reviewed cube-reviewed-test; do
   bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'
@@ -359,7 +374,7 @@ done
 # Keep both probe phases on the host writer UID/GID instead of creating root-owned
 # files; no permission changes to evidence, secrets, or repository are needed.
 CHECKPOINT=cube-probe-tests
-uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/diagnostic-source.json" <<'PYSOURCE'
+"${GATE_PYTHON[@]}" - "$GATEWAY_RUNTIME_EVIDENCE_DIR/diagnostic-source.json" <<'PYSOURCE'
 from pathlib import Path
 import sys
 from scripts.demo_runtime import private_json
@@ -368,7 +383,7 @@ private_json(Path(sys.argv[1]), freeze_source())
 PYSOURCE
 bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe tests/integration/test_cube_compatibility.py tests/integration/test_cube_reviewed_runtime.py -m cube -q --junitxml=/evidence/cube.xml -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
 CHECKPOINT=cube-junit-admission
-uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
+"${GATE_PYTHON[@]}" - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 suites=ET.parse(sys.argv[1]).getroot().findall('testsuite')
@@ -400,7 +415,12 @@ run_registry_verification() {
   elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
     bounded 360 bash scripts/verify_registry_postgres.sh --demo-prerequisites "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS"
   elif [[ "$VERIFY_MODE" == backend-acceptance ]]; then
-    bounded 600 bash scripts/verify_registry_postgres.sh --backend-acceptance "$INTEGRATION_RECEIPTS"
+    if [[ "$PARTITION_MODE" == true ]]; then
+      bounded 600 bash "$TRUSTED_SCRIPT_ROOT/scripts/verify_registry_postgres.sh" \
+        --partition-acceptance "$PARTITION_CANDIDATE" "$PARTITION_ROOT"
+    else
+      bounded 600 bash scripts/verify_registry_postgres.sh --backend-acceptance "$INTEGRATION_RECEIPTS"
+    fi
   else
     bounded 360 bash scripts/verify_registry_postgres.sh
   fi
@@ -409,7 +429,7 @@ CHECKPOINT=registry-gate
 run_registry_verification
 # Selected, sanitized actual response shapes and source/network evidence only.
 CHECKPOINT=cube-evidence-admission
-uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR" <<'PY'
+"${GATE_PYTHON[@]}" - "$GATEWAY_RUNTIME_EVIDENCE_DIR" <<'PY'
 import json
 from pathlib import Path
 import sys

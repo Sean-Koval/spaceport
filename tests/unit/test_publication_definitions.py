@@ -228,7 +228,7 @@ def test_required_permission_negative_cannot_be_faked_by_other_error():
     assert api().runner.successful_evidence([c]) is False
 
 
-@pytest.mark.parametrize('reason',['','   ','line\nbreak','postgresql://hidden','Bearer secret', 'x'*1025])
+@pytest.mark.parametrize('reason',['','   ','line\nbreak','postgresql://hidden','Bearer secret', 'x'*1025], ids=['empty', 'whitespace', 'newline', 'database-url', 'bearer', 'oversized'])
 def test_lifecycle_reasons_reject_unsafe_values(reason):
     with pytest.raises(GatewayError) as caught: api().service.validate_reason(reason)
     assert caught.value.code == 'INVALID_INPUT'

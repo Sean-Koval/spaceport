@@ -2,6 +2,11 @@
 # Disposable synthetic PostgreSQL gate. Never accepts an existing database URL.
 set -euo pipefail
 VERIFY_MODE=full
+PARTITION_MODE=false
+PARTITION_CANDIDATE=""
+PARTITION_ROOT=""
+readonly TRUSTED_SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+GATE_PYTHON=(uv run --locked --offline python)
 INTEGRATION_STATE=""
 INTEGRATION_RECEIPTS=""
 CHECKPOINT=registry-preflight
@@ -19,6 +24,10 @@ usage() {
 case "${1:-}" in
   '') (( $# == 0 )) || usage ;;
   --diagnostic) (( $# == 1 )) || usage; VERIFY_MODE=diagnostic ;;
+  --partition-acceptance)
+    (( $# == 3 )) && [[ "$2" == /* && "$3" == /* ]] || usage
+    PARTITION_MODE=true; PARTITION_CANDIDATE="$2"; PARTITION_ROOT="$3"
+    VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$3/backends" ;;
   --backend-acceptance)
     (( $# == 2 )) && [[ "$2" == /* ]] || usage
     VERIFY_MODE=backend-acceptance; INTEGRATION_RECEIPTS="$2" ;;
@@ -27,24 +36,30 @@ case "${1:-}" in
     VERIFY_MODE=demo-prerequisites; INTEGRATION_STATE="$2"; INTEGRATION_RECEIPTS="$3" ;;
   *) usage ;;
 esac
-readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS
+readonly VERIFY_MODE INTEGRATION_STATE INTEGRATION_RECEIPTS PARTITION_MODE PARTITION_CANDIDATE PARTITION_ROOT
 umask 077
-cd "$(dirname "$0")/.."
+if [[ "$PARTITION_MODE" == true ]]; then
+  GATE_PYTHON=("$TRUSTED_SCRIPT_ROOT/.venv/bin/python" -I -S "$TRUSTED_SCRIPT_ROOT/scripts/ci_partition_driver.py"
+    helper --candidate "$PARTITION_CANDIDATE" --root "$PARTITION_ROOT" --)
+  cd "$PARTITION_CANDIDATE"
+else
+  cd "$TRUSTED_SCRIPT_ROOT"
+fi
 if [[ "$VERIFY_MODE" == backend-acceptance ]]; then
-  uv run --locked --offline python -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
+  "${GATE_PYTHON[@]}" -m scripts.gateway_integration --validate-backend-path "$INTEGRATION_RECEIPTS" || usage
 elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
-  uv run --locked --offline python -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
+  "${GATE_PYTHON[@]}" -m scripts.gateway_integration --validate-demo-paths "$INTEGRATION_STATE" "$INTEGRATION_RECEIPTS" || usage
 fi
 command -v docker >/dev/null || { printf 'BLOCKED: Docker is required for the real PostgreSQL gate.\n' >&2; exit 1; }
 docker info --format '{{.ServerVersion}}' >/dev/null || { printf 'BLOCKED: Docker daemon unavailable.\n' >&2; exit 1; }
 readonly POSTGRES_IMAGE='postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826'
-readonly RUN_ID="gateway-registry-test-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
+readonly RUN_ID="gateway-registry-test-$("${GATE_PYTHON[@]}" -c 'import secrets; print(secrets.token_hex(8))')"
 readonly TEMP_DIR="$(mktemp -d)"
 readonly CONTAINER="$RUN_ID"
 RUN_LABEL="$RUN_ID-local"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
   CHECKPOINT=registry-register-cleanup
-  uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$RUN_ID" "$RUN_LABEL" <<'PYCLEANUP'
+  "${GATE_PYTHON[@]}" - "${INTEGRATION_RECEIPTS%/*}" "$RUN_ID" "$RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
 import sys
 from scripts.gateway_integration import register_compatibility
@@ -62,7 +77,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 CHECKPOINT=registry-create-secret
-uv run --locked --offline python - "$TEMP_DIR" <<'PY'
+"${GATE_PYTHON[@]}" - "$TEMP_DIR" <<'PY'
 from pathlib import Path
 import secrets
 import sys
@@ -75,7 +90,7 @@ PY
 CHECKPOINT=registry-image
 docker pull --platform linux/amd64 "$POSTGRES_IMAGE"
 docker buildx imagetools inspect "$POSTGRES_IMAGE" --raw > "$TEMP_DIR/postgres-index.json"
-uv run --locked --offline python - "$TEMP_DIR/postgres-index.json" <<'PYIMAGE'
+"${GATE_PYTHON[@]}" - "$TEMP_DIR/postgres-index.json" <<'PYIMAGE'
 import json
 from pathlib import Path
 import sys
@@ -100,7 +115,7 @@ fi
 readonly PORT="$(docker inspect "$CONTAINER" --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}')"
 [[ "$PORT" =~ ^[0-9]+$ ]]
 CHECKPOINT=registry-readiness
-if ! uv run --locked --offline python scripts/wait_registry_postgres.py "$TEMP_DIR/password" "$PORT" --timeout 60; then
+if ! "${GATE_PYTHON[@]}" scripts/wait_registry_postgres.py "$TEMP_DIR/password" "$PORT" --timeout 60; then
   docker inspect "$CONTAINER" --format 'Container state={{.State.Status}}, exit={{.State.ExitCode}}' >&2
   exit 1
 fi
@@ -108,7 +123,7 @@ CHECKPOINT=registry-identity
 docker exec "$CONTAINER" postgres --version
 docker inspect "$CONTAINER" --format 'Actual port bindings={{json .HostConfig.PortBindings}}'
 export GATEWAY_TEST_POSTGRES_AUTHORIZATION=disposable-local-postgres-only
-export GATEWAY_TEST_POSTGRES_ADMIN_URL="$(uv run --locked --offline python - "$TEMP_DIR/password" "$PORT" <<'PY'
+export GATEWAY_TEST_POSTGRES_ADMIN_URL="$("${GATE_PYTHON[@]}" - "$TEMP_DIR/password" "$PORT" <<'PY'
 from pathlib import Path
 import sys
 from sqlalchemy.engine import URL
@@ -121,7 +136,7 @@ if [[ "$VERIFY_MODE" == full || "$VERIFY_MODE" == diagnostic ]]; then
 CHECKPOINT=registry-tests
 uv run --locked --offline pytest tests/integration/test_registry.py -m postgres -q --junitxml "$TEMP_DIR/registry.xml"
 CHECKPOINT=registry-junit-admission
-uv run --locked --offline python - "$TEMP_DIR/registry.xml" <<'PY'
+"${GATE_PYTHON[@]}" - "$TEMP_DIR/registry.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 suites=ET.parse(sys.argv[1]).getroot().findall('testsuite')
@@ -141,11 +156,11 @@ run_project_verification() {
         secret_arguments+=(--secret-file "$GATEWAY_RUNTIME_SECRET_DIR/$name")
       done
     fi
-    uv run --locked --offline python scripts/pytest_runtime_diagnostics.py "${secret_arguments[@]}"
+    "${GATE_PYTHON[@]}" scripts/pytest_runtime_diagnostics.py "${secret_arguments[@]}"
   elif [[ "$VERIFY_MODE" == demo-prerequisites ]]; then
-    uv run --locked --offline python -m scripts.verify_demo --record-prerequisites --state-dir "$INTEGRATION_STATE" --prerequisites-dir "$INTEGRATION_RECEIPTS"
+    "${GATE_PYTHON[@]}" -m scripts.verify_demo --record-prerequisites --state-dir "$INTEGRATION_STATE" --prerequisites-dir "$INTEGRATION_RECEIPTS"
   elif [[ "$VERIFY_MODE" == backend-acceptance ]]; then
-    uv run --locked --offline python -m scripts.gateway_integration --record-backends "$INTEGRATION_RECEIPTS"
+    "${GATE_PYTHON[@]}" -m scripts.gateway_integration --record-backends "$INTEGRATION_RECEIPTS"
   else
     uv run --locked --offline pytest -q
   fi

@@ -1,6 +1,7 @@
 """The supported module CLI must be present in the runnable image."""
 from pathlib import Path
 import pytest
+from tests.unit.ci_shell_probes import expanded_legacy_source, legacy_initialization
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,7 +19,7 @@ def test_gateway_runtime_image_includes_supported_operator_cli():
 
 
 def test_actual_gateway_image_build_and_no_network_smoke_are_required_and_bounded():
-    source=(ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    source=expanded_legacy_source((ROOT/'scripts/verify_cube_runtime.sh').read_text())
     build='bounded 120 docker build --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_APP_PROBE_IMAGE" -f gateway/Dockerfile .'
     cli='bounded 15 docker run --rm --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 256m --workdir /tmp "$GATEWAY_APP_PROBE_IMAGE" -m scripts.spaceport --help'
     imports='bounded 15 docker run --rm --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 256m "$GATEWAY_APP_PROBE_IMAGE" -c \'import gateway.source_pilot_runtime, gateway.source_pilot_config, gateway.product_packages; print("Verified gateway source runtime imports without network or credentials")\''
@@ -31,7 +32,7 @@ def test_actual_gateway_image_build_and_no_network_smoke_are_required_and_bounde
 
 
 def test_actual_bigquery_runtime_image_is_built_and_qualified_before_sources():
-    source=(ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    source=expanded_legacy_source((ROOT/'scripts/verify_cube_runtime.sh').read_text())
     build='bounded 120 docker build --network none --platform linux/amd64 --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_BIGQUERY_PROBE_IMAGE" -f cube/bigquery-runtime/Dockerfile .'
     smoke='bounded 30 uv run --locked --offline python -m tests.integration.source_runtime_image_gate --image "$GATEWAY_BIGQUERY_PROBE_IMAGE" --run-label "$GATEWAY_CUBE_RUN_LABEL"'
     assert source.splitlines().count(build)==source.splitlines().count(smoke)==1
@@ -43,7 +44,7 @@ def test_actual_bigquery_runtime_image_is_built_and_qualified_before_sources():
 
 
 def test_combined_journey_uses_locked_inputs_and_keeps_backend_selection():
-    source=(ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    source=expanded_legacy_source((ROOT/'scripts/verify_cube_runtime.sh').read_text())
     registry=(ROOT/'scripts/verify_registry_postgres.sh').read_text()
     build='bounded 120 docker build --network none --platform linux/amd64 --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --build-arg "RUNTIME_IMAGE_ID=$GATEWAY_SOURCE_JOURNEY_RUNTIME_IMAGE_ID" --build-arg "PROBE_IMAGE_ID=$GATEWAY_SOURCE_JOURNEY_PROBE_IMAGE_ID" --tag "$GATEWAY_SOURCE_JOURNEY_IMAGE_TAG" -f "$TEMP_DIR/build/SourceJourney.Dockerfile" "$TEMP_DIR/build"'
     assert source.splitlines().count(build)==1
@@ -85,7 +86,7 @@ bounded() {
   fi
   return 0
 }
-'''+function+'\n(exit "$ORIGINAL_STATUS"); cleanup\n'
+'''+legacy_initialization(source)+function+'\n(exit "$ORIGINAL_STATUS"); cleanup\n'
     result=subprocess.run(['bash','-c',script],env={**os.environ,'TEMP_DIR':str(root),'CLEANUP_STATUS':str(cleanup_status),'ORIGINAL_STATUS':str(original)},capture_output=True,text=True,timeout=5)
     assert result.returncode==expected
     assert root.exists()==retained
@@ -96,7 +97,7 @@ bounded() {
 
 
 def test_combined_image_import_smoke_precedes_database_credentials_and_backend():
-    source=(ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    source=expanded_legacy_source((ROOT/'scripts/verify_cube_runtime.sh').read_text())
     command='bounded 20 uv run --locked --offline python - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL"'
     assert source.count(command)==1
     assert source.index('export GATEWAY_SOURCE_JOURNEY_IMAGE_ID')<source.index(command)<source.index('CHECKPOINT=cube-stack-readiness')

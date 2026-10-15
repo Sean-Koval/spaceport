@@ -41,7 +41,7 @@ def test_known_failure_classification_emits_only_fixed_enum(body, expected):
     b'{"error":"unterminated',
     b'\xff\xfe{\x00"\x00e\x00r\x00r\x00o\x00r\x00"\x00:\x00"\x00x\x00"\x00}\x00',
     json.dumps({"error": "x" * 5000}).encode(),
-])
+], ids=['duplicate', 'extra-field', 'nested', 'nested-array', 'nonfinite', 'trailing', 'invalid-utf8', 'surrogate', 'unterminated', 'utf16', 'oversized'])
 def test_malformed_oversized_or_nonflat_json_is_unknown(raw):
     response = httpx.Response(400, content=raw, extensions={"diagnostic_complete": True})
     assert runtime()["failure_error_class"](response) == "unknown"
