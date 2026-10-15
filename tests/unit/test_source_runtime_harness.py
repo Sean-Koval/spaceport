@@ -6,6 +6,7 @@ import runpy
 import stat
 
 import pytest
+from tests.unit.ci_shell_probes import expanded_legacy_source
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
 ROOT = Path(__file__).resolve().parents[2]
@@ -78,7 +79,7 @@ def test_source_overlay_separates_bootstrap_and_runtime_privilege():
 
 
 def test_source_gate_is_required_bounded_and_runs_bootstrap_before_full_cube_http():
-    source = (ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    source = expanded_legacy_source((ROOT/'scripts/verify_cube_runtime.sh').read_text())
     assert '-f infra/compose.source-test.yaml)' in source
     assert 'export GATEWAY_SOURCE_SECRET_DIR="$TEMP_DIR/source-secrets"' in source
     prepare = 'python scripts/source_runtime_secrets.py --secret-dir "$GATEWAY_SOURCE_SECRET_DIR"'

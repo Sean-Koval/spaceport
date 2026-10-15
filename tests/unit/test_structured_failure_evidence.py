@@ -727,7 +727,7 @@ def test_journey_failure_only_admits_fixed_stage_and_error(tmp_path,monkeypatch,
     'HostedJourneyFailure: Hosted synthetic BigQuery journey failed at receipt (value)\nPRIVATE_SENTINEL',
     'ValueError: Hosted synthetic BigQuery journey failed at receipt (value)',
     'HostedJourneyFailure: '+('PRIVATE_SENTINEL'*1000),
-])
+], ids=['unknown-stage', 'unknown-error', 'trailing', 'newline', 'wrong-class', 'oversized'])
 def test_journey_diagnostics_reject_unbounded_or_unrecognized_messages(monkeypatch,message):
     from types import SimpleNamespace
     api=diagnostics();node=api.JOURNEY_TEST

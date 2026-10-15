@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 import pytest
+from tests.unit.ci_shell_probes import legacy_initialization
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,7 +41,7 @@ def invoke_dispatcher(tmp_path, script, function, mode, boundary, status=0):
     recorder.write_text("import json, os, pathlib, sys\n"
         "pathlib.Path(os.environ['CAPTURE']).write_text(json.dumps(sys.argv[1:]))\n"
         f"raise SystemExit({status})\n")
-    code = ('set -euo pipefail\n' + shell_function(script, function) + '\n'
+    code = ('set -euo pipefail\n' + legacy_initialization((ROOT/script).read_text()) + shell_function(script, function) + '\n'
         f'{boundary}() {{ "$PYTHON" "$RECORDER" "$@"; }}\n'
         f'VERIFY_MODE="$MODE"\nTEMP_DIR="$TEMP"\nINTEGRATION_STATE="$TEMP/state"\nINTEGRATION_RECEIPTS="$TEMP/receipts"\nunset GATEWAY_RUNTIME_SECRET_DIR\n{function}\n')
     result = subprocess.run(["bash", "-c", code], text=True, capture_output=True,

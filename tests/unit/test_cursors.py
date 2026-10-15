@@ -23,7 +23,7 @@ def test_cursor_tokens_are_random_opaque_and_stored_only_as_digests():
     assert api().cursor_digest(tokens[0])==api().cursor_digest(tokens[0])
 
 
-@pytest.mark.parametrize("token", [None,False,1,"","a"*42,"a"*44,"é"*43,"="*43,"a.b"*14+"a","a"*2049])
+@pytest.mark.parametrize("token", [None,False,1,"","a"*42,"a"*44,"é"*43,"="*43,"a.b"*14+"a","a"*2049], ids=['none', 'boolean', 'integer', 'empty', 'short', 'long', 'nonascii', 'padding', 'punctuation', 'oversized'])
 def test_malformed_cursor_is_uniformly_unavailable(token):
     with pytest.raises(GatewayError) as caught: api().cursor_digest(token)
     assert caught.value.code=="NOT_FOUND_OR_FORBIDDEN"

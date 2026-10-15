@@ -209,7 +209,7 @@ def test_invalid_or_non_access_tokens_fail_closed_without_untrusted_fetch(clock,
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("authorization", [None, "", "Basic ignored", "Bearer", "Bearer x y", "Bearer\nignored", "Bearer " + "x" * 17000])
+@pytest.mark.parametrize("authorization", [None, "", "Basic ignored", "Bearer", "Bearer x y", "Bearer\nignored", "Bearer " + "x" * 17000], ids=['none', 'empty', 'basic', 'missing-token', 'extra-token', 'newline', 'oversized'])
 def test_missing_malformed_or_oversized_authorization_never_fetches(clock, authorization):
     async def scenario():
         auth, requests, client = authenticator(clock)

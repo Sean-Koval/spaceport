@@ -289,7 +289,7 @@ def test_content_headers_recheck_identity_and_size(changes):
     assert len(gate.calls) == 1
 
 
-@pytest.mark.parametrize("body", [b"wrong same length!\n", BODY[:-1], BODY + b"x", b"x" * 1048577])
+@pytest.mark.parametrize("body", [b"wrong same length!\n", BODY[:-1], BODY + b"x", b"x" * 1048577], ids=['same-length', 'truncated', 'extra-byte', 'oversized'])
 def test_content_mismatch_never_releases_bytes(body):
     item, transport, gate, reader = setup()
     transport.body = body
@@ -307,7 +307,7 @@ def test_reader_limits_stream_to_exact_size_plus_one_and_detects_overflow():
     assert transport.closed == ["metadata", "content"]
 
 
-@pytest.mark.parametrize("body", [b"x" * 65537, b"{broken", b"[]", b'{"bucket":"a","bucket":"b"}', b'NaN'])
+@pytest.mark.parametrize("body", [b"x" * 65537, b"{broken", b"[]", b'{"bucket":"a","bucket":"b"}', b'NaN'], ids=['oversized', 'broken', 'array', 'duplicate', 'nonfinite'])
 def test_metadata_raw_bound_and_malformed_json(body):
     item, transport, gate, reader = setup()
     transport.metadata_body = body
