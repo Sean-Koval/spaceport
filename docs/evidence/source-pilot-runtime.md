@@ -2,7 +2,7 @@
 
 15 October 2026. Scope: [source pilot design](../superpowers/specs/2026-10-15-source-pilot-runtime.md) and [implementation plan](../superpowers/plans/2026-10-15-source-pilot-runtime.md).
 
-**Exact-source backend acceptance passed in run 22. PR 5 remains unmerged and organization activation remains blocked.** The previous connector foundation was merged by approval into private main `3fa6b2f698fa406918d82173d4422166c059b84b`, tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 receipt](reviewed-connectors.md#hosted-gate-attempt-18-pass) applies to that foundation only. The pilot has its own reviewed exact-source backend receipt below; separate merge approval and the additional security/live qualification gates remain required.
+**Exact-source backend acceptance passed in run 22. PR 5 is merged; organization activation remains blocked.** The previous connector foundation was merged by approval into private main `3fa6b2f698fa406918d82173d4422166c059b84b`, tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 receipt](reviewed-connectors.md#hosted-gate-attempt-18-pass) applies to that foundation only. The pilot has its own reviewed exact-source backend receipt below and has merged by user approval; the additional security/live qualification gates remain required.
 
 ## What the checks establish
 
@@ -36,7 +36,7 @@ These are development observations, not a final-build certificate. Later integra
 1. Reviewed connector source and bounded corrections now have exact-source backend qualification from run 22. Further runtime changes, including the security branch, require their own review and qualification.
 2. Preserve both complete sample-product journeys in the mandatory hosted selection, with synthetic provider boundaries clearly identified. The combined test image uses the pinned Cube base and the same prepared locked Python/package inputs; related image-ID labels are evidence references, not ancestry proofs.
 3. **Satisfied for source `2d3cd1e`:** exact-source hosted backend, actual gateway image and Cube source-runtime gates passed within existing limits, with verified cleanup and the run 22 receipt.
-4. Obtain separate approval to merge this pilot wave.
+4. **Satisfied:** the user approved merging this verified pilot on 15 October; PR 5 merged normally at `27bb504f9a673267fd070a4e562b698388ded7e5`, preserving documentation tree `360388495eb947d523436550f152dd91734919b6`.
 5. Before organization use, implement the separately reviewed, revocable data-owner approval gate for explicit non-PII shared-source products and fail closed on unsupported delegated-source modes. Current user/client authentication and product ACLs do not prove employee Domo permissions, relationship-based delegation or PII safety.
 6. Separately configure and verify operator-owned credentials/IAM, restricted source datasets, network egress, identity/PDP mapping, source definitions, quotas and freshness prerequisites. Live source requests, cloud resource creation and deployment are not authorized by the implementation work.
 
@@ -117,6 +117,6 @@ The combined correction tree passed all 3,336 mandatory unit/contract tests in 1
 
 Provider transport/identity responses in the journeys remain synthetic. No live BigQuery/Domo queries, cloud deployment, organization credential setup, browser acceptance or source entitlement qualification occurred. The trusted main workflow's old `domo: NOT IMPLEMENTED` label remains stale: candidate direct-REST serving and synthetic journey tests exist and passed, while live Domo access was not run.
 
-This receipt qualifies the connector candidate's exact tested source. It does not qualify the separately changing owner-approval security branch. PR 5 remains draft/unmerged pending separate approval, and the operator guide continues to block organization activation until the additional security and live-provider gates are satisfied.
+This receipt qualifies the connector candidate's exact tested source. It does not qualify the separately changing owner-approval security branch. PR 5 subsequently merged by user approval; the operator guide continues to block organization activation until the additional security and live-provider gates are satisfied.
 
 This later documentation-only update was not rerun in CI. Its runtime, tests, workflows, migrations, clients and publisher are unchanged; the acceptance receipt remains bound to source `2d3cd1e4319f36a70bb95379f6713584abc5c4f2` and tree `c4317c34c4f3c7b3030ca5c0287c73e537006ee8`, not to a newly tested documentation head.
