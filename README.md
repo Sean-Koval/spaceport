@@ -1,8 +1,13 @@
+<picture>
+  <source media="(max-width: 640px)" srcset="docs/assets/spaceport-banner-mobile.svg">
+  <img src="docs/assets/spaceport-banner.svg" width="1280" alt="Spaceport. Reviewed data products for people and agents. Define, test, publish, query.">
+</picture>
+
 # Spaceport
 
 Spaceport is a self-hosted gateway that turns reviewed team data into reusable products that people and agents can discover and query through one governed API. A product defines what an answer means, its typed inputs and outputs, who can use it, how fresh it must be, and the tests required before publication.
 
-The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its exact-source backend acceptance passed; live activation remains separately gated; GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
+The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its exact-source backend acceptance passed; live activation remains separately gated. GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
 
 The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
 
@@ -21,28 +26,28 @@ Agents receive approved product capabilities, not database credentials or unrest
 
 ## Current status
 
-The reviewed private-main baseline was merged on 14 October 2026. Its exact source tree passed 1,847 unit/contract tests and 294 genuine PostgreSQL/Cube backend tests, with verified cleanup, in [run 38615111132](https://github.com/Sean-Koval/spaceport/actions/runs/38615111132). See the [source-bound baseline record](docs/evidence/private-main-baseline.md). This is not a production release or verified end-to-end installation; later changes need their own checks.
+**The BigQuery and Domo connector pilot is merged.** [PR 5](https://github.com/Sean-Koval/spaceport/pull/5) merged at [`27bb504f`](https://github.com/Sean-Koval/spaceport/commit/27bb504f9a673267fd070a4e562b698388ded7e5). [Run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164) passed **3,336 source tests and 406 backend cases**, including the actual runtime images, offline CLI/import smoke and complete synthetic-provider product journeys. Exact cleanup passed. The merge preserves the reviewed documentation-only descendant of that tested source; see the [source-bound receipt](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass).
 
-The consumer query workspace and authorized draft inbox merged in [PR 2](https://github.com/Sean-Koval/spaceport/pull/2) on 14 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/7a45b7e22514375de375dc71be1f8c70f843c589) has the exact same tree as [tested source 44062b2e](https://github.com/Sean-Koval/spaceport/commit/44062b2ea8fa5b0d65bd29f5090209de164ff3bf): [run 38633087264](https://github.com/Sean-Koval/spaceport/actions/runs/38633087264) admitted 1,950 unit/contract tests and all 329 genuine PostgreSQL/Cube backend cases, with both cleanup checks passing. The unchanged frontend passed 254 frontend tests, typecheck, generated-client consistency, build and formatting checks. Rendered-browser and composed-demo acceptance remain unverified; live-source and production gates remain open.
+**Organization activation remains blocked.** The next security slice is still being implemented and reviewed. A passing fixture journey does not establish live credentials, user-level Domo permissions, PII safety or production readiness.
 
-The organization-runtime foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3) on 15 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/a4e3c4fb36a60effd66a72a30fea6fbbabc44540) preserves tested tree `76611787d8ee0c39478f6377bbb62dca3092e6e8` from source `c060dc23c97cae0123d075ce5d78767baf9773d9`. [Run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566) passed 2,221 unit/contract tests and all 346 genuine PostgreSQL/Cube backend cases, with verified cleanup. The unchanged frontend passed 254 tests and its source checks locally. See the [foundation evidence](docs/evidence/organization-runtime-foundation.md) for the scope and remaining gates.
+| Area | Available now | Still gated |
+| --- | --- | --- |
+| Product workflow | Catalog, draft editor, isolated fixtures, separate publisher, immutable versions, REST + four MCP tools | Full composed-browser acceptance |
+| PostgreSQL / Cube | Synthetic reference plus reviewed v2 bindings and same-query checkpoints | Operator-qualified organization models and producer guarantees |
+| BigQuery | Reviewed Cube/SDK runtime, bounded jobs, durable source holds, full synthetic-provider journey | Live identity, permissions, cost, freshness and network qualification |
+| Domo | Finite reviewed SQL over direct REST, isolated fixture/consumer identities, single-send accounting | Live OAuth/PDP, dataset/business-definition qualification; shared credentials do not inherit employee access |
+| GCS | Offline exact-generation artifact reader | Public route, live transport and source-policy inheritance |
+| Access security | Current user/client authentication and product policy checks | Revocable owner approval for non-PII products; full ReBAC, agent delegation and per-user source entitlement intersection |
+| Deployment | Operator CLI, images, GKE review templates | Authorized infrastructure/credentials, browser SSO/PKCE, production rollout |
 
-The connector foundation merged in [PR 4](https://github.com/Sean-Koval/spaceport/pull/4), at main `3fa6b2f698fa406918d82173d4422166c059b84b`, preserving approved tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 evidence](docs/evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass) covers 2,586 source tests and 359 backend cases. The new [source pilot candidate](docs/evidence/source-pilot-runtime.md) passed [run 22 exact-source backend acceptance](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass), covering 3,336 source tests and 406 backend cases. PR 5 remains unmerged; the additional source-access security and live-provider qualification gates remain open.
+See the [acceptance index](docs/evidence/acceptance.md), [limitations](docs/evidence/limitations.md) and [roadmap](ROADMAP.md). Earlier [baseline](docs/evidence/private-main-baseline.md), [runtime foundation](docs/evidence/organization-runtime-foundation.md) and [connector foundation](docs/evidence/reviewed-connectors.md) receipts remain tied to their original revisions.
 
-| Area | Evidence boundary |
-| --- | --- |
-| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 3 source passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
-| Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
-| Reviewed PostgreSQL / Cube v2 | Versioned operator bindings and same-query source checkpoints, with separate synthetic consumer/fixture assets. See the [connector evidence](docs/evidence/reviewed-connectors.md) for exact tests and remaining live-source prerequisites. |
-| BigQuery | New reviewed serving profile, durable PostgreSQL source holds, bounded jobs/results and metadata-only observation. Actual Cube/SDK plus real registry tests use synthetic Google responses; final image and live-source qualification remain open. |
-| Domo | Finite approved-statement REST serving with isolated fixture/consumer identities and durable single-send holds. Real-registry product workflows use synthetic Domo responses; live OAuth/PDP, business definitions and source evidence remain open. |
-| GCS artifacts | Offline exact-generation allowlist reader with bounded buffering and authorization callbacks. No public artifact route, live transport or policy inheritance implementation. |
-| Studio / production identity | Studio interoperability and live delegated OIDC access are not tested. |
-| Offline runtime assurance | Acquisition and runtime are separated in the tooling. Stronger packet-observer evidence remains blocked; an internal Docker network alone is not proof. |
+## Start here
 
-The [acceptance index](docs/evidence/acceptance.md) and [limitations](docs/evidence/limitations.md) explain the required evidence. Older passes apply only to the source and environment they tested. The [roadmap](ROADMAP.md) separates the private-main baseline, next product work and live-source/production gates.
-
-GCP/GKE is the selected organization-deployment target. The [organization-pilot assessment](docs/operations/organization-pilot.md) covers infrastructure, credentials, performance, UI/UX and the remaining decisions. The implemented [runtime foundation](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) introduces explicit OIDC/TLS configuration and controlled identity provisioning against synthetic data. Its [source and backend evidence](docs/evidence/organization-runtime-foundation.md) does not activate BigQuery/Domo, implement browser SSO or authorize a rollout.
+- **Explore with synthetic data:** follow [local setup](#local-synthetic-setup) below. No vendor account or model-provider key is required.
+- **Prepare a BigQuery or Domo product:** use the [operator setup and team workflow](docs/operations/source-pilot.md). Package creation and validation are offline; rendering does not provision or deploy resources.
+- **Understand the contract:** read the [OpenAPI snapshot](docs/compatibility/openapi.json) and [four-tool MCP profile](docs/compatibility/mcp.md).
+- **Plan an organization pilot:** review the [remaining security and live-source gates](#bigquery-and-domo-pilot) before configuring access.
 
 ## Architecture
 
@@ -58,7 +63,7 @@ REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. The [saved-draft
 
 ## BigQuery and Domo pilot
 
-**Organization activation is blocked pending the separately reviewed data-access security gate.** This connector candidate does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
+**Organization activation is blocked pending the separately reviewed data-access security gate.** This merged connector pilot does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
 
 Start with the [operator setup and team workflow](docs/operations/source-pilot.md). The supported CLI builds and validates a fixed weekly-account-usage package offline, renders a zero-replica GKE review bundle, and guides author → isolated fixture test → separate publisher → bounded consumer check. Existing cluster, registry, IdP, source views/datasets, reviewed network access and operator-managed credentials are prerequisites. Rendering does not create them or deploy anything.
 
@@ -146,6 +151,6 @@ The packet observer is not currently available, so full demo acceptance remains 
 
 ## Live sources and release boundaries
 
-Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [reviewed connector design](docs/superpowers/specs/2026-10-15-reviewed-connectors.md) distinguishes the complete synthetic v2 path from the offline-only BigQuery/Domo/GCS slices.
+Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [source pilot design](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) describes the merged BigQuery/Domo serving paths; GCS remains the earlier offline artifact slice.
 
 V1 excludes ETL, arbitrary SQL/formulas, cross-product joins, source writes, dashboards, ontology engines and agent orchestration. Real credentials, paid queries, deployment and public distribution require their own decisions and verification. Preserve [third-party notices](THIRD_PARTY_NOTICES.md) and the [dependency inventory](docs/operations/licensing.md); the repository does not grant an original-code redistribution license.

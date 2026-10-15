@@ -10,12 +10,12 @@ Work is ordered by usable outcomes and evidence. Synthetic fixtures, mock contra
 
 ## Current connector pilot wave
 
-PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The next [reviewed source pilot](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) is an implementation candidate, with [separate evidence](docs/evidence/source-pilot-runtime.md), not a live deployment.
+PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The [reviewed source pilot](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) merged in PR 5 at `27bb504f9a673267fd070a4e562b698388ded7e5`, with [run 22 backend acceptance](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass). It is not a live deployment.
 
-- Deliver the usable operator CLI, retained sample packages, source verification recipe and complete GKE application inventory for existing infrastructure.
-- Complete actual gateway/registry product journeys for BigQuery and Domo, with only provider boundaries simulated. Require the installed runtime and actual image gates, not standalone libraries alone.
+- **Delivered:** operator CLI, retained sample packages, source verification recipe and GKE application inventory for existing infrastructure.
+- **Verified in run 22:** actual gateway/registry product journeys for BigQuery and Domo with synthetic provider boundaries, installed runtime and actual image gates.
 - Retain source holds across crashes, revocation, lease generations and unknown provider outcomes. Require durable commits and current authority before data calls; never release unknown capacity merely because the gateway times out.
-- Independently review and test the exact final private PR. The next merge needs separate approval.
+- **Merged after review and verification:** PR 5. Later runtime/security changes require their own exact-source evidence before merge.
 - Before calling this organization-usable, implement a separately reviewed security slice: protected data-owner approval and revocation for explicit non-PII products, plus rejection of unsupported delegated-source modes. User/agent relationships and source-user entitlement intersection are requirements, not current capabilities.
 - Then, under separate operator approval, qualify live identities, approved tables/datasets, PDP/business definitions, quotas, freshness and network controls. Browser SSO/PKCE and production/composed acceptance remain separate work.
 
