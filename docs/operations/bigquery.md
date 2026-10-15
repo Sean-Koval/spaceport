@@ -2,11 +2,13 @@
 
 Verified 13 October 2026. **Mock contracts: PASS. Live BigQuery: NOT RUN. Production: BLOCKED.** These are separate evidence levels; no Google project, dataset, credentials, query, paid account or cloud deployment was used. The default demonstration remains synthetic PostgreSQL with no external account.
 
+An executable, offline-tested source-control library and separately retained fictional v2 assets are now described in [BigQuery source controls](bigquery-controls.md). That candidate has no serving/runtime integration and does not change this profile or live activation gate. Actual packaged-image and live evidence remain separate.
+
 ## Profile and runtime boundary
 
 `BigQueryCubeProfile.validate(settings: SourceSettings) -> SourceCapabilities` is an internal operator-owned eligibility check. `select_adapter("postgresql")` preserves `CubeAdapter`; explicitly configured `bigquery` selects the non-executable profile. Missing BigQuery settings, production activation and `domo` fail with safe `INVALID_INPUT`. This is not a new public connector schema, direct SQL compiler, discovery endpoint or metadata registry.
 
-The current retained bundles, models, member bindings and deployed driver are PostgreSQL-only. Passing configuration validation does **not** turn them into BigQuery assets. Mocks explicitly reuse their member shapes against `httpx.MockTransport`; they cannot establish BigQuery metadata, dialect, hydration or runtime compatibility. A runnable BigQuery deployment needs independently reviewed and retained driver/model/binding assets and their own bundle digest. No Cube configuration or shared contracts changed in Task 13.
+The existing executable runtime/profile deployments remain PostgreSQL-only; the separately retained BigQuery candidate is not registered as a serving deployment. Passing configuration validation does **not** turn them into BigQuery assets. Mocks explicitly reuse their member shapes against `httpx.MockTransport`; they cannot establish BigQuery metadata, dialect, hydration or runtime compatibility. A runnable BigQuery deployment needs independently reviewed and retained driver/model/binding assets and their own bundle digest. No Cube configuration or shared contracts changed in Task 13.
 
 `SourceSettings` requires the exact project/dataset, explicit query region, operator-reviewed expected dataset region, and a mounted `/run/secrets/<name>` reference. Location syntax and equality are checked; neither is live dataset-location verification. A reference does not establish that credentials exist or are appropriately scoped. The model rejects credential contents, unknown fields, source-writing pre-aggregations, exports, floating versions and attempted self-certification. It never reads a secret. Do not accept these settings from manifests, query inputs or public endpoints.
 

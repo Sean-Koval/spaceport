@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "activation": "disabled",
+  "evidence": "offline-controls-only",
+  "asset_digest": "60199aa6e117aba965a7625caa31c874283e6217faac4997ecedab63a711071e",
+  "packaged_cube_sdk_verification": "NOT RUN",
+  "live_bigquery": "NOT RUN"
+}

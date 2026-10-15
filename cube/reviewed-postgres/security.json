@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "adapter_revision": "cube-rest-v2",
+  "data_cube": "Bookings",
+  "members": {
+    "Bookings.day": {
+      "kind": "time",
+      "type": "time"
+    },
+    "Bookings.category": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "Bookings.total": {
+      "kind": "measure",
+      "type": "number"
+    },
+    "Bookings.tenant": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "Bookings.group": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "Bookings.loaded_at": {
+      "kind": "dimension",
+      "type": "string"
+    }
+  },
+  "tenant_member": "Bookings.tenant",
+  "access_group_member": "Bookings.group",
+  "time_member": "Bookings.day",
+  "checkpoint_member": "Bookings.loaded_at"
+}

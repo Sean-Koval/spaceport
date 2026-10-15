@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "gateway-cube-" + "a" * 16
 RUN_LABEL = "38474646900-1"
 NETWORK = PROJECT + "_private"
-SERVICES = ("cube", "cube-test", "demo-db", "registry-db", "edge")
+SERVICES = ("cube", "cube-test", "demo-db", "registry-db", "edge", "cube-reviewed", "cube-reviewed-test")
 
 
 def runtime_records():
@@ -67,7 +67,7 @@ if args[0] == "compose":
     command = args[7:]
     if command == ["ps", "--all", "--quiet"]:
         print("\\n".join(current["containers"]))
-    elif command == ["restart", "registry-db", "demo-db", "cube", "cube-test"]:
+    elif command == ["restart", "registry-db", "demo-db", "cube", "cube-test", "cube-reviewed", "cube-reviewed-test"]:
         state["restarted"] = True
         path.write_text(json.dumps(state))
     elif command[:1] == ["up"]:
@@ -118,7 +118,7 @@ def test_runtime_harness_admits_verified_post_restart_addresses(topology_harness
         expected = {record["Config"]["Labels"]["com.docker.compose.service"]:
             record["NetworkSettings"]["Networks"][NETWORK]["IPAddress"]
             for record in after["containers"].values()
-            if record["Config"]["Labels"]["com.docker.compose.service"] in {"cube", "cube-test", "demo-db"}}
+            if record["Config"]["Labels"]["com.docker.compose.service"] in {"cube", "cube-test", "demo-db", "cube-reviewed", "cube-reviewed-test"}}
         assert stack.host_mode is True
         assert stack.hosts == expected
         assert json.loads((evidence / "hosts.json").read_text())["hosts"] == expected
@@ -128,9 +128,11 @@ def test_runtime_harness_admits_verified_post_restart_addresses(topology_harness
 
 @pytest.mark.parametrize("defect", ["service", "project", "run_label", "name", "stopped",
     "unhealthy", "extra_network", "published_port", "external_network", "network_project", "network_run", "public_address", "replaced_container"])
-def test_runtime_harness_still_rejects_widened_or_untrusted_restart(topology_harness, defect):
+@pytest.mark.parametrize("service", ["cube", "cube-reviewed", "cube-reviewed-test"])
+def test_runtime_harness_still_rejects_widened_or_untrusted_restart(topology_harness, defect, service):
     after = runtime_records()
-    cube = after["containers"]["1" * 64]
+    identifier = str(SERVICES.index(service) + 1) * 64
+    cube = after["containers"][identifier]
     if defect in {"service", "project", "run_label"}:
         key = {"service": "com.docker.compose.service", "project": "com.docker.compose.project", "run_label": "gateway.cube.run"}[defect]
         cube["Config"]["Labels"][key] = "untrusted"
@@ -147,7 +149,7 @@ def test_runtime_harness_still_rejects_widened_or_untrusted_restart(topology_har
     elif defect == "public_address":
         cube["NetworkSettings"]["Networks"][NETWORK]["IPAddress"] = "1.1.1.1"
     elif defect == "replaced_container":
-        after["containers"]["a" * 64] = after["containers"].pop("1" * 64)
+        after["containers"]["a" * 64] = after["containers"].pop(identifier)
     elif defect == "external_network":
         after["network"]["Internal"] = False
     else:
@@ -159,3 +161,11 @@ def test_runtime_harness_still_rejects_widened_or_untrusted_restart(topology_har
             stack_class()
     else:
         assert result.returncode == 1, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("service", ["cube-reviewed", "cube-reviewed-test"])
+def test_missing_reviewed_service_cannot_satisfy_required_backend_topology(topology_harness, service):
+    after = runtime_records()
+    after["containers"].pop(str(SERVICES.index(service) + 1) * 64)
+    result, _, _ = topology_harness(after)
+    assert result.returncode == 1

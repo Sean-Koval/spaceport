@@ -143,7 +143,8 @@ def current_source():
     if not re.fullmatch('[a-f0-9]{40}', commit) or not re.fullmatch('[a-f0-9]{40}', tree):
         raise ValueError('Exact Git source identity required')
     paths = ['scripts/verify_gateway_integration.sh', 'scripts/gateway_integration.py',
-        'scripts/verify_cube_runtime.sh', 'scripts/verify_registry_postgres.sh', '.github/workflows/verify-cube.yml']
+        'scripts/verify_cube_runtime.sh', 'scripts/verify_registry_postgres.sh', '.github/workflows/verify-cube.yml',
+        'infra/compose.reviewed.yaml']
     return {'git_commit': commit, 'git_tree': tree,
         'source_digest': runtime.source_digest(runtime.source_inventory()),
         'harness_sha256': {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in paths}}

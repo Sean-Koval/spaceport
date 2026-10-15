@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "adapter_revision": "cube-rest-v2",
+  "data_cube": "WarehouseSales",
+  "members": {
+    "WarehouseSales.occurred_at": {
+      "kind": "time",
+      "type": "time"
+    },
+    "WarehouseSales.segment": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "WarehouseSales.total": {
+      "kind": "measure",
+      "type": "number"
+    },
+    "WarehouseSales.tenant_id": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "WarehouseSales.access_group": {
+      "kind": "dimension",
+      "type": "string"
+    },
+    "WarehouseSales.source_loaded_at": {
+      "kind": "dimension",
+      "type": "string"
+    }
+  },
+  "tenant_member": "WarehouseSales.tenant_id",
+  "access_group_member": "WarehouseSales.access_group",
+  "time_member": "WarehouseSales.occurred_at",
+  "checkpoint_member": "WarehouseSales.source_loaded_at"
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "activation": "disabled",
+  "cube_version": "1.8.5",
+  "project_id": "spaceport-fixture",
+  "dataset_id": "reviewed_sales",
+  "location": "US",
+  "tables": [
+    "sales",
+    "source_checkpoints"
+  ],
+  "source_types": {
+    "amount": "NUMERIC",
+    "occurred_at": "TIMESTAMP",
+    "loaded_at": "TIMESTAMP",
+    "segment": "STRING"
+  },
+  "producer_contract": "Rows and the unique per-tenant checkpoint are published in one atomic source transaction. No live verification."
+}

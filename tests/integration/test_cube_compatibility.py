@@ -107,7 +107,7 @@ def failure_error_class(response):
 
 class CubeStack:
     def __init__(self):
-        self.hosts = {"cube": "cube", "cube-test": "cube-test", "demo-db": "demo-db"}
+        self.hosts = {name: name for name in ("cube", "cube-test", "cube-reviewed", "cube-reviewed-test", "demo-db")}
         self.secrets = Path("/run/secrets")
         self.evidence = Path("/evidence")
         self.host_mode = False

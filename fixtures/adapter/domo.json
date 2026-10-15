@@ -1,0 +1,370 @@
+{
+  "product": {
+    "manifest": {
+      "schema_version": "1.0",
+      "product_id": "revenue",
+      "version": "1.0.0",
+      "name": "Daily revenue",
+      "description": "Daily sum of order amounts, including unassigned segments.",
+      "examples": [
+        {
+          "description": "Three-day north revenue",
+          "inputs": {
+            "start": "2024-03-09",
+            "end": "2024-03-12"
+          }
+        }
+      ],
+      "owner": "analytics",
+      "domain": "finance",
+      "links": [
+        {
+          "label": "Definition",
+          "url": "https://example.com/revenue"
+        }
+      ],
+      "inputs": {
+        "start": {
+          "type": "date",
+          "nullable": false,
+          "required": true,
+          "enum": null,
+          "default": null,
+          "precision": null,
+          "scale": null
+        },
+        "end": {
+          "type": "date",
+          "nullable": false,
+          "required": true,
+          "enum": null,
+          "default": null,
+          "precision": null,
+          "scale": null
+        },
+        "segment": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "enum": [
+            "A",
+            "B"
+          ],
+          "default": {
+            "value": null
+          },
+          "precision": null,
+          "scale": null
+        }
+      },
+      "outputs": {
+        "day": {
+          "type": "date",
+          "nullable": false,
+          "required": true,
+          "enum": null,
+          "default": null,
+          "precision": null,
+          "scale": null
+        },
+        "segment": {
+          "type": "string",
+          "nullable": true,
+          "required": true,
+          "enum": null,
+          "default": null,
+          "precision": null,
+          "scale": null
+        },
+        "revenue": {
+          "type": "decimal",
+          "nullable": false,
+          "required": true,
+          "enum": null,
+          "default": null,
+          "precision": 38,
+          "scale": 2
+        }
+      },
+      "filters": {
+        "segment": {
+          "operators": [
+            "eq",
+            "in",
+            "is_null"
+          ],
+          "max_values": 10
+        },
+        "day": {
+          "operators": [
+            "eq",
+            "gte",
+            "lt"
+          ],
+          "max_values": 100
+        }
+      },
+      "sort": {
+        "fields": [
+          "day",
+          "segment"
+        ],
+        "max_fields": 2
+      },
+      "grain": "daily",
+      "units": {
+        "revenue": {
+          "unit": "money",
+          "currency": "USD"
+        }
+      },
+      "timezone": "America/New_York",
+      "date_boundaries": {
+        "start_input": "start",
+        "end_input": "end",
+        "interval": "[start,end)"
+      },
+      "aggregation": "Sum of order amounts",
+      "freshness": {
+        "required": true,
+        "max_age_seconds": 86400,
+        "meaning": "source_load"
+      },
+      "binding_id": "domo-revenue",
+      "binding_revision": 1,
+      "adapter_revision": "domo-named-v1",
+      "policy_id": "revenue-access",
+      "classification": "internal",
+      "redaction": {
+        "start": "digest",
+        "end": "digest",
+        "segment": "omit"
+      },
+      "fixtures": [
+        {
+          "id": "north-total",
+          "version": "1",
+          "inputs": {
+            "start": "2024-03-09",
+            "end": "2024-03-12"
+          },
+          "expected_rows": [
+            {
+              "day": "2024-03-09",
+              "segment": "A",
+              "revenue": "10.10"
+            },
+            {
+              "day": "2024-03-10",
+              "segment": null,
+              "revenue": "20.20"
+            },
+            {
+              "day": "2024-03-11",
+              "segment": "A",
+              "revenue": "9007199254740993.01"
+            }
+          ],
+          "expected_error": null,
+          "tolerance": "0.00",
+          "source_watermark": "2024-03-12T00:00:00Z"
+        },
+        {
+          "id": "south-total",
+          "version": "1",
+          "inputs": {
+            "start": "2024-03-09",
+            "end": "2024-03-12"
+          },
+          "expected_rows": [
+            {
+              "day": "2024-03-09",
+              "segment": "A",
+              "revenue": "100.00"
+            },
+            {
+              "day": "2024-03-10",
+              "segment": "B",
+              "revenue": "0.01"
+            }
+          ],
+          "expected_error": null,
+          "tolerance": "0.00",
+          "source_watermark": "2024-03-12T00:00:00Z"
+        },
+        {
+          "id": "empty",
+          "version": "1",
+          "inputs": {
+            "start": "2025-01-01",
+            "end": "2025-01-02"
+          },
+          "expected_rows": [],
+          "expected_error": null,
+          "tolerance": "0",
+          "source_watermark": "2024-03-12T00:00:00Z"
+        },
+        {
+          "id": "range-367",
+          "version": "1",
+          "inputs": {
+            "start": "2024-01-01",
+            "end": "2025-01-02"
+          },
+          "expected_rows": [],
+          "expected_error": "INVALID_INPUT",
+          "tolerance": "0",
+          "source_watermark": null
+        }
+      ],
+      "content_digest": "47df8536d3a6487bf168f7821368a0c081e84e944377ffe0e74447947326ee31",
+      "model_bundle_digest": "228090dcbeaf8416a1e8a14d4e17c2873f9963ec3346d728650308ee5684d8ba",
+      "limits": {
+        "max_rows": 1000,
+        "max_bytes": 1048576,
+        "page_size": 200,
+        "per_principal_concurrency": 2,
+        "deployment_concurrency": 10,
+        "max_date_range_days": 366,
+        "sync_wait_seconds": 5,
+        "execution_timeout_seconds": 120
+      }
+    },
+    "binding_digest": "28898558a3de9fdcbb042333060df0bbca562447929ac8bb8cbeb98db129dec5",
+    "version_id": "domo-product-v1"
+  },
+  "binding": {
+    "binding_id": "domo-revenue",
+    "revision": 1,
+    "adapter_revision": "domo-named-v1",
+    "model_bundle_digest": "228090dcbeaf8416a1e8a14d4e17c2873f9963ec3346d728650308ee5684d8ba",
+    "owner": "analytics",
+    "policy_id": "revenue-access",
+    "tenant_id": "north",
+    "dataset_id": "00000000-0000-0000-0000-000000000001",
+    "authoritative_definition_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tenant_member": "tenant",
+    "entitlement_member": "access_group",
+    "columns": [
+      {
+        "field": "day",
+        "source_name": "day",
+        "source_type": "STRING"
+      },
+      {
+        "field": "segment",
+        "source_name": "segment",
+        "source_type": "STRING"
+      },
+      {
+        "field": "revenue",
+        "source_name": "revenue",
+        "source_type": "STRING"
+      }
+    ],
+    "variants": [
+      {
+        "query_digest": "3c8368d407d6186a17de0381438dd37130719b545c165644ee718c7964cd0672",
+        "scope_digest": "23db5800f44197a829c8dd896932dadd4cfc886c2e4e16734188882cefc60ebc",
+        "statement_id": "north-march",
+        "statement_revision": 1,
+        "statement_digest": "eec2b547edf7a5a93d7e16a681f479e620c3ffba8af24dbe9f6a6bc64bb482a9"
+      }
+    ]
+  },
+  "query": {
+    "product_id": "revenue",
+    "version": "1.0.0",
+    "inputs": {
+      "start": "2024-03-09",
+      "end": "2024-03-12",
+      "segment": null
+    },
+    "filters": [],
+    "sort": [],
+    "idempotency_key": null
+  },
+  "decision": {
+    "principal_id": "north-user",
+    "policy_revision": 1,
+    "tenant_id": "north",
+    "row_constraints": [
+      {
+        "member": "tenant",
+        "operator": "eq",
+        "values": [
+          "north"
+        ]
+      },
+      {
+        "member": "access_group",
+        "operator": "in",
+        "values": [
+          "north"
+        ]
+      }
+    ],
+    "visible_fields": [
+      "day",
+      "segment",
+      "revenue"
+    ],
+    "limits": {
+      "max_rows": 1000,
+      "max_bytes": 1048576,
+      "page_size": 200,
+      "per_principal_concurrency": 2,
+      "deployment_concurrency": 10,
+      "max_date_range_days": 366,
+      "sync_wait_seconds": 5,
+      "execution_timeout_seconds": 120
+    }
+  },
+  "statement": {
+    "statement_id": "north-march",
+    "revision": 1,
+    "text": "SELECT day, segment, revenue FROM reviewed_north_march",
+    "sha256": "eec2b547edf7a5a93d7e16a681f479e620c3ffba8af24dbe9f6a6bc64bb482a9"
+  },
+  "response": {
+    "datasource": "00000000-0000-0000-0000-000000000001",
+    "columns": [
+      "day",
+      "segment",
+      "revenue"
+    ],
+    "metadata": [
+      {
+        "type": "STRING",
+        "dataSourceId": "00000000-0000-0000-0000-000000000001"
+      },
+      {
+        "type": "STRING",
+        "dataSourceId": "00000000-0000-0000-0000-000000000001"
+      },
+      {
+        "type": "STRING",
+        "dataSourceId": "00000000-0000-0000-0000-000000000001"
+      }
+    ],
+    "rows": [
+      [
+        "2024-03-09",
+        "A",
+        "9007199254740993.01"
+      ]
+    ],
+    "numRows": 1,
+    "numColumns": 3,
+    "fromcache": true
+  },
+  "freshness_evidence": {
+    "binding_digest": "28898558a3de9fdcbb042333060df0bbca562447929ac8bb8cbeb98db129dec5",
+    "definition_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "query_digest": "3c8368d407d6186a17de0381438dd37130719b545c165644ee718c7964cd0672",
+    "scope_digest": "23db5800f44197a829c8dd896932dadd4cfc886c2e4e16734188882cefc60ebc",
+    "response_sha256": "90a4834054a3905f75882bdf95f26a5309b774e55ce04130e98fb1f2b3447bdd",
+    "source_watermark": "2024-03-12T00:00:00Z"
+  },
+  "assessed_at": "2024-03-12T01:00:00Z"
+}

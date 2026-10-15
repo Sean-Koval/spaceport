@@ -1,0 +1,37 @@
+# Unique tenant checkpoint join; source rows and checkpoint publish atomically.
+cubes:
+  - name: Bookings
+    sql: >
+      SELECT o.id, o.tenant_id AS tenant, o.access_group AS access_group,
+             o.ordered_at AS booked_at, o.segment AS category, o.amount,
+             to_char(w.loaded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS loaded_at
+      FROM demo_source.orders o
+      JOIN demo_source.watermark w ON w.tenant_id = o.tenant_id
+    refresh_key:
+      every: 1 second
+      sql: SELECT MAX(loaded_at) FROM demo_source.watermark
+    measures:
+      - name: total
+        sql: amount
+        type: sum
+    dimensions:
+      - name: id
+        sql: id
+        type: string
+        primary_key: true
+        public: false
+      - name: tenant
+        sql: tenant
+        type: string
+      - name: group
+        sql: access_group
+        type: string
+      - name: day
+        sql: booked_at
+        type: time
+      - name: category
+        sql: category
+        type: string
+      - name: loaded_at
+        sql: loaded_at
+        type: string

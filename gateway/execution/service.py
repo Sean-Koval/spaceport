@@ -9,8 +9,9 @@ from contextvars import ContextVar
 from typing import Awaitable, Callable
 from uuid import uuid4
 
+from gateway.adapters.reviewed import validate_binding_decision
 from gateway.adapters.base import (BindingResolver, authorization_scope_digest,
-    check_binding, validate_data_decision, validate_query_visibility)
+    check_binding, validate_query_visibility)
 from gateway.contracts.canonical import canonical_digest
 from gateway.contracts.clock import Clock, SystemClock
 from gateway.contracts.errors import ErrorCode, GatewayError, invalid_input
@@ -30,8 +31,8 @@ def check_current_scope(product, request, binding, current, executed, request_id
     A changed policy revision, tenant or same-revision entitlement is a different
     execution. Full grouping and saved selection/order dependencies stay visible.
     """
-    current=validate_data_decision(current,request_id,binding.constraint_members)
-    executed=validate_data_decision(executed,request_id,binding.constraint_members)
+    current=validate_binding_decision(binding,current,request_id)
+    executed=validate_binding_decision(binding,executed,request_id)
     if (authorization_scope_digest(current)!=authorization_scope_digest(executed)
         or not set(current.visible_fields)<=set(executed.visible_fields)
         or not set(executed.visible_fields)<=set(product.manifest.outputs)

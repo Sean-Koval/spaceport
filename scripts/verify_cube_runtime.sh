@@ -65,7 +65,7 @@ from scripts.gateway_integration import register_compatibility
 register_compatibility(Path(sys.argv[1]), 'cube', sys.argv[2], sys.argv[3])
 PYCLEANUP
 fi
-COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml)
+COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml -f infra/compose.reviewed.yaml)
 start_private_stack() {
   local result=0
   bounded 180 "${COMPOSE[@]}" up -d --wait --wait-timeout 150 "$@" || result=$?
@@ -162,7 +162,7 @@ bounded 120 docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_
 bounded 15 docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
 bounded 15 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
 CHECKPOINT=cube-stack-readiness
-start_private_stack registry-db demo-db cube cube-test edge
+start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test edge
 # Initialization must succeed after the official entrypoint drops to UID999.
 # Read-only per-service mounts are unchanged; no contents/passwords are logged.
 CHECKPOINT=cube-role-initializers
@@ -202,12 +202,14 @@ instances={}
 for identifier in sys.argv[2:]:
     raw=json.loads(subprocess.check_output(['docker','inspect',identifier],timeout=10))[0]
     name=raw['Config']['Labels']['com.docker.compose.service']
-    assert name in {'cube','cube-test','demo-db','registry-db','edge'} and name not in instances
+    assert name in {'cube','cube-test','cube-reviewed','cube-reviewed-test','demo-db','registry-db','edge'} and name not in instances
     assert raw['Config']['Labels']['com.docker.compose.project']==project
     assert raw['Config']['Labels']['gateway.cube.run']==run_label
     assert raw['Name']=='/'+project+'-'+name+'-1'
     assert raw['State']['Running']
-    if name!='edge': assert raw['State']['Health']['Status']=='healthy'
+    if name!='edge':
+        assert raw['State']['Health']['Status']=='healthy'
+        assert not raw['HostConfig']['PortBindings']
     networks=list(raw['NetworkSettings']['Networks'])
     assert networks==[project+'_private']
     network=json.loads(subprocess.check_output(['docker','network','inspect',networks[0]],timeout=10))[0]
@@ -219,17 +221,17 @@ for identifier in sys.argv[2:]:
         'ports':raw['HostConfig']['PortBindings'] or {}, 'internal_networks_only':bool(networks) and internal})
 Path(sys.argv[1]).write_text(json.dumps(records,sort_keys=True,indent=2)+'\n')
 print('Observed private topology: '+', '.join(sorted(row['service'] for row in records)))
-assert set(instances)=={'cube','cube-test','demo-db','registry-db','edge'}
+assert set(instances)=={'cube','cube-test','cube-reviewed','cube-reviewed-test','demo-db','registry-db','edge'}
 hosts={}
 for identifier in sys.argv[2:]:
     raw=json.loads(subprocess.check_output(['docker','inspect',identifier],timeout=10))[0]
     name=raw['Config']['Labels']['com.docker.compose.service']
-    if name in ('cube','cube-test','demo-db'):
+    if name in ('cube','cube-test','cube-reviewed','cube-reviewed-test','demo-db'):
         assert raw['Config']['Labels']['gateway.cube.run']
         attachments=list(raw['NetworkSettings']['Networks'].values())
         assert len(attachments)==1
         hosts[name]=attachments[0]['IPAddress']
-assert set(hosts)=={'cube','cube-test','demo-db'}
+assert set(hosts)=={'cube','cube-test','cube-reviewed','cube-reviewed-test','demo-db'}
 Path(sys.argv[1]).with_name('hosts.json').write_text(json.dumps({'kind':'private-synthetic-cube-only','hosts':hosts,'run_label':run_label,'project':project,'container_ids':{name:instances[name] for name in hosts}})+'\n')
 PY
 }
@@ -239,8 +241,12 @@ CHECKPOINT=cube-node-security
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_SECURITY_MODULE=/cube/conf/security.js cube node --test tests/runtime/context.test.js
 CHECKPOINT=cube-auth-security
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube.js cube node --test tests/runtime/auth-wrapper.test.js
+# Actual installed BigQuery driver/SDK protocol only. The package contract uses
+# synthetic metadata with explicit socket/auth denial, never a cloud account.
+CHECKPOINT=cube-bigquery-package
+bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test tests/runtime/bigquery-package.test.js
 CHECKPOINT=cube-egress
-for service in cube cube-test; do
+for service in cube cube-test cube-reviewed cube-reviewed-test; do
   bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'
 const net=require('node:net');
 Promise.all([["1.1.1.1",443],["8.8.8.8",53]].map(([host,port])=>new Promise((resolve,reject)=>{
@@ -263,7 +269,7 @@ from scripts.demo_runtime import private_json
 from scripts.pytest_runtime_diagnostics import freeze_source
 private_json(Path(sys.argv[1]), freeze_source())
 PYSOURCE
-bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe tests/integration/test_cube_compatibility.py -m cube -q --junitxml=/evidence/cube.xml -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
+bounded 240 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" probe tests/integration/test_cube_compatibility.py tests/integration/test_cube_reviewed_runtime.py -m cube -q --junitxml=/evidence/cube.xml -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
 CHECKPOINT=cube-junit-admission
 uv run --locked --offline python - "$GATEWAY_RUNTIME_EVIDENCE_DIR/cube.xml" <<'PY'
 import sys
@@ -273,17 +279,17 @@ assert suites and sum(int(s.get('tests','0')) for s in suites)>0
 assert all(int(s.get(k,'0'))==0 for s in suites for k in ('errors','failures','skipped'))
 print('Real pinned Cube gate: '+str(sum(int(s.get('tests','0')) for s in suites))+' tests, zero skips/errors/failures')
 PY
-# Restart the actual databases and both Cube endpoints, preserving named volumes.
+# Restart the actual databases and all four Cube endpoints, preserving named volumes.
 CHECKPOINT=cube-restart
-bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test
+bounded 45 "${COMPOSE[@]}" restart registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test
 # A restart can reassign bridge addresses. Re-inspect the original container
 # IDs and all existing trust boundaries after readiness before host-side tests.
 CHECKPOINT=cube-stack-readiness
-start_private_stack registry-db demo-db cube cube-test
+start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test
 CHECKPOINT=cube-topology
 record_private_topology
 CHECKPOINT=cube-restart-tests
-bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart' -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
+bounded 90 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -e GATEWAY_CUBE_RESTART_PHASE=after probe tests/integration/test_cube_compatibility.py tests/integration/test_cube_reviewed_runtime.py -m cube -q -k 'known_answer_lossless_rows or runtime_watermark_is_load_time_persisted_across_restart or reviewed_rows_and_checkpoint_survive_restart' -p scripts.pytest_runtime_diagnostics --gateway-failure-evidence --gateway-failure-source=/evidence/diagnostic-source.json
 # Existing registry verifier defaults to full acceptance; diagnostics are explicit.
 # Its project pytest now has
 # both genuine backends. No Cube/source port is published: Linux runner reads

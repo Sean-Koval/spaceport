@@ -98,7 +98,7 @@ def diagnose(directory, project, run_label):
     except (OSError, ValueError):
         print("Cube startup diagnostics unavailable: private run identity/secrets were not verified")
         return
-    for service in ("cube", "cube-test"):
+    for service in ("cube", "cube-test", "cube-reviewed", "cube-reviewed-test"):
         try:
             name = f"{project}-{service}-1"
             record = json.loads(capture(["docker", "inspect", "--format", FORMAT, name]))

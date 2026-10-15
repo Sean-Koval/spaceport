@@ -1,0 +1,42 @@
+# Retained fictional source model; never installed or executed against a cloud account.
+# The producer must atomically publish rows and per-tenant checkpoints. Source
+# amount is reviewed NUMERIC, occurred_at and loaded_at are TIMESTAMP, not DATETIME.
+cubes:
+  - name: WarehouseSales
+    sql: >
+      SELECT s.order_id, s.tenant_id, s.access_group, s.occurred_at, s.segment,
+        s.amount,
+        IF(w.loaded_at IS NULL, ERROR('Missing source checkpoint'),
+          FORMAT_TIMESTAMP('%Y-%m-%dT%H:%M:%E6SZ', w.loaded_at, 'UTC')) AS source_loaded_at
+      FROM `spaceport-fixture.reviewed_sales.sales` AS s
+      LEFT JOIN (
+        SELECT tenant_id,
+          IF(COUNT(*) = 1, ANY_VALUE(loaded_at), ERROR('Invalid source checkpoint')) AS loaded_at
+        FROM `spaceport-fixture.reviewed_sales.source_checkpoints`
+        GROUP BY tenant_id
+      ) AS w ON w.tenant_id = s.tenant_id
+    measures:
+      - name: total
+        sql: CAST(SUM({CUBE}.amount) AS STRING)
+        type: number
+    dimensions:
+      - name: order_id
+        sql: order_id
+        type: string
+        primary_key: true
+        public: false
+      - name: tenant_id
+        sql: tenant_id
+        type: string
+      - name: access_group
+        sql: access_group
+        type: string
+      - name: occurred_at
+        sql: occurred_at
+        type: time
+      - name: segment
+        sql: segment
+        type: string
+      - name: source_loaded_at
+        sql: source_loaded_at
+        type: string
