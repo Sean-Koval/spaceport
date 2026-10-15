@@ -2,7 +2,7 @@
 
 15 October 2026. Scope: [source pilot design](../superpowers/specs/2026-10-15-source-pilot-runtime.md) and [implementation plan](../superpowers/plans/2026-10-15-source-pilot-runtime.md).
 
-**In development. No final-source hosted acceptance yet.** The previous connector foundation was merged by approval into private main `3fa6b2f698fa406918d82173d4422166c059b84b`, tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 receipt](reviewed-connectors.md#hosted-gate-attempt-18-pass) applies to that foundation only. The new pilot implementation requires its own review, exact-source gate and separate merge approval.
+**Exact-source backend acceptance passed in run 22. PR 5 remains unmerged and organization activation remains blocked.** The previous connector foundation was merged by approval into private main `3fa6b2f698fa406918d82173d4422166c059b84b`, tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 receipt](reviewed-connectors.md#hosted-gate-attempt-18-pass) applies to that foundation only. The pilot has its own reviewed exact-source backend receipt below; separate merge approval and the additional security/live qualification gates remain required.
 
 ## What the checks establish
 
@@ -10,7 +10,7 @@
 - A disposable PostgreSQL 17.11 instance built from the checksum-verified official release is available in the cloud development workspace. Real migration, privilege, concurrency and retained-state tests use fresh isolated clusters with synthetic credentials. This is actual database execution, but not the pinned hosted container gate.
 - The BigQuery serving probe uses actual Cube 1.8.5 HTTP/compiler/driver, BigQuery SDK 7.9.4, Google auth 9.15.1 and PostgreSQL client 8.16.3 against the genuine disposable registry. Only the Google provider boundary is synthetic. The probe exercises authorization, retained models, job identity and lifecycle behavior; it does not query Google Cloud.
 - The complete BigQuery package/provision → author → isolated fixtures → publish → describe → consumer query → worker → stored result path has now run through production services with actual Cube/SDK and PostgreSQL. Only the Google transport and exact-origin loopback TLS routing boundary are synthetic; live TLS, Google permissions and quotas remain unqualified.
-- The required hosted gate builds the actual gateway Dockerfile and runs CLI/import checks with network disabled, then executes the genuine backend and source-runtime cases. Merely adding that gate does not mean it has passed.
+- The required hosted gate builds the actual gateway Dockerfile and runs CLI/import checks with network disabled, then executes the genuine backend and source-runtime cases. Run 22 passed that gate at its exact recorded source revision.
 
 ## Intermediate observations
 
@@ -31,11 +31,11 @@ These are development observations, not a final-build certificate. Later integra
 - Integrated source `d2e25b9`: the complete BigQuery gateway journey passed in 7.87 seconds with migration replay and verified child/cluster cleanup. Ten jobs reached DONE, five sessions were sealed, two groups settled and no capacity remained held. An independent reviewer repeated the same scenario in 7.49 seconds. The source watermark remains unknown, rather than inferring freshness from successful execution.
 - Integrated source `7ebbbe7`: the mandatory unit/contract selection passed 3,187 tests, with 433 deselected, in 138.87 seconds. This includes the mandatory 27-case Node serving-control inventory. Subsequent narrow harness fixes require final revalidation.
 
-## Remaining release gates
+## Release-gate status
 
-1. Independently review the complete final source tree. BigQuery gateway/Cube and Domo service/installed-API journeys have development evidence; final-source qualification remains required.
+1. Reviewed connector source and bounded corrections now have exact-source backend qualification from run 22. Further runtime changes, including the security branch, require their own review and qualification.
 2. Preserve both complete sample-product journeys in the mandatory hosted selection, with synthetic provider boundaries clearly identified. The combined test image uses the pinned Cube base and the same prepared locked Python/package inputs; related image-ID labels are evidence references, not ancestry proofs.
-3. Pass the exact-source hosted backend, actual gateway image and actual Cube source-runtime gates within the existing limits, with verified cleanup and a bounded receipt.
+3. **Satisfied for source `2d3cd1e`:** exact-source hosted backend, actual gateway image and Cube source-runtime gates passed within existing limits, with verified cleanup and the run 22 receipt.
 4. Obtain separate approval to merge this pilot wave.
 5. Before organization use, implement the separately reviewed, revocable data-owner approval gate for explicit non-PII shared-source products and fail closed on unsupported delegated-source modes. Current user/client authentication and product ACLs do not prove employee Domo permissions, relationship-based delegation or PII safety.
 6. Separately configure and verify operator-owned credentials/IAM, restricted source datasets, network egress, identity/PDP mapping, source definitions, quotas and freshness prerequisites. Live source requests, cloud resource creation and deployment are not authorized by the implementation work.
@@ -103,3 +103,20 @@ This reproduces a concrete defect consistent with run 21's safe stage receipt. T
 Independent review repeated the actual UID/GID 65532 case: the unmodified source failed the complete journey (1.66 seconds), while the corrected source passed (7.85 seconds); both disposable clusters cleaned up. Independent fixed-output probes also confirmed `uv_os_homedir` for both Node home lookup and guarded Cube import without the fixed home, and success with it. The reviewer reran all 191 focused Python checks successfully.
 
 The combined correction tree passed all 3,336 mandatory unit/contract tests in 137.38 seconds under `umask 077`, with 433 service-dependent cases deselected. The production/runtime, migration, workflow, public-contract, client and publisher components remain unchanged from run 21; only the test child, its regression coverage and this evidence changed. Hosted exact-source acceptance is still required.
+
+## Hosted attempt 22: exact-source backend pass
+
+[Run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164/job/116646465060) executed trusted main workflow `3fa6b2f698fa406918d82173d4422166c059b84b` against source `2d3cd1e4319f36a70bb95379f6713584abc5c4f2`, tree `c4317c34c4f3c7b3030ca5c0287c73e537006ee8`.
+
+- All **3,336 mandatory unit/contract cases** passed and were admitted. Source phase: 152.20 seconds.
+- All **406 backend cases** passed. The mandatory sequential gate includes the actual gateway image build, network-disabled installed CLI/import smoke, BigQuery runtime image and probe, and the BigQuery/Domo synthetic-provider product journeys. Both source and backend phases reported exit zero with no timeout.
+- Backend compatibility orchestration took 744.68 seconds including its sequential image/build/runtime prerequisites; this is not the separately bounded pytest-process duration. No timeout or cost cap was increased.
+- Exact registered cleanup passed. The independent always-cleanup attempt returned zero; the final allowlisted summary was PASS.
+- Job time: 20:12:32–20:28:11 UTC, 939 seconds, or **16 rounded standard Ubuntu minutes**. Project ledger after this run: 303 completed, zero reserved.
+- Integration receipt SHA-256: `f37c1c6e1d072d9c19ebe61743f0ad8bb5ef1d20c5e0f409373fe41fc2c3eaa6`. Cleanup receipt SHA-256: `c21724cd3a54f37fac23570a2e4a4f3d0e15facf9a5f059c00c5946ce074fcb2`.
+
+Provider transport/identity responses in the journeys remain synthetic. No live BigQuery/Domo queries, cloud deployment, organization credential setup, browser acceptance or source entitlement qualification occurred. The trusted main workflow's old `domo: NOT IMPLEMENTED` label remains stale: candidate direct-REST serving and synthetic journey tests exist and passed, while live Domo access was not run.
+
+This receipt qualifies the connector candidate's exact tested source. It does not qualify the separately changing owner-approval security branch. PR 5 remains draft/unmerged pending separate approval, and the operator guide continues to block organization activation until the additional security and live-provider gates are satisfied.
+
+This later documentation-only update was not rerun in CI. Its runtime, tests, workflows, migrations, clients and publisher are unchanged; the acceptance receipt remains bound to source `2d3cd1e4319f36a70bb95379f6713584abc5c4f2` and tree `c4317c34c4f3c7b3030ca5c0287c73e537006ee8`, not to a newly tested documentation head.
