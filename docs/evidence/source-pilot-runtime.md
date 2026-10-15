@@ -41,3 +41,11 @@ These are development observations, not a final-build certificate. Later integra
 6. Separately configure and verify operator-owned credentials/IAM, restricted source datasets, network egress, identity/PDP mapping, source definitions, quotas and freshness prerequisites. Live source requests, cloud resource creation and deployment are not authorized by the implementation work.
 
 Browser SSO/PKCE, composed browser acceptance, the clean no-acquisition repeat, packet-observer assurance and production rollout remain separate gates. Domo MCP is not used for approved-statement serving; the direct REST transport and its shared integration-identity semantics are described in the [Domo design](../superpowers/specs/2026-10-15-domo-pilot-runtime.md). GCS remains the earlier offline exact-generation artifact slice.
+
+## Hosted attempt 19: blocked before backend
+
+[Run 19](https://github.com/Sean-Koval/spaceport/actions/runs/38771001473) used trusted workflow main `3fa6b2f698fa406918d82173d4422166c059b84b` and exact candidate source `c000037599fb9f0625b88e4c46fe05f4a2571798`, tree `9a10b21464743c978bf2e7489648074158eeb580`. The unit/contract phase failed the private-parent negative fixture in `test_source_cli.py`; no backend or image acceptance was reached. Exact cleanup passed. Actual job duration was 190 seconds (four rounded standard Ubuntu minutes).
+
+The failure was reproduced under the workflow's secure `umask 077`: requesting a directory mode of `0755` through `mkdir` actually produced `0700`, so the runtime correctly accepted the supposedly unsafe fixture. The reviewed test-only correction explicitly sets `0755` and asserts the actual mode. No runtime permission check, security control, timeout or test selection was weakened. All 62 CLI tests and the complete 3,213-case unit/contract selection then passed under `umask 077` (137.05 seconds; 433 service-dependent cases deselected). A new exact-source hosted run remains required.
+
+The trusted main workflow still uses its older `domo: NOT IMPLEMENTED` summary label. For this candidate, Domo serving code and synthetic tests exist; live Domo access remains **not run**. The stale workflow label is not evidence about the candidate's implementation or live permissions.

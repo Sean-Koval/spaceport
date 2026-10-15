@@ -683,7 +683,10 @@ def test_client_destination_config_rejects_foreign_owner(tmp_path,monkeypatch):
 
 def test_client_destination_config_requires_private_parent(tmp_path):
     from scripts.spaceport_client import ClientConfig,CLIError
-    parent=tmp_path/'shared';parent.mkdir(mode=0o755)
+    parent=tmp_path/'shared';parent.mkdir(mode=0o700)
+    # CI intentionally uses umask077; create the unsafe fixture explicitly.
+    parent.chmod(0o755)
+    assert parent.stat().st_mode & 0o777 == 0o755
     config=private(parent/'client.json',{'schema_version':1,'gateway_origin':'https://gateway.example.com'})
     with pytest.raises(CLIError):ClientConfig.from_file(config)
     parent.chmod(0o700)
