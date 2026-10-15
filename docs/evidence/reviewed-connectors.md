@@ -5,7 +5,7 @@
 ## Candidate slices
 
 - Reviewed PostgreSQL/Cube v2: a complete internal product path with versioned bindings, exact accepted-query replay, current authorization, same-query hidden committed checkpoint, isolated fixture bundles and explicit service composition. Real source producer atomicity and reviewed checkpoint uniqueness remain prerequisites.
-- BigQuery: executable bounded driver and durable admission/seal library, tested offline. No gateway runtime selection, private control endpoint, worker attempt-context hook or source-release integration is enabled. Packaged SDK/Cube compatibility and live source evidence remain open.
+- BigQuery: executable bounded driver and durable admission/seal library, tested offline. No gateway runtime selection, private control endpoint, worker attempt-context hook or source-release integration is enabled. The guarded actual-image package probe passed in run 18; real provider behavior and live source evidence remain open.
 - Domo: offline finite named-query selector, strict positional result checks and response-bound freshness evidence with mandatory authorization gates. No live transport/authentication or gateway serving path.
 - GCS: offline immutable exact-generation artifact allowlist reader with bounded metadata/content, hash/type/version checks and authorization before read/release. No public route, default network transport or artifact policy inheritance.
 - Shared hardening rejects signed-access metadata URLs and malformed timestamp offsets.
@@ -46,7 +46,7 @@ The exact shell marker reproduction now has a strict allowlisted checkpoint and 
 
 A separate isolated official npm installation of Cube driver **1.8.5** with SDK **7.9.4** reproduced two probe-boundary assumptions: serialized request mode is lowercase `positional`, and the SDK metadata request path is slashless `jobs/<id>`. Correcting those test assertions/stubs produced a passing guarded local package probe, independently repeated. Provider metadata canonicalization remains a synthetic fixture assumption. Driver and ledger controls are unchanged. This is neither immutable-image nor live-provider evidence, and the lost run16 receipt cannot establish that these were its exact failure causes.
 
-Independent review cleared the integrated correction code at local `e62a4e5` and this evidence wording. Final full source verification on that code: **2,577 passed, 386 deselected in 154.98 seconds**, exit 0, using `.venv/bin/python -m pytest -m 'unit or contract' -q`. The unchanged source cap remains 180 seconds. No workflow, driver/ledger or gateway implementation changed in these corrections; immutable-image/backend acceptance still awaits the next exact-source hosted gate.
+Independent review cleared the integrated correction code at local `e62a4e5` and this evidence wording. Final full source verification on that code: **2,577 passed, 386 deselected in 154.98 seconds**, exit 0, using `.venv/bin/python -m pytest -m 'unit or contract' -q`. The unchanged source cap remains 180 seconds. No workflow, driver/ledger or gateway implementation changed in these corrections; immutable-image/backend acceptance at that point still awaited the next exact-source hosted gate.
 
 ## Hosted gate attempt 17
 
@@ -56,4 +56,17 @@ A subsequent unchanged local duration run again passed **2,577 tests**, 386 dese
 
 The independently reviewed correction replaces only test-side command stand-ins with static validated responses. All 43 original topology cases and assertions remain, plus nine fidelity regressions for exact command ordering, before/after restart state, repeated-fixture isolation and unknown/inexact commands. The real extracted shell, inline Python, timeout wrappers and two admission passes remain exercised. Focused comparison improved from **152 passed in 72.98 seconds** to **161 passed in 32.78 seconds**. The independent reviewer passed all **52 topology cases in 9.14 seconds**. Product/runtime/workflow code and limits are unchanged.
 
-Final full unit/contract verification on correction code local `084cf98`: **2,586 passed, 386 deselected in 115.10 seconds**, exit 0. Command: `.venv/bin/python -m pytest -m 'unit or contract' -q`. This recovers approximately 37 seconds against the immediately preceding unchanged local duration run, while retaining the 180-second source cap. Hosted backend/package acceptance is still pending.
+Final full unit/contract verification on correction code local `084cf98`: **2,586 passed, 386 deselected in 115.10 seconds**, exit 0. Command: `.venv/bin/python -m pytest -m 'unit or contract' -q`. This recovers approximately 37 seconds against the immediately preceding unchanged local duration run, while retaining the 180-second source cap. Hosted backend/package acceptance at that point was still pending.
+
+## Hosted gate attempt 18: PASS
+
+[Run 18](https://github.com/Sean-Koval/spaceport/actions/runs/38685215504) passed on exact source **`9c0f74e1dda3898f61b3b5cdd48d08fd3562daa3`**, tree **`c6b95f9be057b7ca4662b68a92aea0fb7faad6cb`**, using the unchanged manual workflow on main `569cf9b2f06b991003461ee2717dcd4b85b530ad`.
+
+- **2,586 unit/contract tests admitted**, source phase 111.34 seconds.
+- **359 genuine backend cases admitted**, including the 13 reviewed PostgreSQL/Cube cases; backend phase 586.71 seconds.
+- The mandatory guarded actual-image BigQuery package probe completed before backend admission. It verifies the installed package/serialization/hydration boundary with synthetic provider responses and denied authentication/network, not live BigQuery behavior.
+- Exact registered cleanup and the always-cleanup step both passed.
+- Job start/end: 05:08:59–05:21:17 UTC, 738 seconds, 13 rounded Ubuntu job minutes.
+- Integration receipt SHA-256: `66e36bf953fc29a70fbdfd3ba0c8ce739677502e492d42f7079badf6be127e12`. Cleanup receipt SHA-256: `3101a9452b0f1ce8e15075e7ca9b73d9b04d2c4e781786e7f880de81827388ab`.
+
+This final evidence/status update is documentation-only after that exact tested source. It does not change runtime, tests, workflows, dependencies or model bundles. The gate establishes the disposable backend path, not organization-source qualification, browser acceptance or production approval. BigQuery serving/lifetime integration and actual-provider behavior, Domo live transport/PDP semantics, GCS artifact policy/serving integration, operator atomic producer prerequisites, and deployment SSO/PKCE remain separate gates. Main merge still requires approval.

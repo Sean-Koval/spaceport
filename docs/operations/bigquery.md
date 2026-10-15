@@ -14,7 +14,7 @@ The existing executable runtime/profile deployments remain PostgreSQL-only; the 
 
 ## Exact selected release configuration
 
-The upstream `v1.8.5` annotated tag resolves to commit [`d01994a71e64f2e8074ee04fefa3a0d9f369cc81`](https://github.com/cube-js/cube/commit/d01994a71e64f2e8074ee04fefa3a0d9f369cc81). The selected image's immutable digests are retained in [the Cube compatibility record](../compatibility/cube.md); packaged BigQuery runtime verification remains outstanding.
+The upstream `v1.8.5` annotated tag resolves to commit [`d01994a71e64f2e8074ee04fefa3a0d9f369cc81`](https://github.com/cube-js/cube/commit/d01994a71e64f2e8074ee04fefa3a0d9f369cc81). The selected image's immutable digests are retained in [the Cube compatibility record](../compatibility/cube.md); the guarded actual-image package probe passed in [run 18](../evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass), while BigQuery serving integration and actual-provider qualification remain outstanding.
 
 The exact-tag [environment implementation](https://github.com/cube-js/cube/blob/d01994a71e64f2e8074ee04fefa3a0d9f369cc81/packages/cubejs-backend-shared/src/env.ts) maps:
 

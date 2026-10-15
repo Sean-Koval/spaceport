@@ -53,6 +53,6 @@ Reject case-insensitive and percent-encoded GCS V4 signing keys and V2 `Signatur
 5. Full source unit/contract, Node tests, unchanged API/MCP snapshot checks and frontend checks; independent architecture and code review; exact-source manual hosted backend check requested through the parent coordinator. No CI dispatch by workers. Report passed, failed, collected-only and not-run separately.
 6. Publish only a private draft feature PR. No main merge, deployment, live credentials or source calls.
 
-## Open technical review
+## Technical review outcome
 
-Finalize the exact durable BigQuery ledger format/topology and job admission interface before implementing it. Review the v2 accepted-query recomputation and data/checkpoint correlation protocol with the unchanged database contract. Confirm the narrower Domo/GCS offline status language before publication.
+The narrowed durable BigQuery library design, v2 accepted-query and same-query checkpoint protocol, and offline Domo/GCS boundaries were independently reviewed and implemented. Exact-source hosted run 18 passed the disposable backend and guarded actual-image package gates. See [the evidence record](../../evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass); serving integration, real-provider/source prerequisites and production approval remain separate.
