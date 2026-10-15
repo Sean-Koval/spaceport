@@ -79,3 +79,27 @@ Fresh verification of that five-file optimization completed with:
 The complete 406-case hosted backend and exact-image combined journey still require a new exact-source run within the existing 570-second backend and 20-minute job caps.
 
 Combined correction-tree verification: 3,334 mandatory unit/contract tests passed in 144.20 seconds under `umask 077` (433 service-dependent cases deselected). Its ordered 349/406 backend identities remained identical, and its local genuine PostgreSQL/Cube/compiler/SDK journey plus runtime probe passed 2 tests in 17.61 seconds with fresh-run cleanup verified. Documentation relative links, shell syntax and whitespace checks passed. These receipts qualify the local correction tree only; exact-source hosted acceptance is still pending.
+
+## Hosted attempt 21: complete backend selection, Cube child startup failure
+
+[Run 21](https://github.com/Sean-Koval/spaceport/actions/runs/38789716504) used trusted workflow main `3fa6b2f698fa406918d82173d4422166c059b84b` and exact source `95d244e141e714fd4551a178bddc13219b8991f0`, tree `acd8a890edbe970b212404ef26bffa526a9d1d30`.
+
+- All 3,334 mandatory unit/contract cases passed and were admitted. That phase took 140.21 seconds.
+- The backend progress receipt reached all 406 collected cases and exited normally with failure, without a backend timeout. Completion count is not a passing-test count; the allowlisted report exposes the first failure, not the total failure count.
+- The first reported failure is now localized to the combined image's `image_cube_startup` stage with fixed error category `assertion`. The exact-image import smoke and earlier sequential prerequisites succeeded. The Node child did not provide accepted readiness; its underlying cause still requires reproduction or narrower safe diagnostics. No raw child error or credential-bearing output is released.
+- Exact registered cleanup and the independent always-cleanup attempt both passed. The summary step intentionally returned failure for the blocked integration.
+- Actual job time was 18:56:09–19:11:36 UTC, 927 seconds, or 16 rounded standard Ubuntu minutes.
+
+This confirms that the optimization fits the complete backend selection inside the existing caps for this run. It does not establish complete backend, combined image journey, live provider or organization acceptance.
+
+### Reproduced startup defect and bounded correction
+
+The test-only Python launcher rebuilt Node's environment without `HOME`, although the pinned image explicitly uses `HOME=/tmp/spaceport-no-adc` and runs as UID 65532. A local Linux user-namespace reproduction mapped only the real Node child to that UID: Cube 1.8.5's import failed at `os.homedir()` without the fixed home. The complete genuine gateway/Cube/compiler/SDK/PostgreSQL journey then failed at the same bounded readiness assertion. Restoring the fixed synthetic home made that full journey pass (1 test, 8.33 seconds, verified cleanup).
+
+The correction sets that constant in the test child; it never inherits the caller's home or credential environment. Production credential handling, permissions, cost limits, timeouts and configuration are unchanged. Two portable environment regressions were observed failing before the change, then passed; 191 focused Python checks and 13 actual Node startup/guard/server checks passed. The ordinary-UID full journey and source-runtime probe also passed (2 tests, 17.15 seconds, verified cleanup). Mandatory tests gain no dependency on Linux user namespaces.
+
+This reproduces a concrete defect consistent with run 21's safe stage receipt. The hosted Node exception was not exposed, and exact-image acceptance remains pending a new reviewed-source run.
+
+Independent review repeated the actual UID/GID 65532 case: the unmodified source failed the complete journey (1.66 seconds), while the corrected source passed (7.85 seconds); both disposable clusters cleaned up. Independent fixed-output probes also confirmed `uv_os_homedir` for both Node home lookup and guarded Cube import without the fixed home, and success with it. The reviewer reran all 191 focused Python checks successfully.
+
+The combined correction tree passed all 3,336 mandatory unit/contract tests in 137.38 seconds under `umask 077`, with 433 service-dependent cases deselected. The production/runtime, migration, workflow, public-contract, client and publisher components remain unchanged from run 21; only the test child, its regression coverage and this evidence changed. Hosted exact-source acceptance is still required.

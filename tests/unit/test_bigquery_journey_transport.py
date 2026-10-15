@@ -15,6 +15,40 @@ def receipt():
 def origins():return {'consumer':'https://consumer.example.com','fixture_test':'https://fixture.example.com'}
 
 
+@pytest.mark.parametrize('parent_home', [None, '/private/ambient-home'])
+def test_child_uses_fixed_synthetic_home_without_inheriting_parent_authority(monkeypatch,tmp_path,parent_home):
+    from contextlib import asynccontextmanager
+    from tests.integration import source_pilot_bigquery_child as child
+    if parent_home is None:monkeypatch.delenv('HOME',raising=False)
+    else:monkeypatch.setenv('HOME',parent_home)
+    monkeypatch.setenv('GOOGLE_APPLICATION_CREDENTIALS','/private/ambient-credentials')
+    monkeypatch.setenv('GATEWAY_TEST_POSTGRES_ADMIN_URL','private-admin-canary')
+    monkeypatch.setenv('NODE_OPTIONS','--require=/private/ambient-code')
+    monkeypatch.setenv('NODE_PATH','/cube/node_modules')
+    monkeypatch.setattr(child.shutil,'which',lambda name:'/usr/bin/node' if name=='node' else None)
+    calls=[]
+    @asynccontextmanager
+    async def managed(argv,root,environment,expected_origins):
+        calls.append(environment)
+        assert argv==['/usr/bin/node','--max-old-space-size=512',str(root/'tests/runtime/bigquery-journey-child.cjs')]
+        assert expected_origins==origins()
+        assert environment=={
+            'PATH':child.os.environ.get('PATH','/usr/bin:/bin'),
+            'HOME':'/tmp/spaceport-no-adc','NODE_ENV':'production','CUBEJS_DEV_MODE':'false','PORT':'0',
+            'GATEWAY_SOURCE_TEST_AUTHORIZATION':'private-synthetic-source-only',
+            'GATEWAY_BQ_JOURNEY_CONFIG_FILE':str((tmp_path/'config.json').resolve()),
+            'GATEWAY_BIGQUERY_RUNTIME_DIR':str(root/'cube/bigquery-runtime'),
+            'NODE_PATH':'/cube/node_modules',
+        }
+        yield {'synthetic':True}
+    monkeypatch.setattr(child,'_managed_child',managed)
+    async def run():
+        async with child.bigquery_child(tmp_path/'config.json',origins()) as state:
+            assert state=={'synthetic':True}
+    asyncio.run(run())
+    assert len(calls)==1
+
+
 def test_exact_route_preserves_raw_signed_body_and_headers():
     from tests.integration.source_pilot_bigquery_child import JourneyRoutes,JourneyTransport
     routes=JourneyRoutes(receipt(),origins());calls=[]

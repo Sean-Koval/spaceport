@@ -82,7 +82,11 @@ async def bigquery_child(config_file,origins):
     script=root/'tests/runtime/bigquery-journey-child.cjs'
     node=shutil.which('node')
     if node is None or not script.is_file():raise ValueError('The pinned Cube journey child is required')
-    environment={'PATH':os.environ.get('PATH','/usr/bin:/bin'),'NODE_ENV':'production','CUBEJS_DEV_MODE':'false','PORT':'0',
+    # Numeric image UIDs may have no passwd entry. Cube calls os.homedir()
+    # even with cloud features disabled, so retain the fixed synthetic HOME
+    # without inheriting the parent's home or any ambient credential settings.
+    environment={'PATH':os.environ.get('PATH','/usr/bin:/bin'),'HOME':'/tmp/spaceport-no-adc',
+        'NODE_ENV':'production','CUBEJS_DEV_MODE':'false','PORT':'0',
         'GATEWAY_SOURCE_TEST_AUTHORIZATION':'private-synthetic-source-only',
         'GATEWAY_BQ_JOURNEY_CONFIG_FILE':str(Path(config_file).resolve()),
         'GATEWAY_BIGQUERY_RUNTIME_DIR':str(root/'cube/bigquery-runtime')}
