@@ -25,9 +25,11 @@ The reviewed private-main baseline was merged on 14 October 2026. Its exact sour
 
 The consumer query workspace and authorized draft inbox merged in [PR 2](https://github.com/Sean-Koval/spaceport/pull/2) on 14 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/7a45b7e22514375de375dc71be1f8c70f843c589) has the exact same tree as [tested source 44062b2e](https://github.com/Sean-Koval/spaceport/commit/44062b2ea8fa5b0d65bd29f5090209de164ff3bf): [run 38633087264](https://github.com/Sean-Koval/spaceport/actions/runs/38633087264) admitted 1,950 unit/contract tests and all 329 genuine PostgreSQL/Cube backend cases, with both cleanup checks passing. The unchanged frontend passed 254 frontend tests, typecheck, generated-client consistency, build and formatting checks. Rendered-browser and composed-demo acceptance remain unverified; live-source and production gates remain open.
 
+The organization-runtime foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3) on 15 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/a4e3c4fb36a60effd66a72a30fea6fbbabc44540) preserves tested tree `76611787d8ee0c39478f6377bbb62dca3092e6e8` from source `c060dc23c97cae0123d075ce5d78767baf9773d9`. [Run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566) passed 2,221 unit/contract tests and all 346 genuine PostgreSQL/Cube backend cases, with verified cleanup. The unchanged frontend passed 254 tests and its source checks locally. See the [foundation evidence](docs/evidence/organization-runtime-foundation.md) for the scope and remaining gates.
+
 | Area | Evidence boundary |
 | --- | --- |
-| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 2 implementation passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
+| Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 3 source passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
 | Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
 | BigQuery | Configuration validation and mocked adapter contracts only. The profile is non-executable; live models, bindings, queries and source cost/lifetime controls are unverified. |
 | Domo | Not implemented. Identity/PDP and business-definition reconciliation gates are documented. |
@@ -36,7 +38,7 @@ The consumer query workspace and authorized draft inbox merged in [PR 2](https:/
 
 The [acceptance index](docs/evidence/acceptance.md) and [limitations](docs/evidence/limitations.md) explain the required evidence. Older passes apply only to the source and environment they tested. The [roadmap](ROADMAP.md) separates the private-main baseline, next product work and live-source/production gates.
 
-GCP/GKE is the selected organization-deployment target. The [organization-pilot assessment](docs/operations/organization-pilot.md) covers infrastructure, credentials, performance, UI/UX and the remaining decisions. The implemented [runtime foundation](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) introduces explicit OIDC/TLS configuration and controlled identity provisioning against synthetic data. Its [source-level evidence](docs/evidence/organization-runtime-foundation.md) does not activate BigQuery/Domo, implement browser SSO or authorize a rollout.
+GCP/GKE is the selected organization-deployment target. The [organization-pilot assessment](docs/operations/organization-pilot.md) covers infrastructure, credentials, performance, UI/UX and the remaining decisions. The implemented [runtime foundation](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) introduces explicit OIDC/TLS configuration and controlled identity provisioning against synthetic data. Its [source and backend evidence](docs/evidence/organization-runtime-foundation.md) does not activate BigQuery/Domo, implement browser SSO or authorize a rollout.
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # Spaceport roadmap
 
-Updated 14 October 2026. This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md) remains the architectural boundary; the [README](README.md) describes the current source.
+Updated 15 October 2026. This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md) remains the architectural boundary; the [README](README.md) describes the current source.
 
 ## Product outcome
 
@@ -102,7 +102,7 @@ Acceptance:
 
 ## 2A. Establish the GKE organization-runtime foundation
 
-**Status: foundation implemented and independently source-reviewed; local source checks passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,220 unit/contract and 254 frontend passes, with 346 genuine backend cases collected but not run locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
+**Status: foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3); independent source review, source-level checks and the complete hosted backend gate passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,221 unit/contract tests and all 346 genuine backend cases passing with verified cleanup in [run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566), plus 254 unchanged frontend tests passing locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
 
 Build:
 
