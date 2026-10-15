@@ -33,7 +33,9 @@ PHASE_PREFIX = 'GATEWAY_PHASE_FAILURE '
 PROGRESS_PREFIX = 'GATEWAY_PRIVATE_PYTEST_PROGRESS '
 MAX_PROGRESS_LINES = 10000
 MAX_PROGRESS_BYTES = 4 * 1024 * 1024
-CHECKPOINTS = frozenset('''cube-preflight cube-register-cleanup cube-create-secrets cube-images
+CHECKPOINTS = frozenset('''source-runtime-wrapper source-runtime-control source-runtime-child
+    source-config source-startup source-main source-revocation source-reclaim source-zero source-unknown source-cleanup
+    source-journey-image source-image-build source-image-smoke source-gateway-image source-gateway-cli source-gateway-import source-create-secrets source-fixture-bootstrap cube-bigquery-serving cube-preflight cube-register-cleanup cube-create-secrets cube-images
     cube-secret-readability cube-probe-image cube-stack-readiness cube-role-initializers
     cube-runtime-versions cube-topology cube-node-security cube-auth-security cube-bigquery-package
     cube-bigquery-module-resolution cube-bigquery-package-versions cube-bigquery-ledger

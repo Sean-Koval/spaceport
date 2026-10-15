@@ -1,0 +1,89 @@
+{
+  "x-purpose": "Run-private synthetic source acceptance only; never install into an organization cluster.",
+  "services": {
+    "cube-reviewed": {
+      "secrets": [
+        "source_bq_consumer",
+        "source_bq_fixture",
+        "source_bq_observer",
+        "cube_test_signing_key"
+      ],
+      "volumes": [
+        "../cube/bigquery-runtime:/cube/conf/bigquery-runtime:ro",
+        "${GATEWAY_SOURCE_FIXTURE_DIR:?Private synthetic fixture directory required}:/source-evidence:ro"
+      ]
+    },
+    "source-bootstrap": {
+      "image": "${GATEWAY_PROBE_IMAGE:?Prepare the synthetic locked Python probe image first}",
+      "pull_policy": "never",
+      "networks": [
+        "private"
+      ],
+      "entrypoint": [
+        "/opt/python/bin/python3.12",
+        "-m",
+        "tests.integration.source_runtime_fixture"
+      ],
+      "command": [
+        "bootstrap",
+        "--secret-dir",
+        "/run/secrets",
+        "--output",
+        "/evidence/source-runtime-fixture.json"
+      ],
+      "working_dir": "/app",
+      "environment": {
+        "PYTHONPATH": "/opt/packages:/app",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "GATEWAY_SOURCE_TEST_AUTHORIZATION": "private-synthetic-source-only"
+      },
+      "secrets": [
+        "registry_admin",
+        "registry_owner",
+        "registry_app",
+        "source_bq_consumer",
+        "source_bq_fixture",
+        "source_bq_observer",
+        "source_domo_consumer",
+        "source_domo_fixture"
+      ],
+      "volumes": [
+        "..:/app:ro",
+        "${GATEWAY_SOURCE_FIXTURE_DIR:?Private synthetic fixture directory required}:/evidence"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=16m"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "pids_limit": 128,
+      "mem_limit": "512m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  },
+  "secrets": {
+    "source_bq_consumer": {
+      "file": "${GATEWAY_SOURCE_SECRET_DIR:?Prepare disposable source secrets first}/source_bq_consumer"
+    },
+    "source_bq_fixture": {
+      "file": "${GATEWAY_SOURCE_SECRET_DIR:?Prepare disposable source secrets first}/source_bq_fixture"
+    },
+    "source_bq_observer": {
+      "file": "${GATEWAY_SOURCE_SECRET_DIR:?Prepare disposable source secrets first}/source_bq_observer"
+    },
+    "source_domo_consumer": {
+      "file": "${GATEWAY_SOURCE_SECRET_DIR:?Prepare disposable source secrets first}/source_domo_consumer"
+    },
+    "source_domo_fixture": {
+      "file": "${GATEWAY_SOURCE_SECRET_DIR:?Prepare disposable source secrets first}/source_domo_fixture"
+    }
+  }
+}

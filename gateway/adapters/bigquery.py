@@ -18,9 +18,8 @@ from gateway.contracts.manifest import FieldSchema, iso_date, validate_value
 from .base import SourceCapabilities
 from .cube import CubeAdapter
 
-ProjectId = Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")]
-DatasetId = Annotated[str, Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")]
-Location = Annotated[str, Field(pattern=r"^(?:US|EU|[a-z]+(?:-[a-z]+)+[1-9][0-9]?)$", max_length=64)]
+from .bigquery_types import ProjectId, DatasetId, Location
+
 SecretRef = Annotated[str, Field(pattern=r"^/run/secrets/[A-Za-z][A-Za-z0-9_.-]{0,127}$")]
 
 

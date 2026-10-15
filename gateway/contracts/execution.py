@@ -208,3 +208,9 @@ class ResultEnvelope(ExecutionView):
         if len(canonical_bytes(self.model_dump(mode="python"))) > MAX_RESULT_BYTES:
             raise ValueError("Complete normalized result exceeds 1,048,576 UTF-8 bytes")
         return self
+
+
+def is_completed(value):
+    """Internal completion kinds; source evidence is never a public input union."""
+    from gateway.adapters.domo_completed import DomoCompleted
+    return isinstance(value,Completed) or type(value) is DomoCompleted

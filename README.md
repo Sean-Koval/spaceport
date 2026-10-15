@@ -2,7 +2,7 @@
 
 Spaceport is a self-hosted gateway that turns reviewed team data into reusable products that people and agents can discover and query through one governed API. A product defines what an answer means, its typed inputs and outputs, who can use it, how fresh it must be, and the tests required before publication.
 
-The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. BigQuery source-control software and Domo/GCS offline readers are included as bounded candidates; live activation remains a separate gate. Domo still requires reconciliation with authoritative cards and Beast Modes.
+The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its final-source acceptance and live activation remain separate gates; GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
 
 The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
 
@@ -27,13 +27,15 @@ The consumer query workspace and authorized draft inbox merged in [PR 2](https:/
 
 The organization-runtime foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3) on 15 October 2026. Its [merge commit](https://github.com/Sean-Koval/spaceport/commit/a4e3c4fb36a60effd66a72a30fea6fbbabc44540) preserves tested tree `76611787d8ee0c39478f6377bbb62dca3092e6e8` from source `c060dc23c97cae0123d075ce5d78767baf9773d9`. [Run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566) passed 2,221 unit/contract tests and all 346 genuine PostgreSQL/Cube backend cases, with verified cleanup. The unchanged frontend passed 254 tests and its source checks locally. See the [foundation evidence](docs/evidence/organization-runtime-foundation.md) for the scope and remaining gates.
 
+The connector foundation merged in [PR 4](https://github.com/Sean-Koval/spaceport/pull/4), at main `3fa6b2f698fa406918d82173d4422166c059b84b`, preserving approved tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 evidence](docs/evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass) covers 2,586 source tests and 359 backend cases. The new [source pilot candidate](docs/evidence/source-pilot-runtime.md) has separate development evidence and still requires final review and hosted acceptance.
+
 | Area | Evidence boundary |
 | --- | --- |
 | Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 3 source passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
 | Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
 | Reviewed PostgreSQL / Cube v2 | Versioned operator bindings and same-query source checkpoints, with separate synthetic consumer/fixture assets. See the [connector evidence](docs/evidence/reviewed-connectors.md) for exact tests and remaining live-source prerequisites. |
-| BigQuery | Executable bounded driver/admission library candidate with offline tests; gateway runtime selection remains blocked. Packaged-driver, live source controls and completion/release integration remain unverified. |
-| Domo | Offline finite named-query reader and strict response contracts. No runtime selection or live authentication; identity/PDP and business-definition reconciliation remain open. |
+| BigQuery | New reviewed serving profile, durable PostgreSQL source holds, bounded jobs/results and metadata-only observation. Actual Cube/SDK plus real registry tests use synthetic Google responses; final image and live-source qualification remain open. |
+| Domo | Finite approved-statement REST serving with isolated fixture/consumer identities and durable single-send holds. Real-registry product workflows use synthetic Domo responses; live OAuth/PDP, business definitions and source evidence remain open. |
 | GCS artifacts | Offline exact-generation allowlist reader with bounded buffering and authorization callbacks. No public artifact route, live transport or policy inheritance implementation. |
 | Studio / production identity | Studio interoperability and live delegated OIDC access are not tested. |
 | Offline runtime assurance | Acquisition and runtime are separated in the tooling. Stronger packet-observer evidence remains blocked; an internal Docker network alone is not proof. |
@@ -44,15 +46,23 @@ GCP/GKE is the selected organization-deployment target. The [organization-pilot 
 
 ## Architecture
 
-The React UI and MCP clients call the same Python gateway services. The gateway authenticates the caller, checks current policy, pins a product version and builds a query from its approved binding. A worker processes bounded jobs through Cube; consumers retrieve authorized, typed result envelopes.
+The React UI and MCP clients call the same Python gateway services. The gateway authenticates the caller, checks current policy, pins a product version and builds a query from its approved binding. A worker processes bounded jobs through the reviewed provider adapter; consumers retrieve authorized, typed result envelopes.
 
 - **Gateway:** Python, FastAPI and the MCP SDK; contracts, catalog, authorization, publishing, execution and results.
 - **Registry:** PostgreSQL stores definitions, draft revisions, publication evidence, executions, results and redacted audits. Alembic manages schema changes.
-- **Semantic execution:** a separate Cube Core service uses reviewed models against a separate synthetic PostgreSQL source. Fixture testing uses an isolated Cube test service.
+- **Semantic execution:** separate Cube services use reviewed PostgreSQL or BigQuery models; Domo executes finite reviewed REST statements. Fixture execution uses independently pinned source identities and assets.
 - **Publisher:** React, TypeScript and Vite with generated OpenAPI types, served by the local edge service.
 - **Operations:** separate worker and retention processes; only the edge exposes loopback ingress. Cube and database ports remain private.
 
 REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. The [saved-draft inbox](docs/compatibility/drafts.md) is a bounded, authorized REST discovery surface; the four MCP tools are unchanged. See the [OpenAPI snapshot](docs/compatibility/openapi.json), [MCP profile](docs/compatibility/mcp.md) and [tool schemas](docs/compatibility/mcp-tools.json). Result freshness refers to the recorded source-load watermark, not the time a query was fetched.
+
+## BigQuery and Domo pilot
+
+**Organization activation is blocked pending the separately reviewed data-access security gate.** This connector candidate does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
+
+Start with the [operator setup and team workflow](docs/operations/source-pilot.md). The supported CLI builds and validates a fixed weekly-account-usage package offline, renders a zero-replica GKE review bundle, and guides author → isolated fixture test → separate publisher → bounded consumer check. Existing cluster, registry, IdP, source views/datasets, reviewed network access and operator-managed credentials are prerequisites. Rendering does not create them or deploy anything.
+
+BigQuery uses GKE Workload Identity; Domo uses separately restricted OAuth integration identities. Domo MCP is not the approved-statement serving transport. Shared Domo credentials do not inherit each employee’s PDP. No organization query, cloud deployment or browser SSO is established by the fixture evidence.
 
 ## Local synthetic setup
 

@@ -16,6 +16,8 @@ from gateway.contracts.identity import Decision
 from gateway.contracts.manifest import iso_date
 from gateway.contracts.query import validate_query
 from .base import CubeBinding, CubeMember, MemberBinding, validate_data_decision, validate_query_visibility
+from .domo_runtime import DomoRuntimeBinding, validate_domo_scope
+from .bigquery_runtime import BigQueryBinding
 
 
 class ScopeMembers(StrictModel):
@@ -62,17 +64,22 @@ class ReviewedCubeBinding(StrictModel):
     def digest(self): return canonical_digest(self)
 
 
-Binding = Annotated[CubeBinding | ReviewedCubeBinding,Field(discriminator='adapter_revision')]
+Binding = Annotated[CubeBinding | ReviewedCubeBinding | DomoRuntimeBinding | BigQueryBinding,Field(discriminator='adapter_revision')]
 _BINDING = TypeAdapter(Binding)
 
 
 def parse_binding(value) -> Binding:
-    if isinstance(value,(CubeBinding,ReviewedCubeBinding)):
+    if isinstance(value,(CubeBinding,ReviewedCubeBinding,DomoRuntimeBinding,BigQueryBinding)):
         value=value.model_dump(mode='python')
     return _BINDING.validate_python(value)
 
 
 def validate_binding_decision(binding, decision, request_id):
+    if isinstance(binding,BigQueryBinding):
+        from .bigquery_runtime import validate_bigquery_decision
+        return validate_bigquery_decision(binding,decision,request_id)
+    if isinstance(binding,DomoRuntimeBinding):
+        return validate_domo_scope(binding,decision)
     if isinstance(binding,CubeBinding):
         return validate_data_decision(decision,request_id,binding.constraint_members)
     try:
@@ -91,8 +98,29 @@ def validate_binding_decision(binding, decision, request_id):
         raise GatewayError(ErrorCode.NOT_FOUND_OR_FORBIDDEN,request_id,'The current scope cannot execute this product.') from None
 
 
+def binding_grain_fields(binding):
+    binding = parse_binding(binding)
+    if isinstance(binding, DomoRuntimeBinding):
+        return tuple(binding.grain_keys)
+    return tuple(name for name, item in binding.fields.items() if item.kind != 'measure')
+
+
+def binding_time_fields(binding):
+    binding = parse_binding(binding)
+    if isinstance(binding,DomoRuntimeBinding):
+        return (binding.time_field,)
+    return tuple(name for name,item in binding.fields.items() if item.kind=='time')
+
+
+def requires_exact_decision(binding):
+    return isinstance(parse_binding(binding),DomoRuntimeBinding)
+
+
 def security_contract(binding):
     binding=parse_binding(binding)
+    if isinstance(binding,BigQueryBinding):
+        from .bigquery_runtime import bigquery_security_contract
+        return bigquery_security_contract(binding)
     if not isinstance(binding,ReviewedCubeBinding): raise ValueError('A reviewed v2 binding is required')
     members={i.member:{'kind':i.kind,'type':i.cube_type} for i in binding.fields.values()}
     members.update({m:{'kind':'dimension','type':'string'} for m in binding.constraint_members})
@@ -113,6 +141,9 @@ def date_filter(member,operator,value):
 def compile_query(binding, manifest, request, decision, *, max_rows=1000, request_id='query-compilation'):
     """Pure deterministic query compiled only from trusted pinned authority."""
     binding=parse_binding(binding)
+    if isinstance(binding,BigQueryBinding):
+        from .bigquery_runtime import compile_bigquery_query
+        return compile_bigquery_query(binding,manifest,request,decision,max_rows=max_rows,request_id=request_id)
     if not isinstance(binding,ReviewedCubeBinding): raise ValueError('A reviewed v2 binding is required')
     decision=validate_binding_decision(binding,decision,request_id)
     request=validate_query(manifest,request)

@@ -73,6 +73,14 @@ def check_binding(binding: "Binding", manifest: Manifest, *, digest: str | None 
     try:
         from .reviewed import parse_binding
         binding = parse_binding(binding)
+        from .domo_runtime import DomoRuntimeBinding, check_domo_runtime_binding
+        if isinstance(binding,DomoRuntimeBinding):
+            check_domo_runtime_binding(binding,manifest,digest=digest)
+            return
+        from .bigquery_runtime import BigQueryBinding, check_bigquery_binding
+        if isinstance(binding,BigQueryBinding):
+            check_bigquery_binding(binding,manifest,digest=digest)
+            return
         manifest = Manifest.model_validate(manifest.model_dump(mode="python"))
         if ((binding.binding_id, binding.revision, binding.adapter_revision, binding.model_bundle_digest)
             != (manifest.binding_id, manifest.binding_revision, manifest.adapter_revision, manifest.model_bundle_digest)

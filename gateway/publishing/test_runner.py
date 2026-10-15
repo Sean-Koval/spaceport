@@ -241,6 +241,89 @@ class FixtureCatalog(StrictModel):
         return result
 
 
+from gateway.adapters.domo_runtime import DomoRuntimeBinding, DomoSource, validate_domo_source_isolation
+
+
+class DomoFixtureCatalog(FixtureCatalog):
+    """Operator-reviewed equivalence with exact isolated source identities."""
+    consumer_binding: DomoRuntimeBinding
+    fixture_binding: DomoRuntimeBinding
+    consumer_source: DomoSource
+    fixture_source: DomoSource
+    cases: Array[ApprovedFixture] = Field(min_length=2,max_length=8)
+
+    @model_validator(mode='after')
+    def isolated_mapping(self):
+        c,f=self.consumer_binding,self.fixture_binding
+        cs,fs=validate_domo_source_isolation(self.consumer_source,self.fixture_source)
+        for binding,source in ((c,cs),(f,fs)):
+            if ((binding.source_id,binding.source_revision,binding.source_digest,binding.context)
+                != (source.source_id,source.revision,source.digest,source.context)
+                or binding.dataset_id not in source.dataset_ids):
+                raise ValueError('Exact fixture source mapping is required')
+        if (c.context!='consumer' or f.context!='fixture_test' or c.dataset_id==f.dataset_id
+            or c.model_bundle_digest==f.model_bundle_digest
+            or (c.binding_id,c.revision)==(f.binding_id,f.revision)):
+            raise ValueError('Distinct reviewed fixture identities are required')
+        ignored={'context','binding_id','revision','model_bundle_digest','source_id','source_revision',
+            'source_digest','dataset_id','authoritative_definition_digest','variants'}
+        if (c.model_dump(exclude=ignored)!=f.model_dump(exclude=ignored)
+            or Counter(v.query_digest for v in c.variants)!=Counter(v.query_digest for v in f.variants)):
+            raise ValueError('Fixture field, scope and finite request semantics must match')
+        if (len({case.fixture.id for case in self.cases})!=len(self.cases)
+            or not any(case.kind=='permission_negative' for case in self.cases)
+            or not 1<=sum(case.kind=='known_answer' for case in self.cases)<=4):
+            raise ValueError('A bounded fixed source suite and permission denial are required')
+        return self
+
+
+from gateway.adapters.bigquery_runtime import BigQueryBinding, BigQuerySource
+
+
+class BigQueryFixtureCatalog(FixtureCatalog):
+    """Exact reviewed source isolation; configuration does not certify live IAM."""
+    consumer_binding: BigQueryBinding
+    fixture_binding: BigQueryBinding
+    consumer_source: BigQuerySource
+    fixture_source: BigQuerySource
+    cases: Array[ApprovedFixture] = Field(min_length=2,max_length=8)
+
+    @model_validator(mode='after')
+    def isolated_mapping(self):
+        c,f=self.consumer_binding,self.fixture_binding
+        cs,fs=self.consumer_source,self.fixture_source
+        for binding,source in ((c,cs),(f,fs)):
+            if ((binding.source_id,binding.source_revision,binding.source_digest,binding.context,binding.model_bundle_digest)
+                !=(source.source_id,source.revision,source.digest,source.context,source.model_bundle_digest)):
+                raise ValueError('Exact fixture source mapping is required')
+        if (c.context!='consumer' or f.context!='fixture_test' or cs.source_id==fs.source_id
+            or (cs.data_project,cs.dataset)==(fs.data_project,fs.dataset)
+            or {(cs.data_project,cs.dataset,t) for t in cs.tables}&{(fs.data_project,fs.dataset,t) for t in fs.tables}
+            or cs.auth.expected_principal==fs.auth.expected_principal or cs.cube_endpoint==fs.cube_endpoint
+            or c.model_bundle_digest==f.model_bundle_digest or (c.binding_id,c.revision)==(f.binding_id,f.revision)):
+            raise ValueError('Distinct reviewed fixture identities are required')
+        ignored={'context','binding_id','revision','model_bundle_digest','source_id','source_revision','source_digest'}
+        if c.model_dump(exclude=ignored)!=f.model_dump(exclude=ignored):
+            raise ValueError('Reviewed source fixture field and scope semantics must match')
+        if (len({case.fixture.id for case in self.cases})!=len(self.cases)
+            or not any(case.kind=='permission_negative' for case in self.cases)
+            or not 1<=sum(case.kind=='known_answer' for case in self.cases)<=4):
+            raise ValueError('A bounded fixed source suite and permission denial are required')
+        return self
+
+
+def parse_fixture_catalog(value):
+    if isinstance(value,FixtureCatalog):
+        value=value.model_dump(mode='python')
+    if (type(value) is dict and type(value.get('consumer_binding')) is dict
+        and value['consumer_binding'].get('adapter_revision')=='domo-named-v2'):
+        return DomoFixtureCatalog.model_validate(value)
+    if (type(value) is dict and type(value.get('consumer_binding')) is dict
+        and value['consumer_binding'].get('adapter_revision')=='cube-bigquery-v1'):
+        return BigQueryFixtureCatalog.model_validate(value)
+    return FixtureCatalog.model_validate(value)
+
+
 def execution_contract_digest(manifest: Manifest) -> str:
     # Deny-by-default projection: future manifest fields affect approval unless
     # explicitly reviewed as presentation-only. Fixtures are pinned separately.
@@ -249,13 +332,13 @@ def execution_contract_digest(manifest: Manifest) -> str:
 
 import asyncio
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import uuid4
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, text
 
 from gateway.adapters.normalize import NormalizationContext, normalize
 from gateway.contracts.clock import SystemClock
-from gateway.contracts.execution import Completed, ExecutionSpec, ExecutionView, Pending, PinnedProduct
+from gateway.contracts.execution import Completed, ExecutionSpec, ExecutionView, Pending, PinnedProduct, is_completed
 from gateway.contracts.query import QueryRequest, validate_query
 from gateway.execution.queue import lock_execution_capacity, source_capacity_counts
 from gateway.execution.service import FixtureCapability, check_current_scope
@@ -311,6 +394,7 @@ class _DraftAuthority:
     policy_revision: int
     review_visible_fields: tuple[str, ...]
     catalog: FixtureCatalog
+    source_group: object | None = None
 
     def __reduce__(self):
         raise TypeError('Draft fixture authority cannot be serialized')
@@ -331,6 +415,26 @@ class _FixtureCapability(FixtureCapability):
         return object.__new__(cls)
 
 
+def validate_fixture_source_completed(completed,source_context):
+    """A source candidate cannot borrow another case/session's terminal proof."""
+    from gateway.source_lifecycle import SourceAttemptContext
+    from gateway.adapters.domo_completed import DomoCompleted
+    try:
+        if type(source_context) is not SourceAttemptContext:
+            raise ValueError
+        current=source_context.wire_context()
+        if source_context.spec.provider=='domo':
+            if (type(completed) is not DomoCompleted
+                or canonical_digest(completed.permit.context.wire_context())!=canonical_digest(current)
+                or completed.prepared.digest!=source_context.spec.prepared_digest):
+                raise ValueError
+            completed.evidence()
+        elif type(completed) is not Completed:
+            raise ValueError
+    except (ValueError,TypeError,AttributeError,GatewayError):
+        raise fixture_unavailable() from None
+
+
 class FixtureRunner:
     """Functional draft-only execution with fixed operator-approved identities.
 
@@ -339,9 +443,10 @@ class FixtureRunner:
     timer fabricates source completion. There are no consumer execution/results.
     """
     def __init__(self, *, registry, policy, bindings, bundles, catalog_provider,
-                 adapter_factory, clock=None):
+                 adapter_factory, clock=None, source_lifecycle=None):
         self.registry,self.policy,self.bindings,self.bundles = registry,policy,bindings,bundles
         self.catalog_provider,self.adapter_factory = catalog_provider,adapter_factory
+        self.source_lifecycle = source_lifecycle
         self.clock = clock or SystemClock()
         self._issuer = object()
         self._issued = {}
@@ -383,16 +488,21 @@ class FixtureRunner:
                     if state.error_code else None)
         return view,check
 
-    def catalog(self) -> FixtureCatalog:
+    def catalog(self, manifest=None, binding=None) -> FixtureCatalog:
         try:
-            supplied = self.catalog_provider()
-            return FixtureCatalog.model_validate(supplied.model_dump(mode='python'))
+            if manifest is not None and manifest.adapter_revision in {'domo-named-v2','cube-bigquery-v1'}:
+                if binding is None:
+                    raise ValueError
+                supplied = self.catalog_provider.resolve(manifest,binding)
+            else:
+                supplied = self.catalog_provider()
+            return parse_fixture_catalog(supplied)
         except (ValueError,TypeError,AttributeError,GatewayError):
             raise fixture_unavailable() from None
 
     def evidence_current(self, manifest, binding, test) -> bool:
         try:
-            catalog = self.catalog()
+            catalog = self.catalog(manifest,binding)
             catalog.approve(manifest,binding)
             evidence = FixtureEvidence.model_validate(test.evidence)
             if (test.fixture_version != catalog.digest or test.status != 'passed'
@@ -431,7 +541,7 @@ class FixtureRunner:
         """
         if not self.evidence_current(manifest, binding, test):
             return ('fixtures',)
-        catalog = self.catalog()
+        catalog = self.catalog(manifest,binding)
         evidence = FixtureEvidence.model_validate(test.evidence)
         if evidence.catalog_digest != catalog.digest:
             return ('fixtures',)
@@ -484,6 +594,13 @@ class FixtureRunner:
             state = await uow.session.get(FixtureAttemptState, check.attempt_id)
             if attempt is None or state is None:
                 return False
+            if catalog.fixture_binding.adapter_revision in {'domo-named-v2','cube-bigquery-v1'}:
+                source=(await uow.session.execute(text('''SELECT s.id,s.sealed,s.deadline_at,g.closed,g.settled_at,g.owner_id
+                    FROM gateway.source_sessions s JOIN gateway.source_operation_groups g ON g.id=s.group_id
+                    WHERE s.context='fixture_test' AND s.owner_id=:owner'''),{'owner':attempt.id})).mappings().one_or_none()
+                if (source is None or not source['sealed'] or not source['closed'] or source['settled_at'] is None
+                    or source['owner_id']!=test.id or state.completed_at is None or state.completed_at>=source['deadline_at']):
+                    return False
             case = cases[check.fixture_id]
             query = validate_query(manifest, QueryRequest(product_id=manifest.product_id,
                 version=manifest.version, inputs=case.fixture.inputs)).model_dump(mode='json', exclude={'idempotency_key'})
@@ -527,7 +644,8 @@ class FixtureRunner:
         decision = await self.policy.authorize(actor,'author',target,uow,correlation_id=correlation_id)
         if head.latest_draft_id != draft.id or head.draft_revision != draft.revision:
             raise conflict()
-        catalog = self.catalog()
+        bound = await self.bindings.resolve(manifest.binding_id,manifest.binding_revision)
+        catalog = self.catalog(manifest,bound)
         catalog.approve(manifest,catalog.consumer_binding)
         consumer = await self._binding_row(uow,catalog.consumer_binding)
         fixture = await self._binding_row(uow,catalog.fixture_binding)
@@ -602,10 +720,13 @@ class FixtureRunner:
             target = PinnedProduct(manifest=manifest,binding_digest=current.catalog.fixture_binding.digest,
                 version_id=current.draft.id)
             check_current_scope(target,request,current.catalog.fixture_binding,decision,decision,'fixture-case')
-            own,total = await source_capacity_counts(uow,current.actor.id)
-            if (own >= decision.limits.per_principal_concurrency
-                or total >= decision.limits.deployment_concurrency):
-                raise GatewayError(ErrorCode.RESOURCE_LIMIT,'fixture-capacity','Fixture source capacity is unavailable.')
+            if getattr(authority,"source_group",None) is not None:
+                await self.source_lifecycle.check_fixture_group(uow,getattr(authority,"source_group",None),authority,case)
+            else:
+                own,total = await source_capacity_counts(uow,current.actor.id)
+                if (own >= decision.limits.per_principal_concurrency
+                    or total >= decision.limits.deployment_concurrency):
+                    raise GatewayError(ErrorCode.RESOURCE_LIMIT,'fixture-capacity','Fixture source capacity is unavailable.')
             canonical = request.model_dump(mode='json',exclude={'idempotency_key'})
             attempt = FixtureAttempt(id=str(uuid4()),product_id=manifest.product_id,draft_id=current.draft.id,
                 draft_digest=current.draft.content_digest,consumer_binding_id=current.binding_row.id,
@@ -621,8 +742,9 @@ class FixtureRunner:
             await uow.session.flush()
             await uow.session.refresh(attempt)
             uow.session.add(FixtureAttemptState(attempt_id=attempt.id,state='running',source_completed=False))
-            uow.session.add(FixtureSourceReservation(attempt_id=attempt.id,actor_id=current.actor.id,
-                fixed_principal_id=principal.id,runner_token=attempt.runner_token))
+            if getattr(authority,"source_group",None) is None:
+                uow.session.add(FixtureSourceReservation(attempt_id=attempt.id,actor_id=current.actor.id,
+                    fixed_principal_id=principal.id,runner_token=attempt.runner_token))
             await uow.session.flush()
             return attempt,principal,decision
 
@@ -648,13 +770,16 @@ class FixtureRunner:
         now = await uow.session.scalar(select(func.clock_timestamp()))
         if state is None or state.state != 'running' or stored is None or stored.runner_token != attempt.runner_token:
             raise conflict()
-        if now >= attempt.deadline_at:
+        if getattr(authority,"source_group",None) is not None:
+            await self.source_lifecycle.check_fixture_group(uow,getattr(authority,"source_group",None),authority,case)
+        deadline=min(attempt.deadline_at,getattr(authority,"source_group",None).deadline) if getattr(authority,"source_group",None) else attempt.deadline_at
+        if now >= deadline:
             raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
         return current,fresh,state,now
 
     async def _finish_failed(self,attempt,code):
-        # Authority failure must not release even an observed-but-uncommitted
-        # source completion. Leave capacity quarantined; record terminal error.
+        # Record no successful rows. Legacy reservations stay conservative; new
+        # source groups settle separately only from retained provider proof.
         async with self.registry.transaction() as uow:
             await lock_execution_capacity(uow)
             state = await uow.session.scalar(select(FixtureAttemptState).where(
@@ -668,8 +793,10 @@ class FixtureRunner:
     async def _execute_case(self,authority,case,attempt,decision):
         spec = self._spec(attempt)
         adapter = None
+        source_context = None
+        deadline=min(attempt.deadline_at,getattr(authority,"source_group",None).deadline) if getattr(authority,"source_group",None) else attempt.deadline_at
         try:
-            remaining = (attempt.deadline_at-self.clock.now()).total_seconds()
+            remaining = (deadline-self.clock.now()).total_seconds()
             if remaining <= 0:
                 raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
             async with asyncio.timeout(min(120,remaining)):
@@ -677,26 +804,39 @@ class FixtureRunner:
                     await self._gate(uow,authority,case,attempt,decision)
                 adapter = self.adapter_factory()
                 prepared = await adapter.prepare(spec.pinned_product,QueryRequest.model_validate(spec.canonical_query),decision,
-                    context='fixture_test',deadline=attempt.deadline_at,request_id=attempt.request_id)
-                endpoint = self.bundles.resolve_query(prepared.endpoint_id,prepared.model_bundle_digest)
+                    context='fixture_test',deadline=deadline,request_id=attempt.request_id)
+                endpoint = (self.bundles.resolve(prepared.model_bundle_digest) if getattr(authority,"source_group",None) is not None
+                    else self.bundles.resolve_query(prepared.endpoint_id,prepared.model_bundle_digest))
                 if endpoint.context != 'fixture_test' or prepared.model_bundle_digest != spec.pinned_product.manifest.model_bundle_digest:
                     raise fixture_unavailable()
                 poll_number = 0
                 while True:
                     async with self.registry.transaction() as uow:
                         _,fresh,_,_ = await self._gate(uow,authority,case,attempt,decision)
-                    authority_context={'spec':spec,'executed_decision':decision} if spec.pinned_product.manifest.adapter_revision=='cube-rest-v2' else {}
+                    authority_context={'spec':spec,'executed_decision':decision} if spec.pinned_product.manifest.adapter_revision in {'cube-rest-v2','domo-named-v2','cube-bigquery-v1'} else {}
+                    if getattr(authority,"source_group",None) is not None:
+                        if source_context is None:
+                            plan=await adapter.source_plan(spec,prepared,decision,catalog_digest=authority.catalog.digest)
+                            source_context=await self.source_lifecycle.fixture_attempt(getattr(authority,"source_group",None),authority,case,
+                                attempt,prepared,fresh,plan)
+                        authority_context['source_context']=source_context
                     completed = await adapter.poll(prepared,fresh,**authority_context,context='fixture_test',
-                        deadline=attempt.deadline_at,request_id=attempt.request_id)
-                    if isinstance(completed,Completed):
+                        deadline=deadline,request_id=attempt.request_id)
+                    if is_completed(completed):
                         break
                     if not isinstance(completed,Pending):
                         raise GatewayError(ErrorCode.UPSTREAM_UNAVAILABLE,attempt.request_id,'The fixture source is unavailable.')
-                    duration = backoff_seconds(poll_number,self.clock.now(),attempt.deadline_at)
+                    duration = backoff_seconds(poll_number,self.clock.now(),deadline)
                     if duration <= 0:
                         raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
                     await self.clock.sleep(duration)
                     poll_number += 1
+                if source_context is not None:
+                    await adapter.close()
+                    validate_fixture_source_completed(completed,source_context)
+                    status=await self.source_lifecycle.seal_source(source_context,'completed')
+                    if not status.can_complete_session:
+                        raise fixture_unavailable()
                 async with self.registry.transaction() as uow:
                     _,fresh,state,now = await self._gate(uow,authority,case,attempt,decision,action='result')
                     view = ExecutionView(execution_id=attempt.id,state='succeeded',accepted_at=attempt.created_at,
@@ -719,9 +859,10 @@ class FixtureRunner:
                         state.state, state.source_completed = 'failed', True
                         state.error_code = error.code.value
                         await uow.session.flush()
-                        await uow.session.execute(update(FixtureSourceReservation).where(
-                            FixtureSourceReservation.attempt_id==attempt.id,
-                            FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
+                        if source_context is None:
+                            await uow.session.execute(update(FixtureSourceReservation).where(
+                                FixtureSourceReservation.attempt_id==attempt.id,
+                                FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
                         return FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=False,
                             expected=case.fixture.expected_rows,expected_error=case.fixture.expected_error,
                             actual_error=error.code.value,absolute_tolerance=case.fixture.tolerance,
@@ -741,9 +882,10 @@ class FixtureRunner:
                     state.state,state.source_completed = 'succeeded',True
                     state.check_digest = canonical_digest(check)
                     await uow.session.flush()
-                    await uow.session.execute(update(FixtureSourceReservation).where(
-                        FixtureSourceReservation.attempt_id==attempt.id,
-                        FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
+                    if source_context is None:
+                        await uow.session.execute(update(FixtureSourceReservation).where(
+                            FixtureSourceReservation.attempt_id==attempt.id,
+                            FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
                     return check
         except TimeoutError:
             await self._finish_failed(attempt,ErrorCode.EXECUTION_TIMEOUT)
@@ -765,6 +907,22 @@ class FixtureRunner:
     async def run(self,actor,draft_id) -> TestRun:
         async with self.registry.transaction() as uow:
             authority = await self._authority(uow,actor,draft_id)
+        run_id=str(uuid4())
+        if authority.catalog.fixture_binding.adapter_revision in {'domo-named-v2','cube-bigquery-v1'}:
+            if self.source_lifecycle is None:
+                raise fixture_unavailable()
+            group=await self.source_lifecycle.begin_fixture_run(authority,run_id)
+            authority=replace(authority,source_group=group)
+        reason='failure'
+        try:
+            result=await self._run_cases(authority,run_id,actor,draft_id)
+            reason='completed'
+            return result
+        finally:
+            if getattr(authority,"source_group",None) is not None:
+                await self.source_lifecycle.close_group(getattr(authority,"source_group",None).group_id,reason)
+
+    async def _run_cases(self,authority,run_id,actor,draft_id):
         checks = []
         for case in authority.catalog.cases:
             attempt,decision = None,None
@@ -814,7 +972,7 @@ class FixtureRunner:
                 fixture_binding_digest=current.catalog.fixture_binding.digest,
                 fixture_model_bundle_digest=current.catalog.fixture_binding.model_bundle_digest,
                 checks=ordered_checks(final))
-            row = TestRun(id=str(uuid4()),product_id=current.product.manifest.product_id,draft_id=draft_id,
+            row = TestRun(id=run_id,product_id=current.product.manifest.product_id,draft_id=draft_id,
                 draft_digest=current.draft.content_digest,binding_id=current.binding_row.id,
                 binding_digest=current.binding_row.content_digest,policy_id=current.product.manifest.policy_id,
                 policy_revision=current.policy_revision,fixture_version=current.catalog.digest,

@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta
 from time import perf_counter_ns
 
-from gateway.adapters.reviewed import Binding, validate_binding_decision
+from gateway.adapters.reviewed import (Binding, validate_binding_decision, binding_grain_fields,
+    binding_time_fields, requires_exact_decision)
 from gateway.adapters.base import (authorization_scope_digest, check_binding,
     validate_query_visibility)
 from gateway.contracts.canonical import canonical_bytes, canonical_digest, timestamp
@@ -77,11 +78,12 @@ def validate_result_scope(execution: Execution, product: PinnedProduct, binding:
         check_binding(binding, product.manifest, digest=product.binding_digest)
         if (executed.principal_id != execution.principal_id or executed.policy_revision != execution.policy_revision
             or authorization_scope_digest(current) != authorization_scope_digest(executed)
-            or not set(current.visible_fields) <= set(executed.visible_fields)):
+            or not set(current.visible_fields) <= set(executed.visible_fields)
+            or requires_exact_decision(binding) and canonical_digest(current)!=canonical_digest(executed)):
             raise _error(execution, ErrorCode.NOT_FOUND_OR_FORBIDDEN)
         if not set(executed.visible_fields) <= set(product.manifest.outputs):
             raise ValueError("Unknown executed fields")
-        grain = {name for name, item in binding.fields.items() if item.kind != "measure"}
+        grain = set(binding_grain_fields(binding))
         if not grain <= set(current.visible_fields) or not grain <= set(executed.visible_fields):
             raise _error(execution, ErrorCode.NOT_FOUND_OR_FORBIDDEN)
         request = QueryRequest.model_validate(spec.canonical_query)
@@ -127,15 +129,15 @@ def project_stored_result(execution: Execution, envelope: ResultEnvelope, produc
             or manifest.freshness.required and envelope.freshness.status != "fresh"
             or envelope.warnings != (() if envelope.freshness.status == "fresh" else ("Source-load freshness is "+envelope.freshness.status+".",))):
             raise ValueError("Stored metadata differs from pinned context")
-        grain_names = [name for name,item in binding.fields.items() if item.kind != "measure"]
+        grain_names = binding_grain_fields(binding)
         grains = set()
         for row in envelope.rows:
             grain = tuple(row[name] for name in grain_names)
             if grain in grains:
                 raise ValueError("Duplicate stored grain")
             grains.add(grain)
-            for name,item in binding.fields.items():
-                if item.kind == "time" and not expected_range["start"] <= row[name] < expected_range["end"]:
+            for name in binding_time_fields(binding):
+                if not expected_range["start"] <= row[name] < expected_range["end"]:
                     raise ValueError("Stored bucket outside execution range")
         now = timestamp(now)
         age = (now - envelope.source_watermark).total_seconds() if envelope.source_watermark is not None else None

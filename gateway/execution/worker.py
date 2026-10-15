@@ -5,7 +5,7 @@ from datetime import datetime
 
 from gateway.contracts.clock import SystemClock
 from gateway.contracts.errors import ErrorCode, GatewayError
-from gateway.contracts.execution import Completed, Pending
+from gateway.contracts.execution import Completed, Pending, is_completed
 from gateway.contracts.query import QueryRequest
 from .queue import effective_deadline, failure
 
@@ -50,7 +50,8 @@ class Worker:
                         prepared=await adapter.prepare(claim.spec.pinned_product,
                             QueryRequest.model_validate(claim.spec.canonical_query),
                             claim.executed_decision,context=claim.spec.context,deadline=deadline,request_id=claim.spec.request_id)
-                    await self.queue.save_prepared(claim,prepared)
+                    if claim.spec.pinned_product.manifest.adapter_revision!='domo-named-v2':
+                        await self.queue.save_prepared(claim,prepared)
                 attempt=0
                 while True:
                     if self.clock.now()>=deadline:
@@ -61,10 +62,15 @@ class Worker:
                     if self.clock.now()>=deadline:
                         raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
                     async with asyncio.timeout(max(0.0,(deadline-self.clock.now()).total_seconds())):
-                        authority={"spec":claim.spec,"executed_decision":claim.executed_decision} if claim.spec.pinned_product.manifest.adapter_revision=="cube-rest-v2" else {}
+                        revision=claim.spec.pinned_product.manifest.adapter_revision
+                        authority={"spec":claim.spec,"executed_decision":claim.executed_decision} if revision in {
+                            "cube-rest-v2","cube-bigquery-v1","domo-named-v2"} else {}
+                        if revision in {"cube-bigquery-v1","domo-named-v2"}:
+                            session_spec=await adapter.source_plan(claim.spec,prepared,claim.executed_decision)
+                            authority['source_context']=await self.queue.source_attempt(claim,prepared,current,session_spec)
                         polled=await adapter.poll(prepared,current,**authority,context=claim.spec.context,
                             deadline=deadline,request_id=claim.spec.request_id)
-                    if isinstance(polled,Completed):
+                    if is_completed(polled):
                         source_completed=True
                         if self.clock.now()>=deadline:
                             raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
