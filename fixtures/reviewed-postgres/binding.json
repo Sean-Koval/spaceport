@@ -1,0 +1,38 @@
+{
+  "context": "consumer",
+  "binding_id": "bookings-reviewed",
+  "revision": 1,
+  "adapter_revision": "cube-rest-v2",
+  "model_bundle_digest": "4d0444947ee4810dd42d222e4ccbce45b647c872c1edf2cc34edeb4da75f2827",
+  "fields": {
+    "day": {
+      "member": "Bookings.day",
+      "kind": "time",
+      "cube_type": "time",
+      "response_key": "Bookings.day.day",
+      "granularity": "day"
+    },
+    "segment": {
+      "member": "Bookings.category",
+      "kind": "dimension",
+      "cube_type": "string",
+      "response_key": "Bookings.category",
+      "granularity": null
+    },
+    "revenue": {
+      "member": "Bookings.total",
+      "kind": "measure",
+      "cube_type": "number",
+      "response_key": "Bookings.total",
+      "granularity": null
+    }
+  },
+  "input_fields": {
+    "segment": "segment"
+  },
+  "scope": {
+    "tenant_member": "Bookings.tenant",
+    "access_group_member": "Bookings.group"
+  },
+  "checkpoint_member": "Bookings.loaded_at"
+}

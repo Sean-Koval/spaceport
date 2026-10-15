@@ -1,0 +1,25 @@
+{
+  "status": "synthetic offline contract only; not live GCS or authorization evidence",
+  "descriptor": {
+    "artifact_id": "north-report",
+    "revision": 1,
+    "product_id": "revenue",
+    "product_version": "1.0.0",
+    "product_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "owner": "analytics",
+    "classification": "internal",
+    "policy_id": "revenue-access",
+    "tenant_id": "north",
+    "bucket": "synthetic-artifacts",
+    "object_name": "reports/north.txt",
+    "generation": "123",
+    "metageneration": "2",
+    "expected_size": 19,
+    "expected_sha256": "3c1e79825287ad56cf4dc687c4838d401014a0c8e911e8c039779c8e7b2baf49",
+    "media_type": "text/plain",
+    "source_loaded_at": "2024-03-12T00:00:00Z",
+    "source_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "max_source_age_seconds": 86400
+  },
+  "content": "synthetic artifact\n"
+}

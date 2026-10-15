@@ -1,8 +1,27 @@
 # Domo Phase 1b: unavailable until evidence gates pass
 
-13 October 2026. `select_adapter("domo")` fails with safe `INVALID_INPUT`. No Domo SDK, account, credential, model, query execution stub, native Cube driver or successful connector is created. The default demonstration needs no Domo tenant or paid account.
+15 October 2026. `select_adapter("domo")` still fails with safe `INVALID_INPUT`. The separate `gateway/adapters/domo.py` implements executable **offline contracts with injected transports**, not a live or runtime-registered connector. No Domo SDK, account, credential, native Cube driver, network-client factory or source activation is provided. The default demonstration needs no Domo tenant or paid account.
 
-A later Domo integration would be a **separate read-only adapter for operator-reviewed named queries**, sharing gateway authorization, exact manifest contracts, resource bounds, execution/result isolation and redacted errors. Agent inputs remain typed manifest fields. It must not expose SQL, a credential-bearing SDK, bulk exports, arbitrary card formulas or an unrestricted dataset explorer.
+A live Domo integration remains a **separate read-only adapter for operator-reviewed named queries**, sharing gateway authorization, exact manifest contracts, resource bounds, execution/result isolation and redacted errors. Agent inputs remain typed manifest fields. It must not expose SQL, a credential-bearing SDK, bulk exports, arbitrary card formulas or an unrestricted dataset explorer.
+
+
+## Implemented offline boundary
+
+`DomoNamedQueryBinding` pins the product binding, owner/policy/tenant, dataset, definition bundle, authoritative-definition digest and ordered output schema. `StatementCatalog` contains immutable operator-reviewed statement bytes and SHA-256 values. A finite `DomoQueryVariant` selects one statement by the **entire normalized request digest and exact server-derived authorization-scope digest**. Statement bytes are copied without interpolation or template substitution. The configured manifest can describe a wider date/filter/sort domain than the finite catalog: an unreviewed combination is still rejected. There is no general dynamic date-range compiler, formula engine, dataset browser or arbitrary SQL tool.
+
+Statements are trusted operator assets, never agent input or publisher-uploaded code. Their digests establish identity, not read-only SQL semantics, PDP equivalence or business correctness. The synthetic fixture statement is not a verified Domo dialect/query. Live execution must independently satisfy every gate below, including pre-aggregation scope enforcement.
+
+`DomoReader` requires an explicitly injected transport and a fresh authorization callback; neither has a default implementation. The callback must supply a current, audited decision for the exact principal and pinned product at `execute` and again at `result`. All result fields must be authorized before submission; changed principal, tenant, policy revision, constraints, visible fields or limits discards the buffered response. Missing/incompatible authority fails closed. No result cache or retained data store is introduced. Injected callbacks and transports receive independent snapshots, and selected statement identity/revision/digest are checked again before source I/O. Raw rows and SQL are omitted from ordinary model representations; explicit serialization still contains data and must not be logged.
+
+One read makes at most one source request with zero automatic retries. Normal response closure occurs inside the same total deadline, before final authorization; error cleanup is separately bounded and cannot release rows. The monotonic deadline covers authorization, selection, reading and validation, capped at 120 seconds and the stricter product/current-policy limit. The response stream has a 1 MiB maximum, the normalized complete result is independently byte-limited, and rows cannot exceed 1,000 or tighter bounds. Reject redirects, non-JSON or transformed responses, duplicate JSON keys, positional column/count/width/type drift and unknown fields. Exact decimals arrive as validated strings; binary floating-point money is never converted into allegedly exact decimals. Zone-less civil timestamps are unsupported.
+
+`DomoFreshnessEvidence` is a trusted internal checkpoint assertion bound to the binding digest, authoritative definition, canonical request, authorization scope and SHA-256 of the exact response bytes. It is not an arbitrary watermark taken from the payload. A future transport must prove that checkpoint and rows are coherent; a later independent dataset metadata read cannot establish this. Missing, changed, future or stale required evidence fails closed. `fromcache` reports only source cache status, never freshness or authorization.
+
+The local readers and the checked-in synthetic fixture are covered by `tests/contract/test_domo.py`, with socket access denied. Successful fake transports prove local validation and no-retry behavior only. They do not demonstrate live API compatibility, provider costs, source completion/cancellation or production authorization. Local timeout is not source termination and cannot release production reservations.
+
+### Explicitly deferred runtime seams
+
+The existing runtime binding resolver, prepared-query persistence, normalization, result replay, publishing checks and readiness remain Cube-oriented. This module is not registered with them and does not return a public `ResultEnvelope`. Safely wiring Domo requires a separately reviewed internal adapter integration plus actual per-product evidence. REST/OpenAPI and the four MCP tools are unchanged. No environment variable, evidence object or profile flag activates Domo.
 
 ## Documented API candidates, not compatibility evidence
 

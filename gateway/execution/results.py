@@ -2,8 +2,9 @@
 from datetime import datetime, timedelta
 from time import perf_counter_ns
 
-from gateway.adapters.base import (CubeBinding, authorization_scope_digest, check_binding,
-    validate_data_decision, validate_query_visibility)
+from gateway.adapters.reviewed import Binding, validate_binding_decision
+from gateway.adapters.base import (authorization_scope_digest, check_binding,
+    validate_query_visibility)
 from gateway.contracts.canonical import canonical_bytes, canonical_digest, timestamp
 from gateway.contracts.errors import ErrorCode, GatewayError
 from gateway.contracts.execution import ExecutionSpec, FreshnessAssessment, PinnedProduct, ResultEnvelope
@@ -59,13 +60,13 @@ def prepare_stored_result(execution: Execution, envelope: ResultEnvelope,
         raise _error(execution) from None
 
 
-def validate_result_scope(execution: Execution, product: PinnedProduct, binding: CubeBinding,
+def validate_result_scope(execution: Execution, product: PinnedProduct, binding: Binding,
                           executed: Decision, current: Decision, *, enforce_date_limit: bool = True) -> ExecutionSpec:
     """Shared authority gate, with date limits deferred only for cursor resolution."""
     try:
         product = PinnedProduct.model_validate(product.model_dump(mode="python"))
-        executed = validate_data_decision(executed, execution.request_id, binding.constraint_members)
-        current = validate_data_decision(current, execution.request_id, binding.constraint_members)
+        executed = validate_binding_decision(binding,executed,execution.request_id)
+        current = validate_binding_decision(binding,current,execution.request_id)
         spec = ExecutionSpec(principal_id=execution.principal_id, pinned_product=product,
             canonical_query=execution.canonical_query, canonical_hash=execution.canonical_hash,
             policy_revision=execution.policy_revision, context=execution.context, request_id=execution.request_id)
@@ -98,7 +99,7 @@ def validate_result_scope(execution: Execution, product: PinnedProduct, binding:
 
 
 def project_stored_result(execution: Execution, envelope: ResultEnvelope, product: PinnedProduct,
-                          binding: CubeBinding, executed: Decision, current: Decision, *, now: datetime) -> ResultEnvelope:
+                          binding: Binding, executed: Decision, current: Decision, *, now: datetime) -> ResultEnvelope:
     """Validate the whole stored answer before safe field projection or pagination.
 
     Reassess age against the existing source watermark at explicit current time.

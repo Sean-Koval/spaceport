@@ -14,6 +14,7 @@ from gateway.contracts.errors import ErrorCode, GatewayError
 
 class CubeEndpoint(StrictModel):
     endpoint_id: Identifier
+    adapter_revision: Literal["cube-rest-v1", "cube-rest-v2"] = "cube-rest-v1"
     url: Annotated[str,Field(min_length=1,max_length=2048)]
     bundle_digest: Digest
     secret_ref: Annotated[str,Field(min_length=1,max_length=1024)]

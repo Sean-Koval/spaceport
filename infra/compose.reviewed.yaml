@@ -1,0 +1,124 @@
+{
+  "services": {
+    "cube-reviewed": {
+      "image": "cubejs/cube:v1.8.5@sha256:47c298a6cc725b4840d42587ee6164b45fa195c34ddc9f9da8c98b63847684d3",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "CUBEJS_DEV_MODE": "false",
+        "CUBEJS_TELEMETRY": "false",
+        "CUBEJS_REFRESH_WORKER": "false",
+        "CUBEJS_EXTERNAL_DEFAULT": "false",
+        "CUBEJS_LOG_LEVEL": "error",
+        "GATEWAY_CUBE_CONTEXT": "consumer",
+        "GATEWAY_MODEL_BUNDLE_DIGEST": "4d0444947ee4810dd42d222e4ccbce45b647c872c1edf2cc34edeb4da75f2827",
+        "CUBEJS_DB_QUERY_DEFAULT_LIMIT": "1001",
+        "CUBEJS_SQL_PORT": "false",
+        "CUBEJS_PG_SQL_PORT": "false",
+        "CUBEJS_NATIVE_API_GATEWAY_PORT": "false",
+        "CUBEJS_WEB_SOCKETS": "false",
+        "CUBEJS_LOG_REDACTION": "true",
+        "CUBEJS_MAX_REQUEST_SIZE": "100kb"
+      },
+      "secrets": [
+        "cube_signing_key",
+        "demo_reader"
+      ],
+      "volumes": [
+        "../cube/reviewed-postgres/cube.js:/cube/conf/cube.js:ro",
+        "../cube/reviewed-postgres/security.js:/cube/conf/security.js:ro",
+        "../cube/reviewed-postgres/security.json:/cube/conf/security.json:ro",
+        "../cube/reviewed-postgres/model:/cube/conf/model:ro",
+        "../cube/bigquery:/cube/conf/bigquery:ro",
+        "../tests/runtime:/cube/conf/tests/runtime:ro"
+      ],
+      "depends_on": {
+        "demo-db": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "3s",
+        "timeout": "5s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "mem_limit": "1500m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    },
+    "cube-reviewed-test": {
+      "image": "cubejs/cube:v1.8.5@sha256:47c298a6cc725b4840d42587ee6164b45fa195c34ddc9f9da8c98b63847684d3",
+      "platform": "linux/amd64",
+      "networks": [
+        "private"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "CUBEJS_DEV_MODE": "false",
+        "CUBEJS_TELEMETRY": "false",
+        "CUBEJS_REFRESH_WORKER": "false",
+        "CUBEJS_EXTERNAL_DEFAULT": "false",
+        "CUBEJS_LOG_LEVEL": "error",
+        "GATEWAY_CUBE_CONTEXT": "fixture_test",
+        "GATEWAY_MODEL_BUNDLE_DIGEST": "08d8da8d752f9f86563640fe2441d29904404dc28f4eac59d3d877e5c9a5f844",
+        "CUBEJS_DB_QUERY_DEFAULT_LIMIT": "1001",
+        "CUBEJS_SQL_PORT": "false",
+        "CUBEJS_PG_SQL_PORT": "false",
+        "CUBEJS_NATIVE_API_GATEWAY_PORT": "false",
+        "CUBEJS_WEB_SOCKETS": "false",
+        "CUBEJS_LOG_REDACTION": "true",
+        "CUBEJS_MAX_REQUEST_SIZE": "100kb"
+      },
+      "secrets": [
+        "cube_test_signing_key",
+        "fixture_reader"
+      ],
+      "volumes": [
+        "../cube/reviewed-postgres/cube.js:/cube/conf/cube.js:ro",
+        "../cube/reviewed-postgres/security.js:/cube/conf/security.js:ro",
+        "../cube/reviewed-postgres/security.json:/cube/conf/security.json:ro",
+        "../cube/reviewed-postgres/test-model:/cube/conf/model:ro"
+      ],
+      "depends_on": {
+        "demo-db": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "3s",
+        "timeout": "5s",
+        "retries": 30
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "mem_limit": "1500m",
+      "cpus": 1,
+      "labels": {
+        "gateway.cube.run": "${GATEWAY_CUBE_RUN_LABEL:?A synthetic run label is required}"
+      }
+    }
+  }
+}

@@ -119,9 +119,20 @@ Acceptance:
 
 Next: select the actual identity provider and validate Studio delegation/browser login against it, then activate one separately approved bounded warehouse product. The foundation retains only the reviewed synthetic model; it is not a generic real-data deployment switch.
 
+## 2B. Deliver reviewed connector software
+
+**Status: implementation candidate; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). No live source or deployment is activated.**
+
+- Complete the internal reviewed PostgreSQL/Cube v2 path: explicit versioned bindings, exact accepted-query replay, current policy checks, isolated fixture bundles and same-query hidden source checkpoints. Existing v1 bundles/public contracts remain unchanged.
+- Checkpoint joins require unique scoped source rows and atomic producer publication with data. Cache hits keep the original checkpoint and continue to age. Empty results have unknown freshness and cannot satisfy required freshness.
+- Retain a BigQuery driver/admission library candidate with durable source budgets and sealing. Before gateway integration, review trusted attempt-context propagation and authenticated sealed-completion status. Do not release source capacity on a local timeout or unproven cancellation.
+- Include offline Domo finite named-query and GCS exact-object readers, with no default transport, source credentials or runtime route. Domo must later receive a non-Cube execution/normalization contract; GCS must receive an explicit artifact authorization and product-policy relationship before serving.
+
+Acceptance separates source/mock checks, actual disposable PostgreSQL/Cube checks, packaged-driver checks and live evidence. The next real-source step is one operator-reviewed source/model with authoritative answers and approved access, not unrestricted database or bucket discovery. Do not infer immutability, producer atomicity or permission equivalence from configuration labels.
+
 ## 3. Deliver one real BigQuery-backed product
 
-**Status: gated; current BigQuery coverage is mocked and non-executable.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
+**Status: live/gateway activation gated. The new bounded driver/admission library is an executable offline-tested candidate, not a complete serving connector.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
 
 Tasks:
 
@@ -140,7 +151,7 @@ Acceptance:
 
 ## 4. Reconcile and serve the first Domo product
 
-**Status: deferred Phase 1b; no adapter exists.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
+**Status: Phase 1b remains gated. An offline finite named-query reader exists, but no Domo runtime execution path or live authentication is enabled.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
 
 Tasks:
 

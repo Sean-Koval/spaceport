@@ -1,0 +1,28 @@
+{
+  "content": {
+    "reason": "Synthetic tenant and group isolation; author and publisher do not inherit consumer access.",
+    "rules": {
+      "entitlement_constraint": {
+        "member": "Bookings.group",
+        "operator": "in",
+        "source": "grant.entitlements.groups"
+      },
+      "tenant_constraint": {
+        "member": "Bookings.tenant",
+        "operator": "eq",
+        "source": "grant.tenant_id"
+      },
+      "tenant_ids": [
+        "north",
+        "south"
+      ],
+      "visible_fields": [
+        "day",
+        "segment",
+        "revenue"
+      ]
+    }
+  },
+  "policy_id": "bookings-access",
+  "revision": 1
+}

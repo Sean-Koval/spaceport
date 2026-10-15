@@ -73,6 +73,10 @@ def timestamp(value: Any) -> datetime:
         import re
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})", value):
             raise ValueError("Expected an explicit RFC 3339 timestamp")
+        # datetime.fromisoformat normalizes malformed minute offsets such as
+        # +00:60 instead of rejecting them. Validate RFC3339 components first.
+        if value[-1] != "Z" and (int(value[-5:-3]) > 23 or int(value[-2:]) > 59):
+            raise ValueError("Timestamp offset is outside RFC 3339 bounds")
         value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("Timestamps must have an explicit timezone")

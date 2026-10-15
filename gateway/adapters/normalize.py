@@ -5,6 +5,7 @@ import re
 
 from pydantic import ValidationError
 
+from gateway.adapters.reviewed import Binding, validate_binding_decision
 from gateway.contracts.canonical import canonical_bytes, canonical_digest, json_value, timestamp
 from gateway.contracts.clock import Clock
 from gateway.contracts.errors import ErrorCode, GatewayError
@@ -12,7 +13,7 @@ from gateway.contracts.execution import Completed, EffectiveRange, ExecutionSpec
 from gateway.contracts.identity import Decision
 from gateway.contracts.manifest import FieldSchema, validate_value
 from gateway.contracts.query import QueryRequest, validate_query
-from .base import CubeBinding, authorization_scope_digest, check_binding, validate_data_decision, validate_query_visibility
+from .base import authorization_scope_digest, check_binding, validate_query_visibility
 
 
 @dataclass(frozen=True)
@@ -20,7 +21,7 @@ class NormalizationContext:
     spec: ExecutionSpec
     decision: Decision
     executed_decision: Decision
-    binding: CubeBinding
+    binding: Binding
     clock: Clock
 
 
@@ -44,8 +45,8 @@ def normalize(product: PinnedProduct, completed: Completed, execution: Execution
         spec=ExecutionSpec.model_validate(context.spec.model_dump(mode="python"))
         decision=Decision.model_validate(context.decision.model_dump(mode="python"))
         executed=Decision.model_validate(context.executed_decision.model_dump(mode="python"))
-        decision=validate_data_decision(decision,request_id,context.binding.constraint_members)
-        executed=validate_data_decision(executed,request_id,context.binding.constraint_members)
+        decision=validate_binding_decision(context.binding,decision,request_id)
+        executed=validate_binding_decision(context.binding,executed,request_id)
         completed=Completed.model_validate(completed.model_dump(mode="python"))
         execution=ExecutionView.model_validate(execution.model_dump(mode="python"))
         if canonical_digest(spec.pinned_product)!=canonical_digest(product): raise ValueError

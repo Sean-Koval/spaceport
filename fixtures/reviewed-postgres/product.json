@@ -1,0 +1,218 @@
+{
+  "schema_version": "1.0",
+  "product_id": "bookings",
+  "version": "1.0.0",
+  "name": "Reviewed daily bookings",
+  "description": "Synthetic reviewed v2 bookings with a same-statement committed-load checkpoint.",
+  "examples": [
+    {
+      "description": "Three-day north revenue",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      }
+    }
+  ],
+  "owner": "analytics",
+  "domain": "finance",
+  "links": [
+    {
+      "label": "Definition",
+      "url": "https://example.com/revenue"
+    }
+  ],
+  "inputs": {
+    "start": {
+      "type": "date",
+      "nullable": false,
+      "required": true,
+      "enum": null,
+      "default": null,
+      "precision": null,
+      "scale": null
+    },
+    "end": {
+      "type": "date",
+      "nullable": false,
+      "required": true,
+      "enum": null,
+      "default": null,
+      "precision": null,
+      "scale": null
+    },
+    "segment": {
+      "type": "string",
+      "nullable": true,
+      "required": false,
+      "enum": [
+        "A",
+        "B"
+      ],
+      "default": {
+        "value": null
+      },
+      "precision": null,
+      "scale": null
+    }
+  },
+  "outputs": {
+    "day": {
+      "type": "date",
+      "nullable": false,
+      "required": true,
+      "enum": null,
+      "default": null,
+      "precision": null,
+      "scale": null
+    },
+    "segment": {
+      "type": "string",
+      "nullable": true,
+      "required": true,
+      "enum": null,
+      "default": null,
+      "precision": null,
+      "scale": null
+    },
+    "revenue": {
+      "type": "decimal",
+      "nullable": false,
+      "required": true,
+      "enum": null,
+      "default": null,
+      "precision": 38,
+      "scale": 2
+    }
+  },
+  "filters": {
+    "segment": {
+      "operators": [
+        "eq",
+        "in",
+        "is_null"
+      ],
+      "max_values": 10
+    },
+    "day": {
+      "operators": [
+        "eq",
+        "gte",
+        "lt"
+      ],
+      "max_values": 100
+    }
+  },
+  "sort": {
+    "fields": [
+      "day",
+      "segment"
+    ],
+    "max_fields": 2
+  },
+  "grain": "daily",
+  "units": {
+    "revenue": {
+      "unit": "money",
+      "currency": "USD"
+    }
+  },
+  "timezone": "America/New_York",
+  "date_boundaries": {
+    "start_input": "start",
+    "end_input": "end",
+    "interval": "[start,end)"
+  },
+  "aggregation": "Sum of order amounts",
+  "freshness": {
+    "required": true,
+    "max_age_seconds": 86400,
+    "meaning": "source_load"
+  },
+  "binding_id": "bookings-reviewed",
+  "binding_revision": 1,
+  "adapter_revision": "cube-rest-v2",
+  "policy_id": "bookings-access",
+  "classification": "internal",
+  "redaction": {
+    "start": "digest",
+    "end": "digest",
+    "segment": "omit"
+  },
+  "fixtures": [
+    {
+      "id": "north-total",
+      "version": "1",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      },
+      "expected_rows": [
+        {
+          "day": "2024-03-09",
+          "segment": "A",
+          "revenue": "10.10"
+        },
+        {
+          "day": "2024-03-10",
+          "segment": null,
+          "revenue": "20.20"
+        },
+        {
+          "day": "2024-03-11",
+          "segment": "A",
+          "revenue": "9007199254740993.01"
+        }
+      ],
+      "expected_error": null,
+      "tolerance": "0.00",
+      "source_watermark": "2024-03-12T00:00:00Z"
+    },
+    {
+      "id": "south-total",
+      "version": "1",
+      "inputs": {
+        "start": "2024-03-09",
+        "end": "2024-03-12"
+      },
+      "expected_rows": [
+        {
+          "day": "2024-03-09",
+          "segment": "A",
+          "revenue": "100.00"
+        },
+        {
+          "day": "2024-03-10",
+          "segment": "B",
+          "revenue": "0.01"
+        }
+      ],
+      "expected_error": null,
+      "tolerance": "0.00",
+      "source_watermark": "2024-03-12T00:00:00Z"
+    },
+    {
+      "id": "range-367",
+      "version": "1",
+      "inputs": {
+        "start": "2024-01-01",
+        "end": "2025-01-02"
+      },
+      "expected_rows": [],
+      "expected_error": "INVALID_INPUT",
+      "tolerance": "0",
+      "source_watermark": null
+    }
+  ],
+  "content_digest": "ea2f272292a1754628924b3f152766b7efffb642d2d9e355cad77ee24080a68e",
+  "model_bundle_digest": "4d0444947ee4810dd42d222e4ccbce45b647c872c1edf2cc34edeb4da75f2827",
+  "limits": {
+    "max_rows": 1000,
+    "max_bytes": 1048576,
+    "page_size": 200,
+    "per_principal_concurrency": 2,
+    "deployment_concurrency": 10,
+    "max_date_range_days": 366,
+    "sync_wait_seconds": 5,
+    "execution_timeout_seconds": 120
+  }
+}

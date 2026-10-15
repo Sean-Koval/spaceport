@@ -1,0 +1,177 @@
+{
+  "product_id": "bookings",
+  "consumer_binding": {
+    "context": "consumer",
+    "binding_id": "bookings-reviewed",
+    "revision": 1,
+    "adapter_revision": "cube-rest-v2",
+    "model_bundle_digest": "4d0444947ee4810dd42d222e4ccbce45b647c872c1edf2cc34edeb4da75f2827",
+    "fields": {
+      "day": {
+        "member": "Bookings.day",
+        "kind": "time",
+        "cube_type": "time",
+        "response_key": "Bookings.day.day",
+        "granularity": "day"
+      },
+      "segment": {
+        "member": "Bookings.category",
+        "kind": "dimension",
+        "cube_type": "string",
+        "response_key": "Bookings.category",
+        "granularity": null
+      },
+      "revenue": {
+        "member": "Bookings.total",
+        "kind": "measure",
+        "cube_type": "number",
+        "response_key": "Bookings.total",
+        "granularity": null
+      }
+    },
+    "input_fields": {
+      "segment": "segment"
+    },
+    "scope": {
+      "tenant_member": "Bookings.tenant",
+      "access_group_member": "Bookings.group"
+    },
+    "checkpoint_member": "Bookings.loaded_at"
+  },
+  "fixture_binding": {
+    "context": "fixture_test",
+    "binding_id": "fixture-bookings-reviewed",
+    "revision": 1,
+    "adapter_revision": "cube-rest-v2",
+    "model_bundle_digest": "08d8da8d752f9f86563640fe2441d29904404dc28f4eac59d3d877e5c9a5f844",
+    "fields": {
+      "day": {
+        "member": "Bookings.day",
+        "kind": "time",
+        "cube_type": "time",
+        "response_key": "Bookings.day.day",
+        "granularity": "day"
+      },
+      "segment": {
+        "member": "Bookings.category",
+        "kind": "dimension",
+        "cube_type": "string",
+        "response_key": "Bookings.category",
+        "granularity": null
+      },
+      "revenue": {
+        "member": "Bookings.total",
+        "kind": "measure",
+        "cube_type": "number",
+        "response_key": "Bookings.total",
+        "granularity": null
+      }
+    },
+    "input_fields": {
+      "segment": "segment"
+    },
+    "scope": {
+      "tenant_member": "Bookings.tenant",
+      "access_group_member": "Bookings.group"
+    },
+    "checkpoint_member": "Bookings.loaded_at"
+  },
+  "execution_contract_digest": "cd8dc15db5c36f302654a268a303a12211c90e92d1683b2ed1504115887c0b5e",
+  "cases": [
+    {
+      "fixture": {
+        "id": "north-total",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [
+          {
+            "day": "2024-03-09",
+            "segment": "A",
+            "revenue": "10.10"
+          },
+          {
+            "day": "2024-03-10",
+            "segment": null,
+            "revenue": "20.20"
+          },
+          {
+            "day": "2024-03-11",
+            "segment": "A",
+            "revenue": "9007199254740993.01"
+          }
+        ],
+        "expected_error": null,
+        "tolerance": "0.00",
+        "source_watermark": "2024-03-12T00:00:00Z"
+      },
+      "principal_id": "fixture-north",
+      "kind": "known_answer",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "south-total",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [
+          {
+            "day": "2024-03-09",
+            "segment": "A",
+            "revenue": "100.00"
+          },
+          {
+            "day": "2024-03-10",
+            "segment": "B",
+            "revenue": "0.01"
+          }
+        ],
+        "expected_error": null,
+        "tolerance": "0.00",
+        "source_watermark": "2024-03-12T00:00:00Z"
+      },
+      "principal_id": "fixture-south",
+      "kind": "known_answer",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "range-367",
+        "version": "1",
+        "inputs": {
+          "start": "2024-01-01",
+          "end": "2025-01-02"
+        },
+        "expected_rows": [],
+        "expected_error": "INVALID_INPUT",
+        "tolerance": "0",
+        "source_watermark": null
+      },
+      "principal_id": "fixture-north",
+      "kind": "input_negative",
+      "relative_tolerance": "0"
+    },
+    {
+      "fixture": {
+        "id": "permission-denied",
+        "version": "1",
+        "inputs": {
+          "start": "2024-03-09",
+          "end": "2024-03-12"
+        },
+        "expected_rows": [],
+        "expected_error": "NOT_FOUND_OR_FORBIDDEN",
+        "tolerance": "0",
+        "source_watermark": null
+      },
+      "principal_id": "fixture-denied",
+      "kind": "permission_negative",
+      "relative_tolerance": "0"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "context": "consumer",
+  "binding_id": "bigquery-reviewed-sales",
+  "revision": 1,
+  "adapter_revision": "cube-rest-v2",
+  "model_bundle_digest": "60199aa6e117aba965a7625caa31c874283e6217faac4997ecedab63a711071e",
+  "fields": {
+    "day": {
+      "member": "WarehouseSales.occurred_at",
+      "kind": "time",
+      "cube_type": "time",
+      "response_key": "WarehouseSales.occurred_at.day",
+      "granularity": "day"
+    },
+    "segment": {
+      "member": "WarehouseSales.segment",
+      "kind": "dimension",
+      "cube_type": "string",
+      "response_key": "WarehouseSales.segment"
+    },
+    "revenue": {
+      "member": "WarehouseSales.total",
+      "kind": "measure",
+      "cube_type": "number",
+      "response_key": "WarehouseSales.total"
+    }
+  },
+  "input_fields": {
+    "segment": "segment"
+  },
+  "scope": {
+    "tenant_member": "WarehouseSales.tenant_id",
+    "access_group_member": "WarehouseSales.access_group"
+  },
+  "checkpoint_member": "WarehouseSales.source_loaded_at"
+}

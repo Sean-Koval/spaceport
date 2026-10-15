@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 from sqlalchemy import URL
 
 from gateway.adapters.base import CubeBinding
+from gateway.adapters.reviewed import Binding
 from gateway.adapters.bundles import BundleCatalog
 from gateway.contracts.canonical import StrictModel
 from gateway.contracts.manifest import Manifest, validate_manifest
@@ -77,7 +78,7 @@ def database_url(role: str) -> str:
 @dataclass(frozen=True)
 class Assets:
     manifest: Manifest
-    bindings: tuple[CubeBinding, ...]
+    bindings: tuple[Binding, ...]
     bundles: BundleCatalog
     fixture_catalog: FixtureCatalog
     policy_id: str

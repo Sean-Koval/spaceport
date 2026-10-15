@@ -1,0 +1,18 @@
+{
+  "consumer": {
+    "endpoint_id": "reviewed-consumer",
+    "url": "http://cube-reviewed:4000",
+    "bundle_digest": "4d0444947ee4810dd42d222e4ccbce45b647c872c1edf2cc34edeb4da75f2827",
+    "context": "consumer",
+    "adapter_revision": "cube-rest-v2",
+    "secret_ref": "/run/secrets/cube_signing_key"
+  },
+  "fixture_test": {
+    "endpoint_id": "reviewed-fixture",
+    "url": "http://cube-reviewed-test:4000",
+    "bundle_digest": "08d8da8d752f9f86563640fe2441d29904404dc28f4eac59d3d877e5c9a5f844",
+    "context": "fixture_test",
+    "adapter_revision": "cube-rest-v2",
+    "secret_ref": "/run/secrets/cube_test_signing_key"
+  }
+}

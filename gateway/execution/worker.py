@@ -61,7 +61,8 @@ class Worker:
                     if self.clock.now()>=deadline:
                         raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
                     async with asyncio.timeout(max(0.0,(deadline-self.clock.now()).total_seconds())):
-                        polled=await adapter.poll(prepared,current,context=claim.spec.context,
+                        authority={"spec":claim.spec,"executed_decision":claim.executed_decision} if claim.spec.pinned_product.manifest.adapter_revision=="cube-rest-v2" else {}
+                        polled=await adapter.poll(prepared,current,**authority,context=claim.spec.context,
                             deadline=deadline,request_id=claim.spec.request_id)
                     if isinstance(polled,Completed):
                         source_completed=True

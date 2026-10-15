@@ -2,7 +2,7 @@
 
 Spaceport is a self-hosted gateway that turns reviewed team data into reusable products that people and agents can discover and query through one governed API. A product defines what an answer means, its typed inputs and outputs, who can use it, how fresh it must be, and the tests required before publication.
 
-The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. BigQuery is a planned live source; Domo requires a separate read-only adapter and reconciliation with authoritative cards and Beast Modes.
+The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. BigQuery source-control software and Domo/GCS offline readers are included as bounded candidates; live activation remains a separate gate. Domo still requires reconciliation with authoritative cards and Beast Modes.
 
 The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
 
@@ -31,8 +31,10 @@ The organization-runtime foundation merged in [PR 3](https://github.com/Sean-Kov
 | --- | --- |
 | Catalog, publishing, execution, REST/MCP and UI | Implemented in source with automated test coverage. The merged PR 3 source passed the complete backend gate; composed-demo acceptance remains open and later changes require their own evidence. |
 | Synthetic PostgreSQL / Cube | Reference runtime and fixtures are included. A full successful final-source demo, clean repeat and rendered-browser workflow are still required. |
-| BigQuery | Configuration validation and mocked adapter contracts only. The profile is non-executable; live models, bindings, queries and source cost/lifetime controls are unverified. |
-| Domo | Not implemented. Identity/PDP and business-definition reconciliation gates are documented. |
+| Reviewed PostgreSQL / Cube v2 | Versioned operator bindings and same-query source checkpoints, with separate synthetic consumer/fixture assets. See the [connector evidence](docs/evidence/reviewed-connectors.md) for exact tests and remaining live-source prerequisites. |
+| BigQuery | Executable bounded driver/admission library candidate with offline tests; gateway runtime selection remains blocked. Packaged-driver, live source controls and completion/release integration remain unverified. |
+| Domo | Offline finite named-query reader and strict response contracts. No runtime selection or live authentication; identity/PDP and business-definition reconciliation remain open. |
+| GCS artifacts | Offline exact-generation allowlist reader with bounded buffering and authorization callbacks. No public artifact route, live transport or policy inheritance implementation. |
 | Studio / production identity | Studio interoperability and live delegated OIDC access are not tested. |
 | Offline runtime assurance | Acquisition and runtime are separated in the tooling. Stronger packet-observer evidence remains blocked; an internal Docker network alone is not proof. |
 
@@ -134,6 +136,6 @@ The packet observer is not currently available, so full demo acceptance remains 
 
 ## Live sources and release boundaries
 
-Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness.
+Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [reviewed connector design](docs/superpowers/specs/2026-10-15-reviewed-connectors.md) distinguishes the complete synthetic v2 path from the offline-only BigQuery/Domo/GCS slices.
 
 V1 excludes ETL, arbitrary SQL/formulas, cross-product joins, source writes, dashboards, ontology engines and agent orchestration. Real credentials, paid queries, deployment and public distribution require their own decisions and verification. Preserve [third-party notices](THIRD_PARTY_NOTICES.md) and the [dependency inventory](docs/operations/licensing.md); the repository does not grant an original-code redistribution license.

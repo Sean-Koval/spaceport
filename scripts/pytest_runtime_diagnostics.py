@@ -35,7 +35,10 @@ MAX_PROGRESS_LINES = 10000
 MAX_PROGRESS_BYTES = 4 * 1024 * 1024
 CHECKPOINTS = frozenset('''cube-preflight cube-register-cleanup cube-create-secrets cube-images
     cube-secret-readability cube-probe-image cube-stack-readiness cube-role-initializers
-    cube-runtime-versions cube-topology cube-node-security cube-auth-security cube-egress
+    cube-runtime-versions cube-topology cube-node-security cube-auth-security cube-bigquery-package
+    cube-bigquery-module-resolution cube-bigquery-package-versions cube-bigquery-ledger
+    cube-bigquery-driver-construction cube-bigquery-query cube-bigquery-serialization
+    cube-bigquery-result-hydration cube-bigquery-replay cube-bigquery-io-guard cube-bigquery-cleanup cube-egress
     cube-probe-tests cube-junit-admission cube-restart cube-restart-tests registry-gate
     cube-evidence-admission registry-preflight registry-register-cleanup registry-create-secret
     registry-image registry-start registry-readiness registry-identity registry-tests

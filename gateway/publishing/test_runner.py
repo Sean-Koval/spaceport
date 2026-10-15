@@ -157,7 +157,8 @@ def successful_evidence(checks) -> bool:
         check.expected_error == check.actual_error for check in checks)
 
 from pydantic import model_validator
-from gateway.adapters.base import CubeBinding, check_binding
+from gateway.adapters.base import check_binding
+from gateway.adapters.reviewed import Binding
 from gateway.contracts.canonical import Digest, Identifier, canonical_digest
 from gateway.contracts.errors import ErrorCode, GatewayError
 from gateway.contracts.manifest import Fixture, validate_manifest
@@ -192,8 +193,8 @@ class FixtureCatalog(StrictModel):
     operator's reviewed attestation; its complete digest is pinned in each run.
     """
     product_id: Identifier
-    consumer_binding: CubeBinding
-    fixture_binding: CubeBinding
+    consumer_binding: Binding
+    fixture_binding: Binding
     execution_contract_digest: Digest
     cases: Array[ApprovedFixture] = Field(min_length=2, max_length=100)
 
@@ -221,7 +222,7 @@ class FixtureCatalog(StrictModel):
     def digest(self):
         return canonical_digest(self)
 
-    def approve(self, manifest: Manifest, binding: CubeBinding) -> None:
+    def approve(self, manifest: Manifest, binding: Binding) -> None:
         check_binding(binding, manifest, digest=self.consumer_binding.digest)
         approved = {case.fixture.id:case for case in self.cases}
         if (execution_contract_digest(manifest) != self.execution_contract_digest or manifest.product_id != self.product_id or binding.digest != self.consumer_binding.digest
@@ -684,7 +685,8 @@ class FixtureRunner:
                 while True:
                     async with self.registry.transaction() as uow:
                         _,fresh,_,_ = await self._gate(uow,authority,case,attempt,decision)
-                    completed = await adapter.poll(prepared,fresh,context='fixture_test',
+                    authority_context={'spec':spec,'executed_decision':decision} if spec.pinned_product.manifest.adapter_revision=='cube-rest-v2' else {}
+                    completed = await adapter.poll(prepared,fresh,**authority_context,context='fixture_test',
                         deadline=attempt.deadline_at,request_id=attempt.request_id)
                     if isinstance(completed,Completed):
                         break

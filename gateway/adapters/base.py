@@ -1,5 +1,5 @@
 """Operator-owned binding definitions and narrow internal resolution seams."""
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Literal, Protocol, TYPE_CHECKING
 from types import MappingProxyType
 import re
 
@@ -12,6 +12,9 @@ from gateway.contracts.identity import Decision
 from gateway.contracts.query import QueryRequest
 
 CubeMember = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_]*$", max_length=128)]
+if TYPE_CHECKING:
+    from .reviewed import Binding
+
 ResponseKey = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_]*(?:\.day)?$", max_length=132)]
 
 
@@ -66,9 +69,10 @@ class CubeBinding(StrictModel):
         return canonical_digest(self)
 
 
-def check_binding(binding: CubeBinding, manifest: Manifest, *, digest: str | None = None) -> None:
+def check_binding(binding: "Binding", manifest: Manifest, *, digest: str | None = None) -> None:
     try:
-        binding = CubeBinding.model_validate(binding.model_dump(mode="python"))
+        from .reviewed import parse_binding
+        binding = parse_binding(binding)
         manifest = Manifest.model_validate(manifest.model_dump(mode="python"))
         if ((binding.binding_id, binding.revision, binding.adapter_revision, binding.model_bundle_digest)
             != (manifest.binding_id, manifest.binding_revision, manifest.adapter_revision, manifest.model_bundle_digest)
@@ -93,17 +97,18 @@ def check_binding(binding: CubeBinding, manifest: Manifest, *, digest: str | Non
 
 
 class BindingResolver(Protocol):
-    async def resolve(self, binding_id: str, revision: int) -> CubeBinding: ...
+    async def resolve(self, binding_id: str, revision: int) -> "Binding": ...
 
 
 class StaticBindingResolver:
     """Immutable local operator fixture catalog; registry-backed resolvers can implement the protocol."""
-    def __init__(self, bindings: list[CubeBinding]):
-        entries = [CubeBinding.model_validate(item.model_dump(mode="python")) for item in bindings]
+    def __init__(self, bindings: list["Binding"]):
+        from .reviewed import parse_binding
+        entries = [parse_binding(item) for item in bindings]
         self._bindings = MappingProxyType({(item.binding_id,item.revision):item for item in entries})
         if len(self._bindings) != len(entries): raise ValueError("Duplicate binding revision")
 
-    async def resolve(self, binding_id: str, revision: int) -> CubeBinding:
+    async def resolve(self, binding_id: str, revision: int) -> "Binding":
         try:
             return self._bindings[(binding_id,revision)]
         except KeyError:
@@ -169,7 +174,7 @@ def validate_data_decision(decision: Decision, request_id: str, allowed=None) ->
         raise GatewayError(ErrorCode.NOT_FOUND_OR_FORBIDDEN,request_id,"The current scope cannot execute this product.") from None
 
 
-def validate_query_visibility(binding: CubeBinding, request: QueryRequest,
+def validate_query_visibility(binding: "Binding", request: QueryRequest,
                               decision: Decision, request_id: str) -> None:
     """Selection/order dependencies remain authorized before any result projection."""
     dependencies={item.field for item in (*request.filters,*request.sort)}

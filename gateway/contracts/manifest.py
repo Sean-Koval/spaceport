@@ -14,6 +14,15 @@ from .errors import ErrorCode, GatewayError, invalid_input
 
 FieldType = Literal["string", "integer", "number", "boolean", "date", "timestamp", "decimal"]
 Operator = Literal["eq", "ne", "lt", "lte", "gt", "gte", "in", "not_in", "is_null"]
+# Signed access URLs are bearer capabilities, not harmless provenance links.
+# Query keys are decoded once by parse_qsl and compared case-insensitively.
+SIGNED_ACCESS_QUERY_KEYS = frozenset({
+    "x-goog-algorithm", "x-goog-credential", "x-goog-date", "x-goog-expires",
+    "x-goog-signedheaders", "x-goog-signature", "googleaccessid", "signature",
+    "awsaccesskeyid", "x-amz-algorithm", "x-amz-credential", "x-amz-date",
+    "x-amz-expires", "x-amz-signedheaders", "x-amz-signature", "x-amz-security-token",
+    "sig",
+})
 SENSITIVE_ARGUMENTS = {"claimed_user_id", "user_id", "principal_id", "subject", "tenant_id", "roles", "entitlements", "sql", "script", "source_url", "credentials", "password", "api_key", "access_token", "policy_override"}
 
 
@@ -145,7 +154,7 @@ class Link(StrictModel):
             raise ValueError("Metadata links must be credential-free HTTPS URLs")
         try: parsed.port
         except ValueError: raise ValueError("Invalid metadata URL") from None
-        if any(key.lower() in {"password", "token", "access_token", "api_key", "secret", "authorization"} for key, _ in parse_qsl(parsed.query)):
+        if any(key.lower() in SIGNED_ACCESS_QUERY_KEYS | {"password", "token", "access_token", "api_key", "secret", "authorization"} for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
             raise ValueError("Metadata URLs cannot contain credentials")
         return value
 

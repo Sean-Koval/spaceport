@@ -36,11 +36,12 @@ def docker_io(monkeypatch, module, log, alter=None):
         if arguments[1] == "inspect":
             assert arguments[2] == "--format"
             assert ".Config.Env" not in arguments[3] and ".Mounts" not in arguments[3]
-            service = "cube-test" if arguments[-1].endswith("-cube-test-1") else "cube"
+            service = arguments[-1].removeprefix(PROJECT + "-").removesuffix("-1")
+            assert service in {"cube", "cube-test", "cube-reviewed", "cube-reviewed-test"}
             assert arguments[-1] == f"{PROJECT}-{service}-1"
             record = {"name": f"/{PROJECT}-{service}-1", "project": PROJECT,
                 "service": service, "run_label": RUN_LABEL,
-                "id": ("b" if service == "cube" else "c") * 64,
+                "id": {"cube": "b", "cube-test": "c", "cube-reviewed": "d", "cube-reviewed-test": "e"}[service] * 64,
                 "status": "exited", "running": False, "exit_code": 1,
                 "oom_killed": False, "health": "unhealthy"}
             if alter:
@@ -48,7 +49,7 @@ def docker_io(monkeypatch, module, log, alter=None):
             return json.dumps(record)
         else:
             assert arguments[1:4] == ["logs", "--tail", "80"]
-            assert arguments[-1] in {"b" * 64, "c" * 64}
+            assert arguments[-1] in {letter * 64 for letter in "bcde"}
             return log
 
     monkeypatch.setitem(module["diagnose"].__globals__, "capture", capture)
@@ -71,8 +72,10 @@ def test_diagnostics_emit_only_bounded_filtered_logs_and_selected_status(monkeyp
     assert "[REDACTED]" in output and "Fatal startup" in output
     assert "\x1b" not in output
     assert not any(line.startswith("::") for line in output.splitlines())
-    assert output.count('"exit_code":1') == 2
-    assert len([call for call in calls if call[1] == "logs"]) == 2
+    assert output.count('"exit_code":1') == 4
+    assert len([call for call in calls if call[1] == "logs"]) == 4
+    assert {call[-1] for call in calls if call[1] == "inspect"} == {
+        f"{PROJECT}-{service}-1" for service in ("cube", "cube-test", "cube-reviewed", "cube-reviewed-test")}
 
 
 @pytest.mark.parametrize("alter", [{"project": "other"}, {"run_label": "stale"},
