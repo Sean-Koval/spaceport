@@ -1,0 +1,660 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "spaceport-api",
+        "namespace": "REPLACE_WITH_APPROVED_NAMESPACE",
+        "labels": {
+          "app.kubernetes.io/part-of": "spaceport-pilot",
+          "app.kubernetes.io/name": "spaceport-api",
+          "spaceport-role": "api"
+        }
+      },
+      "spec": {
+        "replicas": 0,
+        "revisionHistoryLimit": 2,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/part-of": "spaceport-pilot",
+            "app.kubernetes.io/name": "spaceport-api",
+            "spaceport-role": "api"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/part-of": "spaceport-pilot",
+              "app.kubernetes.io/name": "spaceport-api",
+              "spaceport-role": "api"
+            },
+            "annotations": {
+              "spaceport.example.com/acceptance": "Reference only; process availability is not domain readiness"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "REPLACE_WITH_APPROVED_API_KSA",
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65532,
+              "runAsGroup": 65532,
+              "fsGroup": 65532,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 140,
+            "enableServiceLinks": false,
+            "initContainers": [
+              {
+                "name": "snapshot-inputs",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "gateway.pilot_mounts",
+                  "api"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "32Mi"
+                  },
+                  "limits": {
+                    "cpu": "250m",
+                    "memory": "64Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "projected-config",
+                    "mountPath": "/mnt/pilot/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "projected-secrets",
+                    "mountPath": "/mnt/pilot/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/mnt/snapshot"
+                  }
+                ]
+              }
+            ],
+            "containers": [
+              {
+                "name": "api",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "uvicorn",
+                  "gateway.pilot_runtime:app_factory",
+                  "--factory",
+                  "--host",
+                  "0.0.0.0",
+                  "--port",
+                  "8000",
+                  "--no-access-log",
+                  "--no-proxy-headers",
+                  "--timeout-graceful-shutdown",
+                  "125"
+                ],
+                "env": [
+                  {
+                    "name": "GATEWAY_PILOT_CONFIG_FILE",
+                    "value": "/run/pilot/config/pilot.json"
+                  }
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "512Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/pilot/config",
+                    "subPath": "runtime/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/secrets",
+                    "subPath": "runtime/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  }
+                ],
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 8000
+                  }
+                ],
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": "http",
+                    "httpHeaders": [
+                      {
+                        "name": "Host",
+                        "value": "spaceport.example.com"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": 3,
+                  "periodSeconds": 10,
+                  "failureThreshold": 3
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": "http",
+                    "httpHeaders": [
+                      {
+                        "name": "Host",
+                        "value": "spaceport.example.com"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": 3,
+                  "periodSeconds": 10,
+                  "failureThreshold": 3
+                },
+                "startupProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": "http",
+                    "httpHeaders": [
+                      {
+                        "name": "Host",
+                        "value": "spaceport.example.com"
+                      }
+                    ]
+                  },
+                  "timeoutSeconds": 3,
+                  "periodSeconds": 10,
+                  "failureThreshold": 30
+                }
+              }
+            ],
+            "volumes": [
+              {
+                "name": "projected-config",
+                "configMap": {
+                  "name": "REPLACE_WITH_VERSIONED_PILOT_CONFIGMAP",
+                  "defaultMode": 288,
+                  "items": [
+                    {
+                      "key": "pilot.json",
+                      "path": "pilot.json"
+                    },
+                    {
+                      "key": "registry-ca.pem",
+                      "path": "registry-ca.pem"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "projected-secrets",
+                "csi": {
+                  "driver": "secrets-store-gke.csi.k8s.io",
+                  "readOnly": true,
+                  "volumeAttributes": {
+                    "secretProviderClass": "REPLACE_WITH_APPROVED_API_SPC"
+                  }
+                }
+              },
+              {
+                "name": "snapshot",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "8Mi"
+                }
+              },
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Mi"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "spaceport-worker",
+        "namespace": "REPLACE_WITH_APPROVED_NAMESPACE",
+        "labels": {
+          "app.kubernetes.io/part-of": "spaceport-pilot",
+          "app.kubernetes.io/name": "spaceport-worker",
+          "spaceport-role": "worker"
+        }
+      },
+      "spec": {
+        "replicas": 0,
+        "revisionHistoryLimit": 2,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/part-of": "spaceport-pilot",
+            "app.kubernetes.io/name": "spaceport-worker",
+            "spaceport-role": "worker"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/part-of": "spaceport-pilot",
+              "app.kubernetes.io/name": "spaceport-worker",
+              "spaceport-role": "worker"
+            },
+            "annotations": {
+              "spaceport.example.com/acceptance": "Reference only; process availability is not domain readiness"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "REPLACE_WITH_APPROVED_WORKER_KSA",
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65532,
+              "runAsGroup": 65532,
+              "fsGroup": 65532,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 140,
+            "enableServiceLinks": false,
+            "initContainers": [
+              {
+                "name": "snapshot-inputs",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "gateway.pilot_mounts",
+                  "worker"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "32Mi"
+                  },
+                  "limits": {
+                    "cpu": "250m",
+                    "memory": "64Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "projected-config",
+                    "mountPath": "/mnt/pilot/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "projected-secrets",
+                    "mountPath": "/mnt/pilot/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/mnt/snapshot"
+                  }
+                ]
+              }
+            ],
+            "containers": [
+              {
+                "name": "worker",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "gateway.pilot_runtime",
+                  "worker"
+                ],
+                "env": [
+                  {
+                    "name": "GATEWAY_PILOT_CONFIG_FILE",
+                    "value": "/run/pilot/config/pilot.json"
+                  }
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "512Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/pilot/config",
+                    "subPath": "runtime/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/secrets",
+                    "subPath": "runtime/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "projected-config",
+                "configMap": {
+                  "name": "REPLACE_WITH_VERSIONED_PILOT_CONFIGMAP",
+                  "defaultMode": 288,
+                  "items": [
+                    {
+                      "key": "pilot.json",
+                      "path": "pilot.json"
+                    },
+                    {
+                      "key": "registry-ca.pem",
+                      "path": "registry-ca.pem"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "projected-secrets",
+                "csi": {
+                  "driver": "secrets-store-gke.csi.k8s.io",
+                  "readOnly": true,
+                  "volumeAttributes": {
+                    "secretProviderClass": "REPLACE_WITH_APPROVED_WORKER_SPC"
+                  }
+                }
+              },
+              {
+                "name": "snapshot",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "8Mi"
+                }
+              },
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Mi"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "spaceport-retention",
+        "namespace": "REPLACE_WITH_APPROVED_NAMESPACE",
+        "labels": {
+          "app.kubernetes.io/part-of": "spaceport-pilot",
+          "app.kubernetes.io/name": "spaceport-retention",
+          "spaceport-role": "retention"
+        }
+      },
+      "spec": {
+        "replicas": 0,
+        "revisionHistoryLimit": 2,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/part-of": "spaceport-pilot",
+            "app.kubernetes.io/name": "spaceport-retention",
+            "spaceport-role": "retention"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/part-of": "spaceport-pilot",
+              "app.kubernetes.io/name": "spaceport-retention",
+              "spaceport-role": "retention"
+            },
+            "annotations": {
+              "spaceport.example.com/acceptance": "Reference only; process availability is not domain readiness"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "REPLACE_WITH_APPROVED_RETENTION_KSA",
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65532,
+              "runAsGroup": 65532,
+              "fsGroup": 65532,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 140,
+            "enableServiceLinks": false,
+            "initContainers": [
+              {
+                "name": "snapshot-inputs",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "gateway.pilot_mounts",
+                  "retention"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "32Mi"
+                  },
+                  "limits": {
+                    "cpu": "250m",
+                    "memory": "64Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "projected-config",
+                    "mountPath": "/mnt/pilot/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "projected-secrets",
+                    "mountPath": "/mnt/pilot/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/mnt/snapshot"
+                  }
+                ]
+              }
+            ],
+            "containers": [
+              {
+                "name": "retention",
+                "image": "REPLACE_WITH_REGISTRY/spaceport@sha256:REPLACE_WITH_REVIEWED_IMAGE_DIGEST",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "python",
+                  "-m",
+                  "gateway.pilot_runtime",
+                  "retention"
+                ],
+                "env": [
+                  {
+                    "name": "GATEWAY_PILOT_CONFIG_FILE",
+                    "value": "/run/pilot/config/pilot.json"
+                  }
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "512Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/pilot/config",
+                    "subPath": "runtime/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "snapshot",
+                    "mountPath": "/run/secrets",
+                    "subPath": "runtime/secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "projected-config",
+                "configMap": {
+                  "name": "REPLACE_WITH_VERSIONED_PILOT_CONFIGMAP",
+                  "defaultMode": 288,
+                  "items": [
+                    {
+                      "key": "pilot.json",
+                      "path": "pilot.json"
+                    },
+                    {
+                      "key": "registry-ca.pem",
+                      "path": "registry-ca.pem"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "projected-secrets",
+                "csi": {
+                  "driver": "secrets-store-gke.csi.k8s.io",
+                  "readOnly": true,
+                  "volumeAttributes": {
+                    "secretProviderClass": "REPLACE_WITH_APPROVED_RETENTION_SPC"
+                  }
+                }
+              },
+              {
+                "name": "snapshot",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "8Mi"
+                }
+              },
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "16Mi"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

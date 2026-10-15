@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "profile": "oidc-synthetic-pilot",
+  "public_origin": "https://spaceport.example.com",
+  "oidc": {
+    "issuer": "https://identity.example.com",
+    "audience": "https://spaceport.example.com/mcp",
+    "jwks_url": "https://identity.example.com/jwks",
+    "client_ids": [
+      "spaceport-reviewed-client"
+    ],
+    "algorithms": [
+      "RS256"
+    ],
+    "jwks_cache_seconds": 300,
+    "request_timeout_seconds": 2.0
+  },
+  "registry": {
+    "host": "registry.example.com",
+    "port": 5432,
+    "database": "gateway_registry",
+    "ca_file": "/run/pilot/config/registry-ca.pem"
+  },
+  "cube_consumer_url": "https://cube-consumer.example.com",
+  "cube_fixture_url": "https://cube-fixture.example.com",
+  "probe_principal_id": "north-user",
+  "credential_hash_file": null
+}
