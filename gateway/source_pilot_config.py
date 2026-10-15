@@ -32,6 +32,29 @@ class AssetRef(StrictModel):
         return value
 
 
+class SourceApprovalRef(StrictModel):
+    package_id: Identifier
+    revision: int = Field(ge=1, le=2**31 - 1)
+    approval_id: str
+    approval_revision: int = Field(ge=1, le=2**31 - 1)
+    approval_digest: Digest
+
+    @field_validator('approval_id')
+    @classmethod
+    def exact_approval_id(cls, value):
+        from uuid import UUID
+        if len(value) != 36 or str(UUID(value)) != value:
+            raise ValueError('Canonical approval identity required')
+        return value
+
+    @field_validator('revision', 'approval_revision', mode='before')
+    @classmethod
+    def exact_revision(cls, value):
+        if type(value) is not int:
+            raise ValueError('Integer package revision required')
+        return value
+
+
 DatabaseRole = Literal['app','owner','audit_retention','domo_consumer','domo_fixture']
 
 
@@ -83,6 +106,7 @@ class SourcePilotConfig(StrictModel):
     product_catalog_ref: AssetRef
     source_catalog_ref: AssetRef
     identity_mapping_ref: AssetRef
+    source_approval_refs: Array[SourceApprovalRef] = Field(default=(), max_length=25, repr=False)
     probe_product_id: Identifier
     probe_principal_id: Identifier
     credential_hash_file: Literal['/run/auth/credential-hashes.json'] | None = None
@@ -104,6 +128,9 @@ class SourcePilotConfig(StrictModel):
     def coherent_identity(self):
         if self.oidc.audience != self.mcp_resource_url:
             raise ValueError('The token audience must equal the canonical MCP resource')
+        refs = [(ref.package_id, ref.revision) for ref in self.source_approval_refs]
+        if len(refs) != len(set(refs)) or len({ref.approval_id for ref in self.source_approval_refs}) != len(refs):
+            raise ValueError('Source approval references must be unique')
         roles=self.database_roles
         if (not {'app','owner','audit_retention'}<=set(roles)
             or len({r.username for r in roles.values()})!=len(roles)

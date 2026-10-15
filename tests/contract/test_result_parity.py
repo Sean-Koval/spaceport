@@ -70,7 +70,9 @@ def test_result_parity_reassesses_advancing_database_time_on_all_pages(clock, no
                     break
         assert sizes == [200, 200, 51]
         assert rows == expected['rows']
-        assert observations == 6
+        # Six page fetches each assess freshness and then recheck the final
+        # retention/cursor deadline after authorization and audit work.
+        assert observations == 12
         assert expected == original == probe.envelope.model_dump(mode='json')
         assert clock.now() == probe.clock.now() == probe.envelope.freshness.assessed_at
     asyncio.run(scenario())

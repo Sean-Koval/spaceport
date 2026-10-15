@@ -121,6 +121,7 @@ from gateway.contracts.errors import ErrorCode, GatewayError
 from gateway.contracts.execution import PinnedProduct
 from gateway.contracts.identity import Principal
 from gateway.contracts.manifest import validate_manifest
+from gateway.execution.queue import lock_execution_capacity
 from gateway.registry.models import (BindingRevision, DraftRevision, ProductRow,
     ProductVersion, TestRun, VersionState)
 from gateway.registry.repository import conflict, not_found
@@ -153,6 +154,16 @@ class PublishingService:
             raise GatewayError(ErrorCode.BINDING_DRIFT, str(uuid4()), 'The reviewed binding is unavailable.')
         return row, binding
 
+    async def _review_target(self, manifest, identity, uow):
+        """Read the exact protected binding witness without exposing its details."""
+        row = await uow.session.scalar(select(BindingRevision).where(
+            BindingRevision.binding_id == manifest.binding_id,
+            BindingRevision.revision == manifest.binding_revision))
+        if (row is None or row.model_bundle_digest != manifest.model_bundle_digest
+            or row.adapter_revision != manifest.adapter_revision):
+            raise not_found()
+        return review_target(manifest, identity, row.content_digest)
+
     async def _scopes(self, actor, targets, action, uow):
         # Sorted policy heads avoid old/new policy lock inversions across products.
         decisions = {}
@@ -160,31 +171,92 @@ class PublishingService:
             decisions[target.version_id] = await self.policy.authorize(actor, action, target, uow)
         return decisions
 
+    async def _prepare_scopes(self, actor, targets, action, uow):
+        """Read-only capability probes; publication uses its operation recorder."""
+        decisions, requests = {}, []
+        for target in sorted(targets, key=lambda item: (item.manifest.policy_id, item.version_id)):
+            if self.policy.requires_source_approval(target):
+                if self.policy.source_access is None:
+                    raise not_found()
+                request_id = str(uuid4())
+                decision = await self.policy.evaluate(actor, action, target, uow, correlation_id=request_id)
+                requests.append(await self.policy.source_access.resolve_transient(uow, target, actor, decision,
+                    action=action, request_id=request_id))
+            else:
+                decision = await self.policy.authorize(actor, action, target, uow)
+            decisions[target.version_id] = decision
+        return decisions, tuple(requests)
+
+    async def _prelock_reviews(self, targets, uow, *, draft_ids=(), version_ids=(), policy_ids=()):
+        """The complete earlier-lock prefix, before any review finalization."""
+        if any(self.policy.requires_source_approval(target) for target in targets):
+            if self.policy.source_access is None:
+                raise not_found()
+            options = dict(draft_ids=tuple(sorted(set(draft_ids))), version_ids=tuple(sorted(set(version_ids))))
+            if policy_ids:
+                options['policy_ids'] = tuple(sorted(set(policy_ids)))
+            await self.policy.source_access.prelock(uow, tuple(targets), **options)
+
+    async def _finalize_reviews(self, requests, uow):
+        if requests:
+            await self.policy.source_access.finalize(uow, tuple(requests))
+
     async def _review(self, actor, target, uow):
-        """One audited author-or-publisher gate using one exact current scope.
+        """Single-target draft projection; batch callers use the prepare phase."""
+        await self._prelock_reviews((target,), uow, draft_ids=(target.version_id,))
+        decision, capabilities, requests = await self._prepare_review(actor, target, uow)
+        await self._finalize_reviews(requests, uow)
+        return decision, capabilities
+
+    async def _prepare_review(self, actor, target, uow):
+        """Preliminary author-or-publisher derivation using one current scope.
 
         Only pure decision derivation may try another action. A denied audited
-        gate aborts its transaction and is never continued for a fallback.
+        gate aborts its transaction and is never continued for a fallback. The
+        returned requests confer no release authority until the outer final gate.
         """
         action, revision, request_id = 'author', None, str(uuid4())
         try:
             actor = Principal.model_validate(actor.model_dump(mode='python'))
+            reviewed = self.policy.requires_source_approval(target)
+            if reviewed and self.policy.source_access is None:
+                raise not_found()
             await self.policy._identity(actor, uow)
             grants = await self.policy.principals.get_current(actor.id, session=uow.session)
             current, content = await self.policy._current(target.manifest.policy_id, uow)
             revision = current.revision
-            try:
-                decision = derive_decision(grants, 'publish', target, content.rules, revision)
-                action = 'publish'
-            except GatewayError as error:
-                if error.code != ErrorCode.NOT_FOUND_OR_FORBIDDEN:
-                    raise
-                decision = derive_decision(grants, 'author', target, content.rules, revision)
-            capabilities = next(grant.capabilities for grant in grants.grants
-                if grant.policy_id == target.manifest.policy_id and grant.tenant_id == decision.tenant_id)
-            await self.policy.audit.append(uow, self.policy.audit.event(actor, action,
-                product=target, policy_revision=revision, decision='allow', correlation_id=request_id))
-            return decision, capabilities
+            candidates = []
+            for candidate_action in ('publish', 'author'):
+                try:
+                    candidate = derive_decision(grants, candidate_action, target, content.rules, revision)
+                except GatewayError as error:
+                    if error.code != ErrorCode.NOT_FOUND_OR_FORBIDDEN:
+                        raise
+                    continue
+                candidates.append((candidate_action, candidate))
+            if not candidates:
+                raise not_found()
+            if not reviewed:
+                action, decision = candidates[0]
+                capabilities = next(grant.capabilities for grant in grants.grants
+                    if grant.policy_id == target.manifest.policy_id and grant.tenant_id == decision.tenant_id)
+                await self.policy.audit.append(uow, self.policy.audit.event(actor, action,
+                    product=target, policy_revision=revision, decision='allow', correlation_id=request_id))
+                return decision, capabilities, ()
+            # Each complete policy Decision is matched independently. A normal
+            # miss is not an audited denial and cannot abort this transaction.
+            # Malformed/failed matching is an error, never another action's hint.
+            requests = []
+            for action, candidate in candidates:
+                request = await self.policy.source_access.match_transient(uow, target, actor, candidate,
+                    action=action, request_id=str(uuid4()))
+                if request is not None:
+                    requests.append(request)
+            if not requests:
+                raise not_found()
+            # The selected projection remains one exact Decision. Other matched
+            # actions supply only independently finalized capability hints.
+            return requests[0].decision, tuple(request.action for request in requests), tuple(requests)
         except GatewayError as error:
             if error.code in {ErrorCode.NOT_FOUND_OR_FORBIDDEN, ErrorCode.UPSTREAM_UNAVAILABLE}:
                 await self.policy._deny(uow, actor, action, product=target,
@@ -216,6 +288,9 @@ class PublishingService:
             raise invalid_input('A nonnegative expected revision is required.')
         new_id = str(uuid4())
         async with self.registry.transaction() as uow:
+            # Product creation itself can take P. Enter the shared source-lock
+            # prefix first, even when this is the product's first draft.
+            await lock_execution_capacity(uow)
             if draft_id is not None:
                 url_product = await uow.session.scalar(select(DraftRevision.product_id).where(DraftRevision.id == draft_id))
                 if url_product != manifest.product_id:
@@ -228,10 +303,13 @@ class PublishingService:
             # cannot use create/save to bypass hidden-definition replacement.
             previous = old or (await uow.session.get(ProductVersion, head.current_version_id)
                                if head.current_version_id else None)
-            targets = [review_target(manifest, new_id)]
+            targets = [await self._review_target(manifest, new_id, uow)]
             if previous is not None:
-                targets.append(review_target(validate_manifest(previous.manifest), previous.id))
-            decisions = await self._scopes(actor, targets, 'author', uow)
+                targets.append(await self._review_target(validate_manifest(previous.manifest), previous.id, uow))
+            await self._prelock_reviews(targets, uow,
+                draft_ids=(old.id,) if old is not None else (),
+                version_ids=(previous.id,) if previous is not None and old is None else ())
+            decisions, requests = await self._prepare_scopes(actor, targets, 'author', uow)
             if previous is not None:
                 for target in targets:
                     if set(target.manifest.outputs) - set(decisions[target.version_id].visible_fields):
@@ -239,13 +317,21 @@ class PublishingService:
                             policy_revision=decisions[target.version_id].policy_revision, correlation_id=str(uuid4()))
                         raise not_found()
                 if targets[-1].manifest.policy_id != manifest.policy_id:
-                    await self._scopes(actor, targets, 'policy_admin', uow)
+                    # Administrative scope is an independent restriction. It
+                    # never becomes a source action or substitutes for author.
+                    for policy_id in sorted({target.manifest.policy_id for target in targets}):
+                        await self.policy.authorize_scope(actor, policy_id, 'policy_admin', uow)
             if (head.draft_revision != expected_revision
                 or draft_id is not None and (old is None or old.id != draft_id or old.revision != expected_revision)):
                 raise conflict()
             await self._binding(manifest, uow)
+            # All binding, head, draft and policy checks precede the one final
+            # approval suffix. Denial leaves no stored definition or head change.
+            await self._finalize_reviews(requests, uow)
             row = DraftRevision(id=new_id,product_id=manifest.product_id,revision=expected_revision+1,
-                manifest=manifest.model_dump(mode='json'),content_digest=manifest.content_digest,actor_id=actor.id)
+                manifest=manifest.model_dump(mode='json'),
+                manifest_canonical=canonical_bytes(manifest.model_dump(mode='python',exclude={'content_digest'})).decode(),
+                content_digest=manifest.content_digest,actor_id=actor.id)
             uow.session.add(row)
             await uow.session.flush()
             head.draft_revision, head.latest_draft_id = row.revision, row.id
@@ -300,7 +386,10 @@ class PublishingService:
             async with self.registry.transaction() as uow:
                 head, _, target = await self._draft(uow, draft_id)
                 targets = await self._publication_targets(uow,head,target)
-                await self._scopes(actor, targets, 'publish', uow)
+                await self._prelock_reviews(targets, uow, draft_ids=(draft_id,),
+                    version_ids=tuple(item.version_id for item in targets if item.version_id != draft_id))
+                _, requests = await self._prepare_scopes(actor, targets, 'publish', uow)
+                await self._finalize_reviews(requests, uow)
                 return True
         except GatewayError as error:
             if error.code != ErrorCode.NOT_FOUND_OR_FORBIDDEN:
@@ -308,13 +397,16 @@ class PublishingService:
             return False
 
     async def _draft(self, uow, draft_id):
+        # Every caller may proceed to source approval or retained fixture
+        # evidence. Never acquire product/draft/policy locks ahead of C.
+        await lock_execution_capacity(uow)
         product_id = await uow.session.scalar(select(DraftRevision.product_id).where(DraftRevision.id == draft_id))
         if product_id is None:
             raise not_found()
         head = await uow.lock_product(product_id)
         draft = await uow.lock_draft(draft_id)
         manifest = validate_manifest(draft.manifest)
-        return head, draft, review_target(manifest, draft.id)
+        return head, draft, await self._review_target(manifest, draft.id, uow)
 
     async def _latest_test(self, uow, draft):
         return await uow.session.scalar(select(TestRun).where(TestRun.draft_id == draft.id)
@@ -358,9 +450,12 @@ class PublishingService:
                 targets.append(review_target(validate_manifest(old.manifest), old.id, old.binding_digest))
             # Review is accessible independently to authors and publishers, with
             # every target separately authorized using its own current scope.
-            decisions = {}
+            await self._prelock_reviews(targets, uow, draft_ids=(draft.id,),
+                version_ids=(old.id,) if old is not None else ())
+            decisions, requests = {}, []
             for item in sorted(targets, key=lambda item: (item.manifest.policy_id,item.version_id)):
-                decisions[item.version_id], _ = await self._review(actor, item, uow)
+                decisions[item.version_id], _, prepared = await self._prepare_review(actor, item, uow)
+                requests.extend(prepared)
             after = review_projection(target.manifest, decisions[target.version_id].visible_fields)
             before = review_projection(targets[-1].manifest, decisions[old.id].visible_fields) if old else {}
             test = await self._latest_test(uow, draft)
@@ -369,19 +464,29 @@ class PublishingService:
             run_id = test.id if test is not None and (test.draft_id == draft.id
                 and test.draft_digest == draft.content_digest and test.product_id == target.manifest.product_id
                 and test.policy_id == target.manifest.policy_id) else None
-            return VersionDiff(draft_id=draft.id, product_id=target.manifest.product_id, revision=draft.revision,
+            projected = VersionDiff(draft_id=draft.id, product_id=target.manifest.product_id, revision=draft.revision,
                 latest_test_run_id=run_id, before_digest=old.content_digest if old else None, after_digest=draft.content_digest,
                 changes=definition_changes(before, after), stale_evidence=await self._stale(
                     uow, head, draft, target, decisions[target.version_id], test))
+            # Staleness derives policies and inspects source settlement. Complete
+            # that earlier-lock work before the retained evidence state locks.
+            if test is not None and self.policy.requires_source_approval(target):
+                if self.fixture_runner is None:
+                    raise not_found()
+                requests.extend(await self.fixture_runner.prepare_evidence_access(uow, test))
+            await self._finalize_reviews(requests, uow)
+            return projected
 
     async def test(self, actor: Principal, draft_id: str) -> TestRun:
         # Author permission is always checked before exposing configuration gaps.
         async with self.registry.transaction() as uow:
             head, draft, target = await self._draft(uow,draft_id)
-            await self.policy.authorize(actor,'author',target,uow)
+            await self._prelock_reviews((target,), uow, draft_ids=(draft.id,))
+            _, requests = await self._prepare_scopes(actor, (target,), 'author', uow)
             if head.latest_draft_id != draft.id:
                 raise conflict()
             await self._binding(target.manifest,uow)
+            await self._finalize_reviews(requests, uow)
         if self.fixture_runner is None:
             raise GatewayError(ErrorCode.BINDING_DRIFT,str(uuid4()),'Approved fixture execution is unavailable.')
         completed = await self.fixture_runner.run(actor,draft_id)
@@ -397,14 +502,61 @@ class PublishingService:
         from .test_runner import filtered_test_run
         async with self.registry.transaction() as uow:
             _, draft, target = await self._draft(uow,draft_id)
-            decision, _ = await self._review(actor, target, uow)
+            await self._prelock_reviews((target,), uow, draft_ids=(draft.id,))
+            decision, _, requests = await self._prepare_review(actor, target, uow)
             stored = await uow.session.scalar(select(TestRun).where(
                 TestRun.id == run_id, TestRun.draft_id == draft.id,
                 TestRun.draft_digest == draft.content_digest, TestRun.product_id == target.manifest.product_id,
                 TestRun.policy_id == target.manifest.policy_id))
             if stored is None:
                 raise not_found()
-            return filtered_test_run(stored,decision.visible_fields,target.manifest)
+            projected = filtered_test_run(stored,decision.visible_fields,target.manifest)
+            if self.policy.requires_source_approval(target):
+                if self.fixture_runner is None:
+                    raise not_found()
+                requests += await self.fixture_runner.prepare_evidence_access(uow, stored)
+            # Keep both the current review and original evidence owners in the
+            # same final suffix. A new reviewer cannot revive retained evidence.
+            await self._finalize_reviews(requests, uow)
+            return projected
+
+    async def _prelock_publication(self, uow, targets, *, draft_ids=()):
+        """Include immutable version provenance in the complete sorted D prefix."""
+        drafts = set(draft_ids)
+        version_ids = sorted({item.version_id for item in targets} - drafts)
+        for version_id in version_ids:
+            row = await uow.session.get(ProductVersion, version_id)
+            if row is None:
+                raise not_found()
+            drafts.add(row.draft_id)
+        await self._prelock_reviews(targets, uow, draft_ids=tuple(drafts), version_ids=tuple(version_ids))
+
+    async def _record_publication(self, uow, actor, head, target, requests, *, action,
+                                  version_id, draft=None, evidence=None):
+        """Append a provisional allow; the protected recorder is the final gate.
+
+        It independently checks all current publishers and original fixture
+        owners. No ordinary source finalizer may precede this operation.
+        """
+        primary = tuple(request for request in requests
+            if request.product == target and request.principal == actor and request.action == 'publish')
+        if len(primary) != 1 or self.policy.source_access is None:
+            raise not_found()
+        request = primary[0]
+        projection = request.projection
+        event = self.policy.audit.event(actor, 'publish', product=target,
+            policy_revision=request.decision.policy_revision, decision='allow', correlation_id=request.request_id,
+            source_approval_id=projection.approval_id, source_approval_revision=projection.approval_revision,
+            source_approval_digest=projection.approval_digest, source_approval_state_revision=1,
+            source_access_reason_code='APPROVED')
+        audit_id = await self.policy.audit.append(uow, event)
+        operation_id = await self.policy.source_access.record_publication_operation(uow,
+            actor=actor, action=action, product_id=target.manifest.product_id, version_id=version_id,
+            draft_id=None if draft is None else draft.id, test_run_id=None if evidence is None else evidence.id,
+            previous_version_id=head.current_version_id, expected_product_revision=head.publication_revision,
+            expected_draft_revision=None if draft is None else draft.revision,
+            allow_audit_id=audit_id, request_id=request.request_id)
+        return operation_id, request.request_id
 
     async def publish(self, actor: Principal, draft_id: str, tested_digest: str,
                       expected_revision: int, reason: str) -> PinnedProduct:
@@ -412,7 +564,12 @@ class PublishingService:
         async with self.registry.transaction() as uow:
             head, draft, target = await self._draft(uow,draft_id)
             targets = await self._publication_targets(uow,head,target)
-            decisions = await self._scopes(actor,targets,'publish',uow)
+            reviewed = any(self.policy.requires_source_approval(item) for item in targets)
+            if reviewed:
+                await self._prelock_publication(uow, targets, draft_ids=(draft.id,))
+                decisions, requests = await self._prepare_scopes(actor, targets, 'publish', uow)
+            else:
+                decisions = await self._scopes(actor, targets, 'publish', uow)
             reason = validate_reason(reason)
             evidence = await self._latest_test(uow,draft)
             stale = await self._stale(uow,head,draft,target,decisions[target.version_id],evidence)
@@ -422,12 +579,18 @@ class PublishingService:
             endpoint = self.bundles.resolve(target.manifest.model_bundle_digest)
             if endpoint.context != 'consumer':
                 raise GatewayError(ErrorCode.BINDING_DRIFT,str(uuid4()),'The retained model bundle is unavailable.')
+            operation_id, request_id, options = None, str(uuid4()), {}
+            if reviewed:
+                version_id = str(uuid4())
+                operation_id, request_id = await self._record_publication(uow, actor, head, target, requests,
+                    action='publish', version_id=version_id, draft=draft, evidence=evidence)
+                options = dict(version_id=version_id, source_operation_id=operation_id)
             row = await uow.insert_version(draft_id=draft.id,expected_revision=expected_revision,
-                test_run_id=evidence.id,actor_id=actor.id)
+                test_run_id=evidence.id,actor_id=actor.id, **options)
             state = await uow.session.get(VersionState,row.id)
             state.reason = reason
             uow.session.add(PublicationEvent(product_id=row.product_id,version_id=row.id,action='publish',
-                actor_id=actor.id,reason=reason,request_id=str(uuid4())))
+                actor_id=actor.id,reason=reason,request_id=request_id,source_operation_id=operation_id))
             await uow.session.flush()
             return PinnedProduct(manifest=target.manifest,binding_digest=row.binding_digest,version_id=row.id)
 
@@ -435,6 +598,7 @@ class PublishingService:
                          action: Literal['deprecate','withdraw','rollback'], reason: str) -> None:
         from .models import PublicationEvent
         async with self.registry.transaction() as uow:
+            await lock_execution_capacity(uow)
             head = await uow.lock_product(product_id)
             row = await uow.session.scalar(select(ProductVersion).where(
                 ProductVersion.product_id == product_id, ProductVersion.version == version))
@@ -442,10 +606,20 @@ class PublishingService:
                 raise not_found()
             target = review_target(validate_manifest(row.manifest),row.id,row.binding_digest)
             targets = [target]
-            if action == 'rollback' and head.current_version_id and head.current_version_id != row.id:
+            if head.current_version_id and head.current_version_id != row.id:
                 current = await uow.session.get(ProductVersion,head.current_version_id)
-                targets.append(review_target(validate_manifest(current.manifest),current.id,current.binding_digest))
-            await self._scopes(actor,targets,'publish',uow)
+                if current is None:
+                    raise not_found()
+                current_target = review_target(validate_manifest(current.manifest),current.id,current.binding_digest)
+                if (action == 'rollback' or self.policy.requires_source_approval(target)
+                    or self.policy.requires_source_approval(current_target)):
+                    targets.append(current_target)
+            reviewed = any(self.policy.requires_source_approval(item) for item in targets)
+            if reviewed:
+                await self._prelock_publication(uow, targets)
+                _, requests = await self._prepare_scopes(actor, targets, 'publish', uow)
+            else:
+                await self._scopes(actor, targets, 'publish', uow)
             if action not in {'deprecate','withdraw','rollback'}:
                 raise invalid_input('The lifecycle transition is invalid.')
             reason = validate_reason(reason)
@@ -456,12 +630,19 @@ class PublishingService:
                 await self._binding(target.manifest,uow)
                 if self.bundles.resolve(target.manifest.model_bundle_digest).context != 'consumer':
                     raise GatewayError(ErrorCode.BINDING_DRIFT,str(uuid4()),'The retained model bundle is unavailable.')
+            operation_id, request_id = None, str(uuid4())
+            if reviewed:
+                operation_id, request_id = await self._record_publication(uow, actor, head, target, requests,
+                    action=action, version_id=row.id)
+            if action == 'rollback':
                 head.current_version_id = row.id
             else:
                 state.status = 'deprecated' if action == 'deprecate' else 'withdrawn'
+            if operation_id is not None:
+                state.source_operation_id = operation_id
             state.actor_id, state.reason = actor.id, reason
             from sqlalchemy import func
             state.updated_at = func.clock_timestamp()
             uow.session.add(PublicationEvent(product_id=product_id,version_id=row.id,action=action,
-                actor_id=actor.id,reason=reason,request_id=str(uuid4())))
+                actor_id=actor.id,reason=reason,request_id=request_id,source_operation_id=operation_id))
             await uow.session.flush()

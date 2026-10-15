@@ -244,7 +244,8 @@ class TransactionProbe:
             version_id=execution.version_id,policy_revision=1,canonical_hash=execution.canonical_hash,
             envelope=envelope.model_dump(mode="json"),expires_at=clock.now()+timedelta(hours=24))
         self.audit=AuditWriter(b"synthetic-unit-audit-key-32-bytes!!")
-        self.policy=SimpleNamespace(audit=self.audit,authorize=self.authorize)
+        self.policy=SimpleNamespace(audit=self.audit,authorize=self.authorize,
+            requires_source_approval=lambda product: False, source_access=None)
         self.bindings=StaticBindingResolver([context.binding])
         self.uow=SimpleNamespace(session=self,lock_product=self.lock_product)
         @asynccontextmanager

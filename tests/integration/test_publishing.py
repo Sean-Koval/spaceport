@@ -18,6 +18,8 @@ from gateway.contracts.manifest import validate_manifest
 from gateway.registry.models import BindingRevision, TestRun as RegistryTestRun
 from tests.contract.test_cube_adapter import synthetic
 from tests.integration.test_audit import seed as seed_policy, service as policy_service, principal
+from tests.integration.test_source_approval_fixture_runner import reviewed_fixture_database as reviewed_runner_database
+from tests.unit.test_source_approval_contracts import principal as reviewed_principal
 
 pytestmark = pytest.mark.postgres
 
@@ -35,7 +37,12 @@ async def setup(database, *, roles=('author','publisher')):
         uow.session.add(BindingRevision(id='binding-1',binding_id=binding.binding_id,revision=binding.revision,
             content=binding.model_dump(mode='json'),content_digest=binding.digest,
             model_bundle_digest=binding.model_bundle_digest,adapter_revision=binding.adapter_revision,actor_id='operator'))
-    return api().PublishingService(registry=database.registry,policy=policy_service(database),
+    # The unchanged checked-in demo uses the genuine bounded runtime factory.
+    # This capability never authorizes a changed manifest or binding.
+    from gateway.runtime_config import load_assets, _synthetic_capability
+    policy = policy_service(database)
+    policy.synthetic_capability = _synthetic_capability(load_assets(), database.registry, profile='legacy')
+    return api().PublishingService(registry=database.registry,policy=policy,
         bindings=StaticBindingResolver([binding]),bundles=BundleCatalog.from_file('cube/bundles.json')),product.manifest
 
 
@@ -159,17 +166,45 @@ def test_isolated_fixture_evidence_publishes_original_digest(registry_database):
     asyncio.run(scenario())
 
 
-def test_edit_after_green_evidence_requires_retest(registry_database):
+def reviewed_fixture_service(data):
+    """Real reviewed runner with bounded SQL provider terminal metadata."""
+    from tests.integration.test_source_approval_fixture_runner import fixture_runner
+    composition=fixture_runner(data)
+    runner=composition.runner
+    return api().PublishingService(registry=data.db.registry,policy=composition.policy,
+        bindings=runner.bindings,bundles=runner.bundles,fixture_runner=runner)
+
+
+def approve_fixture_variant(data,manifest):
+    """The disposable test owner explicitly reviews this compatible variant."""
+    from gateway.adapters.base import check_binding
+    from gateway.contracts.canonical import manifest_digest
+    from gateway.publishing.test_runner import execution_contract_digest
+    from tests.integration.test_source_approval_registry import install
+    check_binding(data.catalog.consumer_binding,manifest)
+    assert execution_contract_digest(manifest)==data.catalog.execution_contract_digest
+    document=deepcopy(data.document)
+    document['product']=dict(product_id=manifest.product_id,version=manifest.version,
+        manifest_digest=manifest_digest(manifest),policy_id=manifest.policy_id)
+    return install(data.db,document)
+
+
+def test_edit_after_green_evidence_requires_retest(reviewed_runner_database):
+    data=reviewed_runner_database
     async def scenario():
-        service,manifest,_,_=await fixture_setup(registry_database)
-        draft=await service.save_draft(principal(),manifest,0)
-        assert (await service.test(principal(),draft.id)).status=='passed'
+        service=reviewed_fixture_service(data);actor=reviewed_principal();manifest=data.manifest
+        draft_id='fixture-draft'
+        assert (await service.test(actor,draft_id)).status=='passed'
         raw=manifest.model_dump(mode='json',exclude={'content_digest'});raw['description']='Changed after testing'
-        await service.save_draft(principal(),validate_manifest(raw),1)
+        changed=validate_manifest(raw)
+        approve_fixture_variant(data,changed)
+        await service.save_draft(actor,changed,1)
         with pytest.raises(GatewayError) as caught:
-            await service.publish(principal(),draft.id,draft.content_digest,1,'Stale review')
+            await service.publish(actor,draft_id,manifest.content_digest,1,'Stale review')
         assert caught.value.code=='CONFLICT'
-        assert 'draft' in (await service.diff(principal(),draft.id)).stale_evidence
+        assert 'draft' in (await service.diff(actor,draft_id)).stale_evidence
+        assert data.db.scalar('SELECT count(*) FROM gateway.fixture_test_source_authorities')==1
+        assert data.db.scalar('SELECT count(*) FROM gateway.product_versions')==0
     asyncio.run(scenario())
 
 
@@ -291,9 +326,11 @@ def test_failed_source_distinguishes_completed_rejection_from_uncertain_capacity
         else:
             known=sum(case.kind=='known_answer' for case in catalog.cases)
             assert registry_database.scalar('SELECT count(*) FROM gateway.fixture_source_reservations WHERE released_at IS NULL')==0
-            assert registry_database.scalar("SELECT count(*) FROM gateway.fixture_attempt_states WHERE source_completed AND state='failed' AND check_digest IS NULL AND error_code=%s",(source_error,))==known
+            assert registry_database.scalar("SELECT count(*) FROM gateway.fixture_attempt_states WHERE source_completed AND state='failed' AND check_digest IS NOT NULL AND error_code=%s",(source_error,))==known
             rejected=[c for c in run.evidence['checks'] if c['kind']=='known_answer']
             assert len(rejected)==known and all(not c['passed'] and c['actual']==[] and c['attempt_id'] for c in rejected)
+            for check in rejected:
+                assert registry_database.scalar('SELECT check_digest FROM gateway.fixture_attempt_states WHERE attempt_id=%s',(check['attempt_id'],))==canonical_digest(check)
             assert registry_database.scalar("SELECT count(*) FROM gateway.fixture_source_reservations r JOIN gateway.fixture_attempt_states s ON s.attempt_id=r.attempt_id WHERE r.released_at IS NOT NULL AND r.release_reason='completed' AND s.source_completed AND s.state='failed'")==known
             with pytest.raises(GatewayError) as caught:
                 await service.publish(principal(),draft.id,draft.content_digest,1,'Rejected completed source')
@@ -335,56 +372,62 @@ def test_policy_change_while_publication_waits_is_rechecked(registry_database):
     asyncio.run(scenario())
 
 
-def test_rollback_requires_retained_bundle_and_preserves_published_manifests(registry_database):
+def test_rollback_requires_retained_bundle_and_preserves_published_manifests(reviewed_runner_database):
+    data=reviewed_runner_database
     async def scenario():
-        from gateway.adapters.bundles import BundleCatalog
-        service,manifest,_,_=await fixture_setup(registry_database)
-        first=await service.save_draft(principal(),manifest,0)
-        await service.test(principal(),first.id)
-        first_product=await service.publish(principal(),first.id,first.content_digest,1,'First tested release')
+        service=reviewed_fixture_service(data);actor=reviewed_principal();manifest=data.manifest
+        await service.test(actor,'fixture-draft')
+        first_product=await service.publish(actor,'fixture-draft',manifest.content_digest,1,'First tested release')
         raw=manifest.model_dump(mode='json',exclude={'content_digest'});raw['version']='1.1.0'
-        second=await service.save_draft(principal(),validate_manifest(raw),1)
-        await service.test(principal(),second.id)
-        second_product=await service.publish(principal(),second.id,second.content_digest,2,'Second tested release')
-        await service.transition(principal(),'revenue','1.0.0','rollback','Return to compatible release')
+        changed=validate_manifest(raw)
+        approve_fixture_variant(data,changed)
+        second=await service.save_draft(actor,changed,1)
+        await service.test(actor,second.id)
+        second_product=await service.publish(actor,second.id,second.content_digest,2,'Second tested release')
+        await service.transition(actor,'revenue','1.0.0','rollback','Return to compatible release')
         assert (await service.registry.resolve('revenue')).version_id==first_product.version_id
-        await service.transition(principal(),'revenue','1.1.0','rollback','Restore latest compatible release')
+        await service.transition(actor,'revenue','1.1.0','rollback','Restore latest compatible release')
         assert (await service.registry.resolve('revenue')).version_id==second_product.version_id
-        current=service.bundles
-        fixture=current.resolve('8c3e9a8b030fb495bbdbbec19061df43c17d508ffadaf390a025d19120e43f17')
+        fixture=service.bundles.resolve(data.catalog.fixture_binding.model_bundle_digest)
         service.bundles=BundleCatalog({'fixture':fixture.model_dump(mode='json')})
         with pytest.raises(GatewayError) as caught:
-            await service.transition(principal(),'revenue','1.0.0','rollback','Bundle no longer retained')
+            await service.transition(actor,'revenue','1.0.0','rollback','Bundle no longer retained')
         assert caught.value.code=='BINDING_DRIFT'
         assert (await service.registry.resolve('revenue')).version_id==second_product.version_id
-        assert registry_database.scalar('SELECT count(*) FROM gateway.publication_events')==4
-        assert registry_database.denied_as_owner("UPDATE gateway.product_versions SET manifest='{}'")=='permission_denied'
+        assert data.db.scalar('SELECT count(*) FROM gateway.publication_events')==4
+        assert data.db.scalar('SELECT count(*) FROM gateway.fixture_test_source_authorities')==2
+        assert data.db.scalar('SELECT count(*) FROM gateway.executions')==0
+        assert data.db.scalar('SELECT content_digest FROM gateway.product_versions WHERE id=%s',(first_product.version_id,))==manifest.content_digest
+        assert data.db.scalar('SELECT content_digest FROM gateway.product_versions WHERE id=%s',(second_product.version_id,))==changed.content_digest
+        assert data.db.denied_as_owner("UPDATE gateway.product_versions SET manifest='{}'")=='permission_denied'
     asyncio.run(scenario())
 
 
-def test_fixture_deadline_is_database_owned_and_uses_tighter_current_limit(registry_database):
+@pytest.mark.parametrize('reviewed_runner_database',[{'budget':10}],indirect=True)
+def test_fixture_deadline_is_database_owned_and_uses_tighter_current_limit(reviewed_runner_database):
+    data=reviewed_runner_database;database=data.db
     async def scenario():
         from tests.unit.test_policy import rules
-        service,manifest,catalog,_=await fixture_setup(registry_database,
-            roles=('author','publisher','policy_admin'),manifest_changes={'limits':{'execution_timeout_seconds':10}})
-        await service.policy.change_policy(principal(),manifest.policy_id,rules(limits={'execution_timeout_seconds':7}),
+        service=reviewed_fixture_service(data);actor=reviewed_principal();manifest=data.manifest
+        database.execute_owner("UPDATE gateway.principal_grants SET roles='[\"consumer\",\"author\",\"publisher\",\"policy_admin\"]'::jsonb WHERE principal_id='north-user'")
+        await service.policy.change_policy(actor,manifest.policy_id,rules(limits={'execution_timeout_seconds':7}),
             'Tighter reviewed execution deadline')
-        draft=await service.save_draft(principal(),manifest,0)
-        run=await service.test(principal(),draft.id)
-        assert run.status=='passed'
-        assert registry_database.scalar("SELECT bool_and(deadline_at=created_at+interval '7 seconds') FROM gateway.fixture_attempts")
-        # The application cannot extend an immutable attempt after acceptance.
-        assert registry_database.denied_as_app("UPDATE gateway.fixture_attempts SET deadline_at=deadline_at+interval '1 hour'")=='permission_denied'
-        # A new direct-SQL attempt cannot choose its own acceptance/deadline time.
+        run=await service.test(actor,'fixture-draft')
+        assert run.status=='passed',[(c['fixture_id'],c['actual_error']) for c in run.evidence['checks']]
+        assert database.scalar("SELECT bool_and(deadline_at=created_at+interval '7 seconds') FROM gateway.fixture_attempts")
+        assert database.denied_as_app("UPDATE gateway.fixture_attempts SET deadline_at=deadline_at+interval '1 hour'")=='permission_denied'
         columns='product_id,draft_id,draft_digest,consumer_binding_id,consumer_binding_digest,fixture_binding_id,fixture_binding_digest,fixture_manifest,fixture_manifest_digest,execution_contract_digest,policy_id,policy_revision,catalog_digest,fixture_id,fixture_version,actor_id,fixed_principal_id,principal_snapshot,decision,canonical_query,canonical_hash,request_id'
-        registry_database.execute_app(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{columns}) SELECT 'direct-extension','direct-token',deadline_at+interval '1 hour',{columns} FROM gateway.fixture_attempts LIMIT 1")
-        assert registry_database.scalar("SELECT deadline_at=created_at+interval '7 seconds' FROM gateway.fixture_attempts WHERE id='direct-extension'")
-        altered=columns.replace('decision',"jsonb_set(decision,'{limits,execution_timeout_seconds}','120'::jsonb)")
-        assert registry_database.constraint_failure(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{columns}) SELECT 'extended-limit','extended-token',deadline_at,{altered} FROM gateway.fixture_attempts LIMIT 1")=='23514'
-        # Bad typed decisions are rejected before arithmetic/casts can extend it.
-        for value in ('0','121','null','\"7\"','7.5'):
-            altered=columns.replace('decision',f"jsonb_set(decision,'{{limits,execution_timeout_seconds}}','{value}'::jsonb)")
-            assert registry_database.constraint_failure(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{columns}) SELECT 'bad-timeout','bad-token',deadline_at,{altered} FROM gateway.fixture_attempts LIMIT 1")=='23514'
+        # Reviewed attempts cannot be minted by copying catalog/Decision values.
+        assert database.denied_as_app(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{columns}) SELECT 'direct-extension','direct-token',deadline_at+interval '1 hour',{columns} FROM gateway.fixture_attempts LIMIT 1")=='permission_denied'
+        protected=columns+',source_invocation_id,fixture_manifest_canonical,query_canonical,decision_canonical'
+        # Even a fully pinned copy cannot reuse the original invocation/case.
+        assert database.constraint_failure(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{protected}) SELECT 'duplicate-case','duplicate-token',deadline_at+interval '1 hour',{protected} FROM gateway.fixture_attempts LIMIT 1")=='23505'
+        def decision_columns(value):
+            return ','.join(f"jsonb_set(decision,'{{limits,execution_timeout_seconds}}','{value}'::jsonb)" if column=='decision' else column for column in protected.split(','))
+        for value in ('120','0','121','null','\"7\"','7.5'):
+            assert database.constraint_failure(f"INSERT INTO gateway.fixture_attempts(id,runner_token,deadline_at,{protected}) SELECT 'bad-timeout','bad-token',deadline_at,{decision_columns(value)} FROM gateway.fixture_attempts LIMIT 1")=='23514'
+        assert database.scalar('SELECT count(*) FROM gateway.fixture_attempts')==1
+        assert database.scalar("SELECT bool_and(deadline_at=created_at+interval '7 seconds') FROM gateway.fixture_attempts")
     asyncio.run(scenario())
 
 
@@ -414,22 +457,22 @@ def test_deprecation_warns_and_withdrawal_blocks_new_and_stored_output(registry_
         from gateway.execution.service import ExecutionService
         from gateway.contracts.query import QueryRequest
         ctx=await seeded_result(registry_database,valid_manifest,count=1)
-        registry_database.execute_owner("UPDATE gateway.principal_grants SET roles='[\"consumer\",\"publisher\",\"policy_admin\"]'::jsonb WHERE principal_id='north-user'")
-        service=api().PublishingService(registry=registry_database.registry,policy=ctx.policy,
-            bindings=StaticBindingResolver([ctx.binding]),bundles=BundleCatalog.from_file('cube/bundles.json'))
-        await service.transition(principal(),'revenue','1.0.0','deprecate','A newer version is recommended')
-        result=await ctx.service.get(principal(),ctx.execution.id)
+        service=ctx.publisher
+        assert registry_database.scalar("SELECT count(*) FROM gateway.publication_events WHERE action='publish'")==1
+        await service.transition(ctx.publisher_actor,'revenue','1.0.0','deprecate','A newer version is recommended')
+        result=await ctx.service.get(ctx.actor,ctx.execution.id)
         assert any('deprecated' in warning.lower() for warning in result.warnings)
         assert result.rows==ctx.envelope.rows
-        await service.transition(principal(),'revenue','1.0.0','withdraw','Answer is no longer supported')
-        with pytest.raises(GatewayError) as caught: await ctx.service.get(principal(),ctx.execution.id)
+        await service.transition(ctx.publisher_actor,'revenue','1.0.0','withdraw','Answer is no longer supported')
+        with pytest.raises(GatewayError) as caught: await ctx.service.get(ctx.actor,ctx.execution.id)
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
         consumer=ExecutionService(registry=registry_database.registry,policy=ctx.policy,bindings=service.bindings)
         with pytest.raises(GatewayError) as caught:
-            await consumer.submit(principal(),QueryRequest(product_id='revenue',version='1.0.0',
+            await consumer.submit(ctx.actor,QueryRequest(product_id='revenue',version='1.0.0',
                 inputs={'start':'2024-03-09','end':'2024-03-12'}))
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.publication_events')==2
+        assert registry_database.scalar("SELECT count(*) FROM gateway.publication_events WHERE action IN ('deprecate','withdraw')")==2
+        assert registry_database.scalar('SELECT count(*) FROM gateway.publication_events')==3
     asyncio.run(scenario())
 
 
@@ -499,24 +542,29 @@ def test_publication_rejects_plausible_checks_without_exact_attempt_provenance(r
     asyncio.run(scenario())
 
 
-def test_url_bound_draft_update_rejects_id_substitution_and_stale_revision(registry_database):
+def test_url_bound_draft_update_rejects_id_substitution_and_stale_revision(registry_database,valid_manifest):
     async def scenario():
-        service,manifest=await setup(registry_database)
-        first=await service.save_draft(principal(),manifest,0)
+        from tests.integration.reviewed_publishing_fixture import reviewed_authoring_fixture
+        reviewed=reviewed_authoring_fixture(registry_database,valid_manifest)
+        service,manifest,actor=reviewed.service,reviewed.manifest,reviewed_principal()
+        first=await service.save_draft(actor,manifest,0)
         raw=manifest.model_dump(mode='json',exclude={'content_digest'});raw['description']='A reviewed explanation'
         changed=validate_manifest(raw)
+        reviewed.approve_variant(changed)
         for identity in ('unknown-draft',):
-            with pytest.raises(GatewayError) as caught: await service.update_draft(principal(),identity,changed,1)
+            with pytest.raises(GatewayError) as caught: await service.update_draft(actor,identity,changed,1)
             assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
         other_raw=deepcopy(raw);other_raw['product_id']='other-revenue'
-        other=await service.save_draft(principal(),validate_manifest(other_raw),0)
-        with pytest.raises(GatewayError) as caught: await service.update_draft(principal(),other.id,changed,1)
+        other_manifest=validate_manifest(other_raw)
+        reviewed.approve_variant(other_manifest)
+        other=await service.save_draft(actor,other_manifest,0)
+        with pytest.raises(GatewayError) as caught: await service.update_draft(actor,other.id,changed,1)
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
-        second=await service.update_draft(principal(),first.id,changed,1)
+        second=await service.update_draft(actor,first.id,changed,1)
         assert second.revision==2 and second.product_id==manifest.product_id
-        with pytest.raises(GatewayError) as caught: await service.update_draft(principal(),first.id,changed,2)
+        with pytest.raises(GatewayError) as caught: await service.update_draft(actor,first.id,changed,2)
         assert caught.value.code=='CONFLICT'
-        with pytest.raises(GatewayError) as caught: await service.update_draft(principal(),second.id,changed,1)
+        with pytest.raises(GatewayError) as caught: await service.update_draft(actor,second.id,changed,1)
         assert caught.value.code=='CONFLICT'
         assert registry_database.scalar("SELECT draft_revision FROM gateway.products WHERE id='revenue'")==2
     asyncio.run(scenario())

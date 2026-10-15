@@ -7,6 +7,7 @@ from urllib.parse import urlsplit,parse_qsl
 from uuid import uuid4
 from starlette.responses import JSONResponse
 from gateway.contracts.errors import ErrorCode, GatewayError
+from gateway.source_delegation import has_unsupported_delegation_headers
 
 MAX_BODY = 65_536
 SAFE_MESSAGES = {
@@ -105,6 +106,13 @@ class TransportBoundary:
         async def reject(code,status=None):
             await error_response(code,request_id,status)(scope,receive,safe_send)
         try:
+            # Inspect the original sequence: folding into a dictionary would
+            # discard repeated assertions. Unrelated identity headers remain
+            # ignored; neither their absence nor a plain token proves no agent.
+            identity_settings = getattr(self.services.authenticator, 'settings', None)
+            if (getattr(identity_settings, 'source', None) == 'reviewed_sources'
+                and has_unsupported_delegation_headers(scope.get('headers', []))):
+                return await reject('INVALID_INPUT')
             headers={}
             for name,value in scope.get('headers',[]):headers.setdefault(name.lower(),[]).append(value)
             for name in (b'host',b'origin'):

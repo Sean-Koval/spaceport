@@ -28,7 +28,7 @@ Agents receive approved product capabilities, not database credentials or unrest
 
 **The BigQuery and Domo connector pilot is merged.** [PR 5](https://github.com/Sean-Koval/spaceport/pull/5) merged at [`27bb504f`](https://github.com/Sean-Koval/spaceport/commit/27bb504f9a673267fd070a4e562b698388ded7e5). [Run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164) passed **3,336 source tests and 406 backend cases**, including the actual runtime images, offline CLI/import smoke and complete synthetic-provider product journeys. Exact cleanup passed. The merge preserves the reviewed documentation-only descendant of that tested source; see the [source-bound receipt](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass).
 
-**Organization activation remains blocked.** The next security slice is still being implemented and reviewed. A passing fixture journey does not establish live credentials, user-level Domo permissions, PII safety or production readiness.
+**Organization activation remains blocked.** The bounded owner-approval security implementation remains pending full exact-source acceptance. A passing fixture journey does not establish live credentials, user-level Domo permissions, PII safety or production readiness.
 
 | Area | Available now | Still gated |
 | --- | --- | --- |
@@ -63,7 +63,7 @@ REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. The [saved-draft
 
 ## BigQuery and Domo pilot
 
-**Organization activation is blocked pending the separately reviewed data-access security gate.** This merged connector pilot does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
+**Organization activation is blocked pending the separately reviewed data-access security gate.** This merged connector pilot does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The staged bounded slice enforces revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
 
 Start with the [operator setup and team workflow](docs/operations/source-pilot.md). The supported CLI builds and validates a fixed weekly-account-usage package offline, renders a zero-replica GKE review bundle, and guides author → isolated fixture test → separate publisher → bounded consumer check. Existing cluster, registry, IdP, source views/datasets, reviewed network access and operator-managed credentials are prerequisites. Rendering does not create them or deploy anything.
 

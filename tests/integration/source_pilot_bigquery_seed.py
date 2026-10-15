@@ -83,11 +83,20 @@ async def seed_bigquery_pilot(database,root):
         assets=load_source_assets(config,assets_dir)
         owner=Registry(database.urls['owner'].render_as_string(hide_password=False));opened.append(owner)
         await provision(owner,config,assets)
+        from tests.integration.source_pilot_approval_seed import install_weekly_approval, approval_config
+        receipt=await install_weekly_approval(owner,assets)
+        config=approval_config(config,assets,receipt)
+        (assets_dir/'pilot.json').write_bytes(encoded(config.model_dump(mode='json')))
         registry=Registry(database.urls['app'].render_as_string(hide_password=False));opened.append(registry)
         principal_store=PrincipalStore(registry.sessions)
-        policy=PolicyService(registry,principal_store,AuditWriter(b'synthetic-bigquery-audit-key-32-bytes'))
+        from gateway.source_access import SourceAccessService
+        audit=AuditWriter(b'synthetic-bigquery-audit-key-32-bytes')
+        policy=PolicyService(registry,principal_store,audit,source_access=SourceAccessService(registry,audit))
         lifecycle=SourceLifecycle(registry,policy,assets.sources,deployment_epoch=config.deployment_epoch)
-        principals={row.id:await principal_store.resolve_principal(row.id) for row in assets.identities.principals}
+        # Model the authenticated gateway client's retained snapshot. Fixed fixture
+        # identities are resolved separately and retain their registered null client.
+        principals={row.id:(await principal_store.resolve_principal(row.id)).model_copy(
+            update={'service_client_id':'reviewed-client'}) for row in assets.identities.principals}
         profiles=[];keys={}
         child_dir=root/'child';child_dir.mkdir(mode=0o700)
         for context in ('consumer','fixture_test'):

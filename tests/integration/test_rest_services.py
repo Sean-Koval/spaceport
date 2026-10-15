@@ -34,7 +34,7 @@ async def composition(database,clock):
             policy_id=manifest.policy_id,policy_revision=1,fixture_version='1',evidence={'synthetic':'passed'},status='passed',actor_id=principal().id))
     async with database.registry.transaction() as uow:
         await uow.insert_version(draft_id=draft.id,expected_revision=1,test_run_id='run-1',actor_id=principal().id)
-    registry=database.registry;policy=policy_service(database)
+    registry=database.registry;policy=publishing.policy
     cursors=PageCursorCodec(b'k'*32,clock)
     catalog=CatalogService(registry=registry,policy=policy,bindings=publishing.bindings,cursors=cursors)
     choices=ChoiceService(registry=registry,policy=policy,bindings=publishing.bindings,bundles=publishing.bundles,cursors=cursors,templates=(manifest,))

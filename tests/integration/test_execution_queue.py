@@ -18,7 +18,7 @@ from gateway.contracts.errors import GatewayError
 from gateway.contracts.execution import Completed, Pending, PreparedQuery
 from gateway.registry.models import BindingRevision, TestRun as RegistryTestRun
 from tests.contract.test_cube_adapter import synthetic
-from tests.integration.test_audit import seed as seed_policy, service as policy_service, principal
+from tests.integration.test_audit import seed as seed_policy, principal
 from tests.integration.test_registry import publish
 
 pytestmark=pytest.mark.postgres
@@ -32,19 +32,25 @@ def api():
         pytest.fail(f'Durable execution implementation is missing: {error.name}')
 
 
-async def setup(database, *, product_timeout=None, product_wait=None, policy_limits=None):
+async def setup(database, *, product_timeout=None, product_wait=None, policy_limits=None, valid_manifest=None):
+    if product_timeout is not None or product_wait is not None:
+        # Changed packages never inherit the fixed checked-in synthetic capability.
+        # Use the protected fixture/publication chain and the reviewed queue composition.
+        from copy import deepcopy
+        from tests.integration.test_source_approval_execution_queue import setup_queue
+        assert valid_manifest is not None and policy_limits is None
+        manifest_data=deepcopy(valid_manifest)
+        manifest_data.setdefault('limits',{})
+        if product_timeout is not None: manifest_data['limits']['execution_timeout_seconds']=product_timeout
+        if product_wait is not None: manifest_data['limits']['sync_wait_seconds']=product_wait
+        seeded=await setup_queue(database,manifest_data)
+        seeded.service.reviewed_test=seeded
+        return seeded.service,seeded.request
     seed_policy(database, roles=('consumer',))
     binding, product, decision, request=synthetic()
     policy_revision=1
     if policy_limits is not None:
         policy_revision=install_policy(database,policy_limits)
-    if product_timeout is not None or product_wait is not None:
-        from gateway.contracts.manifest import Manifest
-        data=product.manifest.model_dump(mode='json')
-        if product_timeout is not None: data['limits']['execution_timeout_seconds']=product_timeout
-        if product_wait is not None: data['limits']['sync_wait_seconds']=product_wait
-        data['content_digest']=None
-        product=product.model_copy(update={'manifest':Manifest.model_validate(data)})
     registry=database.registry
     async with registry.transaction() as uow:
         uow.session.add(BindingRevision(id='binding-1', binding_id=binding.binding_id, revision=binding.revision,
@@ -71,9 +77,71 @@ def install_policy(database,limits):
     return revision
 
 
+def queue_policy(registry):
+    # Genuine fixed-endpoint capability for the unchanged checked-in package.
+    # Altered definitions still require an explicit reviewed source approval.
+    from gateway.auth.principals import PrincipalStore
+    from gateway.policy.audit import AuditWriter
+    from gateway.policy.service import PolicyService
+    from gateway.runtime_config import load_assets, _synthetic_capability
+    return PolicyService(registry, PrincipalStore(registry.sessions),
+        AuditWriter(b'synthetic-operator-key-32-bytes!!!'),
+        synthetic_capability=_synthetic_capability(load_assets(), registry, profile='legacy'))
+
+
 def make_service(database):
-    return api().service.ExecutionService(registry=database.registry,policy=policy_service(database),
+    return api().service.ExecutionService(registry=database.registry,policy=queue_policy(database.registry),
         bindings=StaticBindingResolver([synthetic()[0]]))
+
+
+from tests.integration.test_source_approval_execution_queue import source_runtime_role
+
+
+def queue_actor(service):
+    return service.reviewed_test.actor if hasattr(service,'reviewed_test') else principal()
+
+
+async def retain_unknown_source(database,service,claim,source_runtime_role):
+    """Real source session + provider intent; no provider I/O or terminal claim."""
+    if not hasattr(service,'reviewed_test'):
+        return None
+    from gateway.adapters.base import authorization_scope_digest
+    from gateway.adapters.bigquery_runtime import compile_bigquery_query
+    from gateway.contracts.query import QueryRequest
+    from gateway.source_lifecycle import SourceSessionSpec
+    from tests.integration.test_source_lifecycle import intent
+    seeded=service.reviewed_test
+    source_runtime_role.provision(seeded.sources)
+    prepared=PreparedQuery(endpoint_id='reviewed-budget',model_bundle_digest=seeded.binding.model_bundle_digest,
+        cube_query=compile_bigquery_query(seeded.binding,claim.spec.pinned_product.manifest,
+            QueryRequest.model_validate(claim.spec.canonical_query),claim.executed_decision))
+    await service.queue.save_prepared(claim,prepared)
+    source=seeded.sources[0]
+    plan=SourceSessionSpec(provider='bigquery',source_id=source.source_id,source_revision=source.revision,
+        context='consumer',capacity_key=source.capacity_pool_id,definition_digest=source.digest,
+        request_digest=claim.spec.canonical_hash,prepared_digest=canonical_digest(prepared.cube_query),
+        scope_digest=authorization_scope_digest(claim.executed_decision),decision_digest=canonical_digest(claim.executed_decision),
+        binding_digest=seeded.binding.digest,model_bundle_digest=seeded.binding.model_bundle_digest,catalog_digest=None,
+        max_submissions=source.max_jobs_per_execution,max_bytes_per_submission=source.per_job_maximum_bytes_billed,
+        max_total_bytes=source.total_execution_bytes)
+    current=await service.queue.gate(claim)
+    context=await service.queue.source_attempt(claim,prepared,current,plan)
+    admitted=source_runtime_role.call('SELECT gateway.source_bq_admit(%s,%s,%s)',
+        (context.wire_context(),'e'*64,intent(timeout=1000)))
+    assert admitted['submit_once'] is True
+    assert_held_source(database,service,claim)
+    return context
+
+
+def assert_held_source(database,service,claim):
+    if hasattr(service,'reviewed_test'):
+        assert database.scalar("SELECT count(*) FROM gateway.source_operation_groups WHERE owner_kind='consumer' AND owner_id=%s",(claim.execution_id,))==1
+        assert database.scalar('SELECT settled_at IS NULL FROM gateway.source_operation_groups WHERE id=%s',(claim.reservation_id,)) is True
+        assert database.scalar('SELECT count(*) FROM gateway.held_source_capacity WHERE reservation_id=%s',(claim.reservation_id,))==1
+        assert database.scalar('SELECT count(*) FROM gateway.bigquery_source_jobs j JOIN gateway.source_sessions s ON s.id=j.session_id WHERE s.group_id=%s',(claim.reservation_id,))==1
+    else:
+        assert database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert database.scalar('SELECT released_at IS NULL AND release_reason IS NULL FROM gateway.source_reservations WHERE id=%s',(claim.reservation_id,)) is True
 
 
 class RecordingAdapter:
@@ -110,13 +178,14 @@ def test_same_key_same_input_replays_and_changed_input_conflicts(registry_databa
 
 
 @pytest.mark.parametrize('source',['default','product','policy'])
-def test_acceptance_uses_one_database_instant_even_after_transaction_delay(registry_database,source):
+def test_acceptance_uses_one_database_instant_even_after_transaction_delay(registry_database,source,valid_manifest):
     async def scenario():
         options={'product_timeout':10} if source=='product' else {'policy_limits':{'execution_timeout_seconds':10}} if source=='policy' else {}
         expected=120 if source=='default' else 10
-        service,request=await setup(registry_database,**options)
+        service,request=await setup(registry_database,valid_manifest=valid_manifest,**options)
         transaction_time=None
-        authorize=service.policy.authorize
+        method='evaluate' if source=='product' else 'authorize'
+        authorize=getattr(service.policy,method)
         async def delayed_authorize(*args, **kwargs):
             nonlocal transaction_time
             from sqlalchemy import func
@@ -125,8 +194,8 @@ def test_acceptance_uses_one_database_instant_even_after_transaction_delay(regis
             transaction_time=await uow.session.scalar(select(func.now()))
             await uow.session.scalar(select(func.pg_sleep(.03)))
             return decision
-        service.policy.authorize=delayed_authorize
-        view=await service.submit(principal(),request)
+        setattr(service.policy,method,delayed_authorize)
+        view=await service.submit(queue_actor(service),request)
         assert view.accepted_at-transaction_time>=timedelta(seconds=.03)
         assert registry_database.scalar('SELECT deadline_at-created_at FROM gateway.executions WHERE id=%s',(view.execution_id,))==timedelta(seconds=expected)
         assert registry_database.scalar('SELECT created_at FROM gateway.executions WHERE id=%s',(view.execution_id,))==view.accepted_at
@@ -223,12 +292,9 @@ def test_immutable_authority_and_prepared_query_privileges(registry_database):
 
 def _claim_process(url, start, output, worker_id):
     from gateway.registry.repository import Registry
-    from gateway.policy.service import PolicyService
-    from gateway.policy.audit import AuditWriter
-    from gateway.auth.principals import PrincipalStore
     async def run():
         registry=Registry(url)
-        policy=PolicyService(registry,PrincipalStore(registry.sessions),AuditWriter(b'synthetic-operator-key-32-bytes!!!'))
+        policy=queue_policy(registry)
         queue=api().queue.ExecutionQueue(registry,policy,StaticBindingResolver([synthetic()[0]]))
         claimed=[]
         for _ in range(20):
@@ -445,12 +511,9 @@ def test_actual_worker_approved_orders_persists_lossless_complete_result(registr
 
 def _die_after_source_submission_process(url,output):
     from gateway.registry.repository import Registry
-    from gateway.policy.service import PolicyService
-    from gateway.policy.audit import AuditWriter
-    from gateway.auth.principals import PrincipalStore
     async def run():
         registry=Registry(url)
-        policy=PolicyService(registry,PrincipalStore(registry.sessions),AuditWriter(b'synthetic-operator-key-32-bytes!!!'))
+        policy=queue_policy(registry)
         queue=api().queue.ExecutionQueue(registry,policy,StaticBindingResolver([synthetic()[0]]))
         from gateway.registry.models import ExecutionLease, ExecutionPreparation
         class SubmittedAdapter(RecordingAdapter):
@@ -595,19 +658,31 @@ def test_source_release_locks_lease_fence_until_competing_reclaim_commits(regist
 
 
 @pytest.mark.parametrize('source',['product','policy'])
-def test_tight_execution_budget_is_database_owned_and_survives_reclaim(registry_database,source):
+def test_tight_execution_budget_is_database_owned_and_survives_reclaim(registry_database,source,valid_manifest,source_runtime_role):
     async def scenario():
         options={'product_timeout':10} if source=='product' else {'policy_limits':{'execution_timeout_seconds':10}}
-        service,request=await setup(registry_database,**options)
-        accepted=await service.submit(principal(),request.model_copy(update={'idempotency_key':'tight'}))
+        service,request=await setup(registry_database,valid_manifest=valid_manifest,**options)
+        accepted=await service.submit(queue_actor(service),request.model_copy(update={'idempotency_key':'tight'}))
         assert registry_database.scalar('SELECT execution_timeout_seconds FROM gateway.executions')==10
         assert registry_database.scalar('SELECT deadline_at-created_at FROM gateway.executions')==timedelta(seconds=10)
         original=await service.queue.claim('worker-1')
+        context=await retain_unknown_source(registry_database,service,original,source_runtime_role)
         registry_database.execute_owner("UPDATE gateway.execution_leases SET expires_at=clock_timestamp()-interval '1 second'")
         recovered=await service.queue.claim('worker-2')
         assert recovered.execution_id==accepted.execution_id
         assert recovered.deadline==original.deadline==accepted.accepted_at+timedelta(seconds=10)
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==2
+        if source=='policy':
+            assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==2
+        else:
+            assert recovered.reservation_id==original.reservation_id and recovered.generation==original.generation+1
+            assert recovered.lease_token!=original.lease_token
+            assert_held_source(registry_database,service,recovered)
+            with pytest.raises(GatewayError): await service.queue.gate(original)
+            import psycopg
+            with pytest.raises(psycopg.Error) as caught:
+                source_runtime_role.call('SELECT gateway.source_check_attempt(%s)',(context.wire_context(),))
+            assert caught.value.sqlstate=='42501'
+            assert_held_source(registry_database,service,recovered)
     asyncio.run(scenario())
 
 
@@ -646,68 +721,83 @@ def test_direct_sql_stale_policy_revision_cannot_bypass_tighter_cap(registry_dat
     asyncio.run(scenario())
 
 
-def test_tight_timeout_replay_expires_at_original_acceptance(registry_database):
+def test_tight_timeout_replay_expires_at_original_acceptance(registry_database,valid_manifest,source_runtime_role):
     async def scenario():
-        service,request=await setup(registry_database,product_timeout=10)
+        service,request=await setup(registry_database,product_timeout=10,valid_manifest=valid_manifest)
         request=request.model_copy(update={'idempotency_key':'tight-elapsed'})
-        accepted=await service.submit(principal(),request)
+        accepted=await service.submit(queue_actor(service),request)
         claim=await service.queue.claim('worker-1')
-        # Historical disposable-owner fixture, preserving the exact ten seconds.
-        rewind_execution(registry_database,accepted.execution_id,seconds=11)
-        replay=await service.submit(principal(),request)
+        await retain_unknown_source(registry_database,service,claim,source_runtime_role)
+        retained=registry_database.scalar('SELECT row_to_json(a) FROM gateway.execution_source_authorities a WHERE execution_id=%s',(accepted.execution_id,))
+        assert claim.deadline==accepted.accepted_at+timedelta(seconds=10)
+        # Protected accepted clocks are immutable. Reach the actual original
+        # deadline instead of manufacturing a different owner snapshot.
+        registry_database.scalar("SELECT pg_sleep(greatest(0,extract(epoch FROM (%s::timestamptz-clock_timestamp())))+0.02)",(claim.deadline,))
+        with pytest.raises(GatewayError) as caught:
+            await service.submit(queue_actor(service),request)
+        assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
+        replay=(await service.queue.wait_authorized(accepted.execution_id,requester=queue_actor(service))).view
         assert replay.execution_id==accepted.execution_id and replay.state=='timed_out'
         assert replay.error.code=='EXECUTION_TIMEOUT'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert_held_source(registry_database,service,claim)
         assert await service.queue.claim('worker-2') is None
+        assert_held_source(registry_database,service,claim)
+        assert registry_database.scalar('SELECT count(*) FROM gateway.executions')==1
+        assert registry_database.scalar('SELECT count(*) FROM gateway.idempotency_records')==1
+        assert registry_database.scalar('SELECT row_to_json(a) FROM gateway.execution_source_authorities a WHERE execution_id=%s',(accepted.execution_id,))==retained
     asyncio.run(scenario())
 
 
-def test_zero_authorized_wait_replay_does_not_poll_or_release_capacity(registry_database):
+def test_zero_authorized_wait_replay_does_not_poll_or_release_capacity(registry_database,valid_manifest,source_runtime_role):
     async def scenario():
-        service,request=await setup(registry_database,product_wait=0)
+        service,request=await setup(registry_database,product_wait=0,valid_manifest=valid_manifest)
         request=request.model_copy(update={'idempotency_key':'zero-wait'})
-        accepted=await service.submit(principal(),request)
+        accepted=await service.submit(queue_actor(service),request)
         claim=await service.queue.claim('worker-1')
-        async def forbidden_poll(execution_id): raise AssertionError('Zero wait must do no polling I/O')
+        await retain_unknown_source(registry_database,service,claim,source_runtime_role)
+        async def forbidden_poll(execution_id, *, requester): raise AssertionError('Zero wait must do no polling I/O')
         service.queue.wait_authorized=forbidden_poll
-        replay=await service.submit_and_wait(principal(),request,seconds=100)
+        replay=await service.submit_and_wait(queue_actor(service),request,seconds=100)
         assert replay.execution_id==accepted.execution_id and replay.state=='running'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert_held_source(registry_database,service,claim)
         assert registry_database.scalar('SELECT lease_token FROM gateway.execution_leases')==claim.lease_token
     asyncio.run(scenario())
 
 
-def test_positive_authorized_wait_rechecks_revocation_without_releasing_reservation(registry_database):
+def test_positive_authorized_wait_rechecks_revocation_without_releasing_reservation(registry_database,valid_manifest,source_runtime_role):
     async def scenario():
-        service,request=await setup(registry_database,product_wait=1)
+        service,request=await setup(registry_database,product_wait=1,valid_manifest=valid_manifest)
         request=request.model_copy(update={'idempotency_key':'revoked-wait'})
-        accepted=await service.submit(principal(),request)
-        await service.queue.claim('worker-1')
+        accepted=await service.submit(queue_actor(service),request)
+        claim=await service.queue.claim('worker-1')
+        await retain_unknown_source(registry_database,service,claim,source_runtime_role)
         original=service.queue.wait_authorized
-        async def revoke_then_read(execution_id):
+        async def revoke_then_read(execution_id, *, requester):
+            assert requester == queue_actor(service)
             registry_database.execute_owner('UPDATE gateway.principal_grants SET active=false')
-            return await original(execution_id)
+            return await original(execution_id, requester=requester)
         service.queue.wait_authorized=revoke_then_read
-        with pytest.raises(GatewayError) as caught: await service.submit_and_wait(principal(),request)
+        with pytest.raises(GatewayError) as caught: await service.submit_and_wait(queue_actor(service),request)
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert_held_source(registry_database,service,claim)
         assert registry_database.scalar('SELECT state FROM gateway.execution_states')=='running'
     asyncio.run(scenario())
 
 
 @pytest.mark.parametrize('source',['product','policy'])
-def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release(registry_database,source):
+def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release(registry_database,source,valid_manifest,source_runtime_role):
     async def scenario():
         from time import monotonic
         options={'product_wait':1} if source=='product' else {'policy_limits':{'sync_wait_seconds':1}}
-        service,request=await setup(registry_database,**options)
+        service,request=await setup(registry_database,valid_manifest=valid_manifest,**options)
         request=request.model_copy(update={'idempotency_key':'one-second'})
         original=service.queue.wait_authorized
         async def bounded_wait(seconds):
             cancelled=[]
-            async def observed_read(execution_id):
+            async def observed_read(execution_id, *, requester):
+                assert requester == queue_actor(service)
                 try:
-                    return await original(execution_id)
+                    return await original(execution_id, requester=requester)
                 except asyncio.CancelledError:
                     cancelled.append(execution_id)
                     raise
@@ -715,7 +805,7 @@ def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release
             start=monotonic()
             try:
                 try:
-                    view=await service.submit_and_wait(principal(),request,seconds=seconds)
+                    view=await service.submit_and_wait(queue_actor(service),request,seconds=seconds)
                     assert not cancelled
                 except GatewayError as error:
                     # A real reauthorization read may begin before the cap and
@@ -734,10 +824,10 @@ def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release
             if view is None:
                 # A separate, freshly authenticated idempotent lookup recovers
                 # the durable identity; never retry or extend the timed wait.
-                view=await service.submit(principal(),request)
+                view=await service.submit(queue_actor(service),request)
                 assert view.execution_id==cancelled[0]
             # A cancelled transaction must leave fresh authorized polling viable.
-            current=await original(view.execution_id)
+            current=await original(view.execution_id, requester=queue_actor(service))
             assert current.view==view
             assert registry_database.scalar('SELECT count(*) FROM gateway.executions')==1
             assert registry_database.scalar('SELECT count(*) FROM gateway.idempotency_records')==1
@@ -746,21 +836,19 @@ def test_one_second_wait_caps_new_submission_and_replay_without_capacity_release
         assert accepted.state=='accepted'
         claim=await service.queue.claim('worker-1')
         assert claim.execution_id==accepted.execution_id
+        await retain_unknown_source(registry_database,service,claim,source_runtime_role)
         replay=await bounded_wait(5)
         assert replay.execution_id==accepted.execution_id and replay.state=='running'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
+        assert_held_source(registry_database,service,claim)
         assert registry_database.scalar('SELECT lease_token FROM gateway.execution_leases')==claim.lease_token
         registry_database.execute_owner('UPDATE gateway.principal_grants SET active=false')
-        with pytest.raises(GatewayError) as caught: await original(replay.execution_id)
+        with pytest.raises(GatewayError) as caught: await original(replay.execution_id, requester=queue_actor(service))
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
-        with pytest.raises(GatewayError) as caught: await service.submit(principal(),request)
+        with pytest.raises(GatewayError) as caught: await service.submit(queue_actor(service),request)
         assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
         assert registry_database.scalar('SELECT count(*) FROM gateway.executions')==1
         assert registry_database.scalar('SELECT state FROM gateway.execution_states')=='running'
-        assert registry_database.scalar('SELECT count(*) FROM gateway.source_reservations WHERE released_at IS NULL')==1
-        assert registry_database.scalar(
-            'SELECT released_at IS NULL AND release_reason IS NULL FROM gateway.source_reservations WHERE id=%s',
-            (claim.reservation_id,)) is True
+        assert_held_source(registry_database,service,claim)
         assert registry_database.scalar('SELECT lease_token FROM gateway.execution_leases')==claim.lease_token
     asyncio.run(scenario())
 

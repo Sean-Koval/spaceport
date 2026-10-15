@@ -157,10 +157,10 @@ def _claims(context, decision, contract, query):
         contract_digest=canonical_digest(contract), source_attempt=context.wire_context(), cube_query_digest=canonical_digest(query))
 
 
-async def seed_sessions(owner_url, app_url, source):
+async def seed_sessions(owner_url, app_url, source, fixture_url, observer_url):
     """Accepted synthetic owners, then the real audit/admission/materialization path."""
     from gateway.auth.principals import PrincipalStore
-    from gateway.contracts.canonical import canonical_digest
+    from gateway.contracts.canonical import canonical_digest, canonical_bytes
     from gateway.contracts.execution import ExecutionSpec, PinnedProduct, PreparedQuery
     from gateway.contracts.identity import Principal
     from gateway.contracts.query import QueryRequest, validate_query
@@ -171,7 +171,30 @@ async def seed_sessions(owner_url, app_url, source):
     from gateway.registry.repository import Registry
     from gateway.registry.models import BindingRevision, TestRun, Execution, ExecutionState, ExecutionLease, ExecutionAuthorization
     from gateway.source_lifecycle import SourceLifecycle, SourceSessionSpec
-    binding = _binding(source); manifest = _manifest(binding)
+    from gateway.source_access import SourceAccessService
+    from tests.integration.source_approval_seed import seed_reviewed_publication
+    from tests.integration.source_runtime_approval_seed import (runtime_approval_assets, fixture_source_profile,
+        runtime_actor, runtime_author)
+    document, manifest, bindings, sources = runtime_approval_assets(source, fixture_source_profile(source))
+    binding = bindings[0]
+    class ProbeDatabase:
+        urls = dict(owner=owner_url, app=app_url, fixture_runtime=fixture_url, fixture_observer=observer_url)
+        roles = dict(owner=owner_url.username, app=app_url.username,
+            fixture_runtime=fixture_url.username, fixture_observer=observer_url.username)
+        def scalar(self, statement, parameters=()):
+            with _connect(owner_url) as connection:
+                return connection.execute(statement, parameters).fetchone()[0]
+        def execute_owner(self, statement, parameters=()):
+            with _connect(owner_url) as connection:
+                connection.execute(statement, parameters)
+        def _execute(self, role, statement, parameters=(), *, scalar=False):
+            if role not in self.urls:
+                raise ValueError('Fixed disposable source role required')
+            with _connect(self.urls[role]) as connection:
+                result = connection.execute(statement, parameters)
+                return result.fetchone()[0] if scalar else None
+    database = ProbeDatabase()
+    author = runtime_author()
     policy = {'rules': {'tenant_ids': ['north'],
         'tenant_constraint': {'member': 'Usage.tenant', 'operator': 'eq', 'source': 'grant.tenant_id'},
         'entitlement_constraint': {'member': 'Usage.group', 'operator': 'in', 'source': 'grant.entitlements.groups'},
@@ -180,41 +203,40 @@ async def seed_sessions(owner_url, app_url, source):
         connection.execute('INSERT INTO gateway.policies(id,current_revision) VALUES (%s,1)', (manifest.policy_id,))
         connection.execute('INSERT INTO gateway.policy_revisions(id,policy_id,revision,content,content_digest,actor_id) VALUES (%s,%s,1,%s,%s,%s)',
             ('source-policy-1', manifest.policy_id, Jsonb(policy), canonical_digest(policy), 'synthetic-operator'))
-        for name in CASES:
-            identity = 'source-'+name.replace('_', '-')
-            connection.execute('INSERT INTO gateway.principals(id,subject,kind,active) VALUES (%s,%s,%s,true)', (identity, identity, 'demo'))
+        for actor, roles in [(author, ['author', 'publisher']), *[(runtime_actor(name), ['consumer']) for name in CASES]]:
+            connection.execute('INSERT INTO gateway.principals(id,subject,kind,service_client_id,active) VALUES (%s,%s,%s,%s,true)',
+                (actor.id, actor.subject, actor.kind, actor.service_client_id))
             connection.execute('INSERT INTO gateway.principal_grants(principal_id,policy_id,tenant_id,roles,entitlements) VALUES (%s,%s,%s,%s,%s)',
-                (identity, manifest.policy_id, 'north', Jsonb(['consumer']), Jsonb({'groups': ['north']})))
+                (actor.id, manifest.policy_id, 'north', Jsonb(roles), Jsonb({'groups': ['north']})))
+        for retained in bindings:
+            connection.execute('INSERT INTO gateway.binding_revisions(id,binding_id,revision,content,content_digest,model_bundle_digest,adapter_revision,actor_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+                ('source-' + retained.context + '-binding', retained.binding_id, retained.revision,
+                    Jsonb(retained.model_dump(mode='json')), retained.digest, retained.model_bundle_digest, retained.adapter_revision, author.id))
+    seeded = await asyncio.to_thread(seed_reviewed_publication, database, document, manifest, bindings, sources,
+        deployment_epoch=EPOCH, draft_id='source-fixture-draft', version_id='source-version-1', actor=author)
     registry = Registry(app_url.render_as_string(hide_password=False))
     try:
-        async with registry.transaction() as uow:
-            uow.session.add(BindingRevision(id='source-binding-1', binding_id=binding.binding_id, revision=1,
-                content=binding.model_dump(mode='json'), content_digest=binding.digest, model_bundle_digest=binding.model_bundle_digest,
-                adapter_revision=binding.adapter_revision, actor_id='synthetic-operator'))
-        draft = await registry.save_draft(manifest.product_id, manifest, 0, 'synthetic-editor')
-        async with registry.transaction() as uow:
-            uow.session.add(TestRun(id='source-test-1', product_id=manifest.product_id, draft_id=draft.id, draft_digest=draft.content_digest,
-                binding_id='source-binding-1', binding_digest=binding.digest, policy_id=manifest.policy_id, policy_revision=1,
-                fixture_version='1', evidence={'synthetic': 'passed'}, status='passed', actor_id='synthetic-tester'))
-        async with registry.transaction() as uow:
-            version = await uow.insert_version(draft_id=draft.id, expected_revision=draft.revision,
-                test_run_id='source-test-1', actor_id='synthetic-publisher', version_id='source-version-1')
-        product = PinnedProduct(manifest=manifest, binding_digest=binding.digest, version_id=version.id)
-        policy_service = PolicyService(registry, PrincipalStore(registry.sessions), AuditWriter(b'synthetic-source-audit-key-32bytes'))
+        product = seeded.product
+        audit = AuditWriter(b'synthetic-source-audit-key-32bytes')
+        access = SourceAccessService(registry, audit)
+        policy_service = PolicyService(registry, PrincipalStore(registry.sessions), audit, source_access=access)
         lifecycle = SourceLifecycle(registry, policy_service, SimpleNamespace(resolve=lambda ref: source), deployment_epoch=EPOCH)
         request = validate_query(manifest, QueryRequest(product_id=manifest.product_id, version='1.0.0', inputs={'start': '2024-03-09', 'end': '2024-03-12'}))
         canonical = request.model_dump(mode='json', exclude={'idempotency_key'})
         cases = []
         for name in CASES:
             identity = 'source-'+name.replace('_', '-')
-            actor = Principal(id=identity, subject=identity, kind='demo', service_client_id=None)
+            actor = runtime_actor(name)
             spec = ExecutionSpec(principal_id=actor.id, pinned_product=product, canonical_query=canonical,
                 canonical_hash=canonical_digest(canonical), policy_revision=1, context='consumer', request_id=str(uuid4()))
             async with registry.transaction() as uow:
                 await lifecycle._lock_authority(uow, product)
-                decision = await policy_service.authorize(actor, 'execute', product, uow, parameters=dict(request.inputs), correlation_id=spec.request_id)
-                execution = Execution(id=str(uuid4()), principal_id=actor.id, product_id=manifest.product_id, version_id=version.id,
-                    policy_id=manifest.policy_id, policy_revision=1, canonical_query=canonical, canonical_hash=spec.canonical_hash,
+                decision = await policy_service.evaluate(actor, 'execute', product, uow)
+                admission = await access.resolve_admission(uow, product, actor, decision, request_id=spec.request_id)
+                from gateway.source_access_contracts import validate_reviewed_values
+                validate_reviewed_values(admission.pins, manifest, request)
+                execution = Execution(id=str(uuid4()), principal_id=actor.id, product_id=manifest.product_id, version_id=product.version_id,
+                    policy_id=manifest.policy_id, policy_revision=1, canonical_query=canonical, query_canonical=canonical_bytes(canonical).decode(), canonical_hash=spec.canonical_hash,
                     context='consumer', request_id=spec.request_id, deadline_at=func.clock_timestamp(), execution_timeout_seconds=120)
                 uow.session.add(execution); await uow.session.flush(); await uow.session.refresh(execution)
                 uow.session.add(ExecutionAuthorization(execution_id=execution.id, principal_snapshot=actor.model_dump(mode='json'),
@@ -237,6 +259,9 @@ async def seed_sessions(owner_url, app_url, source):
                 context = await lifecycle._materialize(uow, group=group, owner_id=execution.id, case_id=execution.id,
                     spec=spec, principal=actor, actor=actor, binding=binding, prepared=prepared, executed=decision,
                     current=decision, plan=plan, generation=1, token=token, deadline=execution.deadline_at)
+                request_owner = await access.resolve_owner(uow, {'kind':'execution','id':execution.id}, actor, decision,
+                    action='execute', request_id=spec.request_id)
+                await access.finalize(uow, (request_owner,))
             cases.append(dict(name=name, source_attempt=context.wire_context(),
                 claims=_claims(context, decision, bundle_contract(), prepared.cube_query), cube_query=prepared.cube_query,
                 expected_rows=[{'Usage.day': '2024-03-09T00:00:00.000', 'Usage.day.day': '2024-03-09T00:00:00.000', 'Usage.account': 'A', 'Usage.events': '7'}]))
@@ -279,8 +304,8 @@ async def _bootstrap(admin_url, secret_dir, output, *, local=False):
                 if value is None: os.environ.pop(key, None)
                 else: os.environ[key] = value
         source = source_profile()
-        fixture_source = type(source).model_validate({**source.model_dump(mode='json'), 'source_id': 'synthetic-usage-fixture', 'context': 'fixture_test',
-            'auth': {'mode': 'gke-workload-identity', 'expected_principal': 'fixture@fixture-project.iam.gserviceaccount.com'}})
+        from tests.integration.source_runtime_approval_seed import fixture_source_profile
+        fixture_source = fixture_source_profile(source)
         with engine.begin() as connection:
             provision_sources(connection, [source, fixture_source], [
                 dict(login_name=SOURCE_ROLES['consumer'], source_id=source.source_id, revision=1, context='consumer', role_kind='runtime'),
@@ -289,7 +314,9 @@ async def _bootstrap(admin_url, secret_dir, output, *, local=False):
                 deployment_epoch=EPOCH, max_active_operations=10)
     finally:
         engine.dispose()
-    cases = await seed_sessions(owner, app, source)
+    fixture_url = _url(registry, SOURCE_ROLES['fixture'], _secret(secret_dir, 'source_bq_fixture'))
+    observer_url = _url(registry, SOURCE_ROLES['observer'], _secret(secret_dir, 'source_bq_observer'))
+    cases = await seed_sessions(owner, app, source, fixture_url, observer_url)
     mount = str(ROOT/'tests/runtime/bigquery-serving-bundle') if local else '/cube/conf/tests/runtime/bigquery-serving-bundle'
     _atomic(output, dict(schema_version=1, deployment_epoch=EPOCH, registry=registry, source=source.model_dump(mode='json'),
         bundle=dict(root=mount, digest=BUNDLE_DIGEST, contract=bundle_contract()), signing_key_file=str(secret_dir/'cube_signing_key'),

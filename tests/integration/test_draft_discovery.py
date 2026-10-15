@@ -1,8 +1,8 @@
 """Authorized draft discovery against disposable real PostgreSQL only.
 
-The publication seed uses the registry transaction seam, as the REST integration
-suite does. Its synthetic test record is not evidence of source correctness or
-of a successful publishing fixture run.
+Publication setup retains genuine app-role fixture/source terminal metadata and
+protected publication receipts. Provider responses remain synthetic; these tests
+do not qualify live source correctness.
 """
 import asyncio
 from contextlib import asynccontextmanager
@@ -27,8 +27,7 @@ from gateway.contracts.manifest import validate_manifest
 from gateway.registry.models import TestRun as RegistryTestRun
 from tests.contract.test_cube_adapter import synthetic
 from tests.integration.conftest import connection_kwargs
-from tests.integration.test_audit import principal
-from tests.integration.test_publishing import setup
+from tests.integration.reviewed_publishing_fixture import reviewed_authoring_fixture, principal
 from tests.unit.test_policy import rules
 
 pytestmark = pytest.mark.postgres
@@ -46,12 +45,29 @@ def api():
 
 
 async def composition(database, clock):
-    publishing, manifest = await setup(database, roles=('author', 'publisher', 'policy_admin'))
+    from tests.unit.test_source_approval_contracts import domain, audience
+    # Explicit test-owner domain includes the fixed empty/input-negative dates.
+    domains = [domain(name, 'date', minimum='2024-01-01', maximum='2025-01-02')
+        for name in ('start', 'end')] + [domain('segment', 'string', values=('A', 'B'), nullable=True)]
+    metadata_only = audience(id='north-metadata-review', actions=['author', 'publish'],
+        row_constraints=[dict(member='Orders.tenant_id', operator='eq', values=['north'])])
+    fixture = reviewed_authoring_fixture(database,
+        synthetic()[1].manifest.model_dump(mode='json', exclude={'content_digest'}), input_domains=domains,
+        additional_audiences=(metadata_only,))
+    publishing, manifest = fixture.service, fixture.manifest
+    publishing.reviewed_test_fixture = fixture
+    database.reviewed_test_fixture = fixture
+    set_roles(database, ('author', 'publisher', 'policy_admin'))
     discovery = api().DraftDiscoveryService(
         registry=database.registry, policy=publishing.policy, publishing=publishing,
         cursors=PageCursorCodec(b'd' * 32, clock),
     )
     return discovery, publishing, manifest
+
+
+def approve_variant(publishing, manifest):
+    """Explicit test-owner review, separate from every application save call."""
+    publishing.reviewed_test_fixture.approve_variant(manifest)
 
 
 def changed(manifest, **changes):
@@ -87,26 +103,37 @@ def seed_other_policy(database, *, policy_id='other-access', roles=('author', 'p
 
 
 async def seed_publication(database, draft, manifest):
-    """Persist a real immutable version without claiming fixture-run readiness."""
-    test_id = str(uuid4())
-    async with database.registry.transaction() as uow:
-        uow.session.add(RegistryTestRun(
-            id=test_id, product_id=manifest.product_id, draft_id=draft.id,
-            draft_digest=draft.content_digest, binding_id='binding-1',
-            binding_digest=synthetic()[0].digest, policy_id=manifest.policy_id,
-            policy_revision=1, fixture_version='1', evidence={'synthetic_registry_seed': True},
-            status='passed', actor_id=principal().id,
-        ))
-    async with database.registry.transaction() as uow:
-        return await uow.insert_version(
-            draft_id=draft.id, expected_revision=draft.revision,
-            test_run_id=test_id, actor_id=principal().id,
-        )
+    """Publish this exact existing authorized draft through protected evidence."""
+    from copy import deepcopy
+    from gateway.contracts.canonical import manifest_digest
+    from tests.integration.source_approval_seed import seed_reviewed_publication
+    fixture = database.reviewed_test_fixture
+    document = deepcopy(fixture.document)
+    document['product'] = dict(product_id=manifest.product_id, version=manifest.version,
+        manifest_digest=manifest_digest(manifest), policy_id=manifest.policy_id)
+    from gateway.contracts.canonical import canonical_bytes
+    original = database.scalar("SELECT gateway.source_transient_access(%s,%s,'publish')",
+        (canonical_bytes(manifest.model_dump(mode='python',exclude={'content_digest'})).decode(),
+            Jsonb(principal().model_dump(mode='json'))))['projection']['approval_id']
+    seeded = await asyncio.to_thread(seed_reviewed_publication, database, document, manifest,
+        fixture.bindings, fixture.sources, actor=principal(), existing_draft=(draft.id,draft.revision),
+        version_id=str(uuid4()))
+    assert database.scalar('SELECT publisher_approval_id::text FROM gateway.source_publication_operations WHERE id=%s',
+        (seeded.operation_id,)) == original
+    assert database.scalar('SELECT fixture_approval_id::text FROM gateway.source_publication_operations WHERE id=%s',
+        (seeded.operation_id,)) == str(seeded.publication_approval['id'])
+    assert original != str(seeded.publication_approval['id'])
+    return SimpleNamespace(id=seeded.product.version_id)
+
 
 
 async def seed_pair(publishing, manifest):
-    first = await publishing.save_draft(principal(), changed(manifest, product_id='alpha'), 0)
-    second = await publishing.save_draft(principal(), changed(manifest, product_id='bravo'), 0)
+    alpha = changed(manifest, product_id='alpha')
+    bravo = changed(manifest, product_id='bravo')
+    approve_variant(publishing, alpha)
+    approve_variant(publishing, bravo)
+    first = await publishing.save_draft(principal(), alpha, 0)
+    second = await publishing.save_draft(principal(), bravo, 0)
     return first, second
 
 
@@ -132,9 +159,9 @@ def test_draft_summary_releases_only_review_metadata(registry_database, clock):
 def test_creator_and_non_review_roles_cannot_discover_draft_metadata(registry_database, clock):
     async def scenario():
         discovery, publishing, manifest = await composition(registry_database, clock)
-        draft = await publishing.save_draft(
-            principal(), changed(manifest, name='Confidential planning draft'), 0,
-        )
+        definition = changed(manifest, name='Confidential planning draft')
+        approve_variant(publishing, definition)
+        draft = await publishing.save_draft(principal(), definition, 0)
         for roles in ((), ('consumer',), ('operator',), ('policy_admin',), ('audit_view',)):
             set_roles(registry_database, roles)
             for query in ('', draft.product_id, 'Confidential', manifest.version):
@@ -159,9 +186,9 @@ def test_unrelated_policy_roles_do_not_supply_target_review_permission(registry_
     async def scenario():
         discovery, publishing, manifest = await composition(registry_database, clock)
         seed_other_policy(registry_database)
-        hidden = await publishing.save_draft(
-            principal(), changed(manifest, product_id='hidden', name='Restricted planning', policy_id='other-access'), 0,
-        )
+        definition = changed(manifest, product_id='hidden', name='Restricted planning', policy_id='other-access')
+        approve_variant(publishing, definition)
+        hidden = await publishing.save_draft(principal(), definition, 0)
         visible = await publishing.save_draft(principal(), manifest, 0)
         set_roles(registry_database, ('consumer',), policy_id='other-access')
         page = await discovery.search(principal())
@@ -203,6 +230,7 @@ def test_publish_capability_requires_independent_base_and_target_policy_authorit
         base = await publishing.save_draft(principal(), manifest, 0)
         await seed_publication(registry_database, base, manifest)
         next_manifest = changed(manifest, version='1.1.0', policy_id='other-access')
+        approve_variant(publishing, next_manifest)
         target = await publishing.save_draft(principal(), next_manifest, 1)
         cases = [
             (('consumer',), ('publisher',), False),
@@ -222,8 +250,11 @@ def test_publish_capability_requires_independent_base_and_target_policy_authorit
 def test_only_latest_draft_head_is_discoverable(registry_database, clock):
     async def scenario():
         discovery, publishing, manifest = await composition(registry_database, clock)
-        old = await publishing.save_draft(principal(), changed(manifest, name='Obsolete draft'), 0)
+        old_manifest = changed(manifest, name='Obsolete draft')
+        approve_variant(publishing, old_manifest)
+        old = await publishing.save_draft(principal(), old_manifest, 0)
         current_manifest = changed(manifest, name='Current draft', version='2.0.0')
+        approve_variant(publishing, current_manifest)
         current = await publishing.save_draft(principal(), current_manifest, 1)
         summary, = (await discovery.search(principal())).items
         assert (summary.id, summary.revision, summary.version, summary.name) == (
@@ -253,7 +284,9 @@ def test_published_draft_head_stays_excluded_after_lifecycle_changes(registry_da
             assert (await discovery.search(principal())).model_dump(mode='json') == {
                 'items': [], 'next_cursor': None,
             }, status
-        replacement = await publishing.save_draft(principal(), changed(manifest, version='1.1.0'), 1)
+        next_manifest = changed(manifest, version='1.1.0')
+        approve_variant(publishing, next_manifest)
+        replacement = await publishing.save_draft(principal(), next_manifest, 1)
         assert [item.id for item in (await discovery.search(principal())).items] == [replacement.id]
     asyncio.run(scenario())
 
@@ -261,10 +294,10 @@ def test_published_draft_head_stays_excluded_after_lifecycle_changes(registry_da
 def test_search_is_case_insensitive_on_authorized_id_name_and_version_only(registry_database, clock):
     async def scenario():
         discovery, publishing, manifest = await composition(registry_database, clock)
-        draft = await publishing.save_draft(principal(), changed(
-            manifest, product_id='Roadmap-revenue', name='Quarterly Forecast', version='7.8.9',
-            description='Description-only secret needle', owner='ownership-needle', domain='domain-needle',
-        ), 0)
+        definition = changed(manifest, product_id='Roadmap-revenue', name='Quarterly Forecast', version='7.8.9',
+            description='Description-only secret needle', owner='ownership-needle', domain='domain-needle')
+        approve_variant(publishing, definition)
+        draft = await publishing.save_draft(principal(), definition, 0)
         for query in ('ROADMAP', 'forecast', '8.9'):
             assert [item.id for item in (await discovery.search(principal(), query=query)).items] == [draft.id]
         for query in ('Description-only', 'ownership-needle', 'domain-needle', 'not-present'):
@@ -277,7 +310,9 @@ def test_paging_uses_product_id_c_order_without_duplicates(registry_database, cl
         discovery, publishing, manifest = await composition(registry_database, clock)
         product_ids = ['zulu', 'alpha', 'Aardvark', 'a-1', 'Zebra', 'a_1', 'a.1']
         for product_id in product_ids:
-            await publishing.save_draft(principal(), changed(manifest, product_id=product_id), 0)
+            definition = changed(manifest, product_id=product_id)
+            approve_variant(publishing, definition)
+            await publishing.save_draft(principal(), definition, 0)
         pages = []
         cursor = None
         for _ in range(len(product_ids)):
@@ -496,9 +531,9 @@ def test_final_release_rechecks_state_after_initial_review(
             if reviewed and not mutated:
                 mutated = True
                 if mutation == 'head':
-                    await publishing.save_draft(
-                        principal(), changed(manifest, name='Replacement after initial review'), 1,
-                    )
+                    replacement = changed(manifest, name='Replacement after initial review')
+                    approve_variant(publishing, replacement)
+                    await publishing.save_draft(principal(), replacement, 1)
                 elif mutation == 'publication':
                     await seed_publication(registry_database, draft, manifest)
                 elif mutation == 'grant':
@@ -544,4 +579,31 @@ def test_real_rest_draft_list_matches_service_and_revokes_without_cached_metadat
             assert hidden.json() == {'items': [], 'next_cursor': None}
             assert hidden.headers['cache-control'] == 'no-store'
             assert (await client.get('/v1/drafts/' + draft.id)).status_code == 404
+    asyncio.run(scenario())
+
+
+def test_existing_publication_seed_rejects_drift_before_owner_review(registry_database,clock):
+    async def scenario():
+        from tests.integration.source_approval_seed import seed_reviewed_publication
+        _, publishing, manifest = await composition(registry_database,clock)
+        draft = await publishing.save_draft(principal(),manifest,0)
+        fixture = registry_database.reviewed_test_fixture
+        def counts():
+            return tuple(registry_database.scalar('SELECT count(*) FROM gateway.'+table) for table in
+                ('source_access_approvals','principals','source_publication_operations','product_versions'))
+        before = counts()
+        for identity, value in (((draft.id,draft.revision+1),manifest),
+                (('missing-draft',draft.revision),manifest),
+                ((draft.id,draft.revision),changed(manifest,name='Unapproved fixture drift'))):
+            with pytest.raises(ValueError,match='Existing synthetic draft pins'):
+                await asyncio.to_thread(seed_reviewed_publication,registry_database,fixture.document,value,
+                    fixture.bindings,fixture.sources,actor=principal(),existing_draft=identity)
+            assert counts()==before
+        next_manifest = changed(manifest,name='Explicitly reviewed next head')
+        approve_variant(publishing,next_manifest)
+        await publishing.save_draft(principal(),next_manifest,draft.revision)
+        before=counts()
+        with pytest.raises(ValueError,match='Existing synthetic draft pins'):
+            await seed_publication(registry_database,draft,manifest)
+        assert counts()==before
     asyncio.run(scenario())

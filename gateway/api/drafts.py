@@ -3,11 +3,12 @@ from sqlalchemy import select
 
 from gateway.contracts.canonical import canonical_digest
 from gateway.contracts.errors import ErrorCode, GatewayError
+from gateway.execution.queue import lock_execution_capacity
 from gateway.policy.service import _scope
 from gateway.publishing.service import review_capabilities
 from gateway.registry.models import DraftRevision, ProductRow, ProductVersion
 from gateway.registry.repository import not_found
-from .catalog import MAX_SCAN, bounded_rows, page_arguments, scope_fingerprint
+from .catalog import MAX_SCAN, bounded_rows, page_arguments, scope_fingerprint, scope_policy_ids
 from .models import DraftPage, DraftSummary
 from .transactions import read_transaction
 
@@ -37,16 +38,65 @@ class DraftDiscoveryService:
                         raise
         return eligible
 
-    async def _projection(self, principal, draft_id, uow):
-        head, draft, target = await self.publishing._draft(uow, draft_id)
+    async def _prepare_projection(self, principal, draft_id, uow, *, loaded=None):
+        head, draft, target = loaded or await self.publishing._draft(uow, draft_id)
         # Ownership and consumer discovery rights are deliberately not consulted.
-        decision, capabilities = await self.publishing._review(principal, target, uow)
+        decision, capabilities, requests = await self.publishing._prepare_review(principal, target, uow)
         if (head.latest_draft_id != draft.id or head.draft_revision != draft.revision
             or await uow.session.scalar(select(ProductVersion.id).where(ProductVersion.draft_id == draft.id))):
             raise not_found()
         return DraftSummary(id=draft.id, product_id=target.manifest.product_id,
             version=target.manifest.version, name=target.manifest.name, revision=draft.revision,
-            **review_capabilities(target.manifest, decision, capabilities)), head.current_version_id
+            **review_capabilities(target.manifest, decision, capabilities)), head.current_version_id, requests
+
+    async def _projection(self, principal, draft_id, uow):
+        loaded = await self.publishing._draft(uow, draft_id)
+        await self.publishing._prelock_reviews((loaded[2],), uow, draft_ids=(draft_id,))
+        item, base_id, requests = await self._prepare_projection(principal, draft_id, uow, loaded=loaded)
+        await self.publishing._finalize_reviews(requests, uow)
+        return item, base_id
+
+    async def _final_page(self, principal, matches, publish, initial, uow):
+        """Load the whole page's prefix, then perform exactly one final gate."""
+        await lock_execution_capacity(uow)
+        for product_id in sorted({item.product_id for item, _ in matches}):
+            await uow.lock_product(product_id)
+        for draft_id in sorted({item.id for item, _ in matches}):
+            await uow.lock_draft(draft_id)
+        loaded, probes, targets, version_ids = {}, {}, [], []
+        for item, _ in matches:
+            current = await self.publishing._draft(uow, item.id)
+            loaded[item.id] = current
+            targets.append(current[2])
+            if publish[item.id]:
+                probes[item.id] = await self.publishing._publication_targets(uow, current[0], current[2])
+                for target in probes[item.id][1:]:
+                    targets.append(target)
+                    version_ids.append(target.version_id)
+        policy_ids = await scope_policy_ids(self.policy, principal, uow)
+        await self.publishing._prelock_reviews(targets, uow,
+            draft_ids=tuple(loaded), version_ids=tuple(version_ids), policy_ids=policy_ids)
+        if await scope_fingerprint(self.policy, principal, uow, policy_ids=policy_ids) != initial:
+            raise not_found()
+        checked, requests = [], []
+        for previous, base_id in matches:
+            item, current_base, pending = await self._prepare_projection(principal, previous.id, uow,
+                loaded=loaded[previous.id])
+            if item != previous or current_base != base_id:
+                raise not_found()
+            requests.extend(pending)
+            if publish[item.id]:
+                # This target's complete publish request is already in pending
+                # review proof. Only independently required base scopes remain;
+                # repeating the target would exceed the bounded final batch.
+                _, pending = await self.publishing._prepare_scopes(principal, probes[item.id][1:], 'publish', uow)
+                requests.extend(pending)
+            checked.append(item.model_copy(update={'can_publish': publish[item.id]}))
+        final = await scope_fingerprint(self.policy, principal, uow, policy_ids=policy_ids)
+        if final != initial:
+            raise not_found()
+        await self.publishing._finalize_reviews(requests, uow)
+        return checked, final
 
     async def search(self, principal, query='', cursor=None, limit=50):
         page_arguments(query, cursor, limit)
@@ -87,28 +137,8 @@ class DraftDiscoveryService:
         for item, _ in matches:
             # Base denial has its own audited UoW; never recover inside a denied UoW.
             publish[item.id] = item.can_publish and await self.publishing._publish_capability(principal, item.id)
-        checked = []
         async with read_transaction(self.registry) as uow:
-            # Follow publication's product -> policy lock order, including all heads
-            # before the fingerprint locks any policy. Keep heads locked to commit.
-            for item, _ in matches:
-                await uow.lock_product(item.product_id)
-            if await scope_fingerprint(self.policy, principal, uow) != initial:
-                raise not_found()
-            for previous, base_id in matches:
-                item, current_base = await self._projection(principal, previous.id, uow)
-                if item != previous or current_base != base_id:
-                    raise not_found()
-                if publish[item.id]:
-                    head, _, target = await self.publishing._draft(uow, item.id)
-                    targets = await self.publishing._publication_targets(uow, head, target)
-                    await self.publishing._scopes(principal, targets, 'publish', uow)
-                checked.append(item.model_copy(update={'can_publish': publish[item.id]}))
-            # A false base hint remains valid only under the same base and full
-            # grants/policy fingerprint as its independently audited probe.
-            final = await scope_fingerprint(self.policy, principal, uow)
-            if final != initial:
-                raise not_found()
+            checked, final = await self._final_page(principal, matches, publish, initial, uow)
         items = checked[:limit]
         token = self.cursors.issue(purpose='drafts', identity=identity, scope=final,
             query=query_hash, last=items[-1].product_id) if len(checked) > limit else None

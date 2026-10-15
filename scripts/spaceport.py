@@ -36,6 +36,8 @@ class Parser(argparse.ArgumentParser):
 def parser():
     root = Parser(description='Explicit private Spaceport product workflow')
     groups = root.add_subparsers(dest='group', required=True)
+    from scripts.source_access_approvals import configure_parser
+    configure_parser(groups.add_parser('approval'))
     product = groups.add_parser('product').add_subparsers(dest='action',required=True)
     source = groups.add_parser('source').add_subparsers(dest='action',required=True)
     pilot=groups.add_parser('pilot').add_subparsers(dest='action',required=True)
@@ -119,6 +121,9 @@ def _complete_result(client, execution_id, request, *, initial=None):
 
 
 def run(args):
+    if args.group=='approval':
+        from scripts.source_access_approvals import run as approval_run
+        return approval_run(args)
     if args.group=='pilot':
         from scripts.spaceport_setup import run as setup_run
         return setup_run(args)

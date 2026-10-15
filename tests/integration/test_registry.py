@@ -432,12 +432,31 @@ def test_refreshing_locks_preserve_autoflushed_pending_head_writes(registry_data
             product_head = await uow.session.get(api().models.ProductRow, "revenue")
             uow.session.add(api().models.PolicyRevision(id="policy-2", policy_id="revenue-access", revision=2,
                 content={"tenant_ids": ["north"]}, content_digest="d"*64, actor_id="operator"))
+            publication_revision = product_head.publication_revision
+            next_draft = api().models.DraftRevision(id="pending-draft-2", product_id="revenue", revision=2,
+                manifest=deepcopy(draft.manifest), manifest_canonical=draft.manifest_canonical,
+                content_digest=draft.content_digest, actor_id="editor")
             policy_head.current_revision = 2
-            product_head.current_version_id = None
             assert (await uow.lock_policy("revenue-access")).revision == 2
-            assert (await uow.lock_product("revenue")).current_version_id is None
+            assert (await uow.lock_policy_head("revenue-access")) is policy_head
+            # Keep the product writes pending until its own refreshing lock;
+            # the preceding policy lock must not pre-flush this control.
+            uow.session.add(next_draft)
+            product_head.draft_revision = 2
+            product_head.latest_draft_id = next_draft.id
+            refreshed = await uow.lock_product("revenue")
+            assert refreshed is product_head
+            assert (refreshed.draft_revision, refreshed.latest_draft_id) == (2, next_draft.id)
+            assert (refreshed.current_version_id, refreshed.publication_revision) == ("version-1", publication_revision)
         assert registry_database.scalar("SELECT current_revision FROM gateway.policies WHERE id='revenue-access'") == 2
-        assert registry_database.scalar("SELECT current_version_id FROM gateway.products WHERE id='revenue'") is None
+        expected_head = (2, "pending-draft-2", "version-1", publication_revision)
+        head_sql = "SELECT jsonb_build_array(draft_revision,latest_draft_id,current_version_id,publication_revision) FROM gateway.products WHERE id='revenue'"
+        assert tuple(registry_database.scalar(head_sql)) == expected_head
+        # Clearing a published head is no longer a legal unrecorded write. Keep
+        # this denial separate from the valid pending-write refresh contract.
+        assert registry_database.denied_as_app("UPDATE gateway.products SET current_version_id=NULL WHERE id='revenue'") == "permission_denied"
+        assert tuple(registry_database.scalar(head_sql)) == expected_head
+        assert registry_database.scalar("SELECT current_revision FROM gateway.policies WHERE id='revenue-access'") == 2
     asyncio.run(scenario())
 
 

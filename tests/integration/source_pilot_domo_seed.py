@@ -62,7 +62,9 @@ async def seed_domo_pilot(database,root):
             credentials[(context,id_ref)]=client;credentials[(context,secret_ref)]='synthetic-'+context+'-secret'
             return DomoSource(source_id='usage-'+context.replace('_','-'),revision=1,context=context,
                 auth={'mode':'oauth-client-credentials','client_id_ref':id_ref,'client_secret_ref':secret_ref,
-                    'client_id_sha256':hashlib.sha256(client.encode()).hexdigest(),'expected_customer':'synthetic-customer',
+                    'client_id_sha256':hashlib.sha256(client.encode()).hexdigest(),
+                    'client_id_version':'projects/123456789012/secrets/domo-'+context.replace('_','-')+'-id/versions/1',
+                    'client_secret_version':'projects/123456789012/secrets/domo-'+context.replace('_','-')+'-secret/versions/1','expected_customer':'synthetic-customer',
                     'expected_user_id':1 if context=='consumer' else 2},
                 dataset_ids=['11111111-1111-1111-1111-111111111111' if context=='consumer' else '22222222-2222-2222-2222-222222222222'],
                 source_policy_digest='c'*64,max_dispatches=20,max_active_sends=2)
@@ -83,9 +85,15 @@ async def seed_domo_pilot(database,root):
         assets=load_source_assets(config,root)
         owner=Registry(database.urls['owner'].render_as_string(hide_password=False));opened.append(owner)
         await provision(owner,config,assets)
+        from tests.integration.source_pilot_approval_seed import install_weekly_approval, approval_config
+        receipt=await install_weekly_approval(owner,assets)
+        config=approval_config(config,assets,receipt)
+        (root/'pilot.json').write_bytes(encoded(config.model_dump(mode='json')))
         registry=Registry(database.urls['app'].render_as_string(hide_password=False));opened.append(registry)
         principal_store=PrincipalStore(registry.sessions)
-        policy=PolicyService(registry,principal_store,AuditWriter(b'synthetic-domo-seed-audit-key-32-bytes'))
+        from gateway.source_access import SourceAccessService
+        audit=AuditWriter(b'synthetic-domo-seed-audit-key-32-bytes')
+        policy=PolicyService(registry,principal_store,audit,source_access=SourceAccessService(registry,audit))
         provider_registries={}
         lifecycles={}
         for context,url in urls.items():
@@ -93,7 +101,10 @@ async def seed_domo_pilot(database,root):
             provider_registries[context]=provider
             lifecycles[context]=SourceLifecycle(registry,policy,assets.sources,deployment_epoch=config.deployment_epoch,
                 provider_registries={('domo',context):provider})
-        principals={row.id:await principal_store.resolve_principal(row.id) for row in assets.identities.principals}
+        # Model the authenticated gateway client's retained snapshot. Fixed fixture
+        # identities are resolved separately and retain their registered null client.
+        principals={row.id:(await principal_store.resolve_principal(row.id)).model_copy(
+            update={'service_client_id':'reviewed-client'}) for row in assets.identities.principals}
         yield DomoSeed(config,assets,registry,policy,principals,StaticBindingResolver(list(assets.bindings)),lifecycles,provider_registries,credentials)
     finally:
         for registry in reversed(opened):await registry.close()

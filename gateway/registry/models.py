@@ -6,8 +6,8 @@ Database privileges and triggers, not ORM setters, enforce immutability.
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, FetchedValue, ForeignKey, ForeignKeyConstraint, Index, Integer, MetaData, String, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, CheckConstraint, DateTime, FetchedValue, ForeignKey, ForeignKeyConstraint, Index, Integer, MetaData, String, Text, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -28,6 +28,8 @@ class ProductRow(Base):
     __tablename__ = "products"
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
     draft_revision: Mapped[int] = mapped_column(Integer, server_default="0")
+    publication_revision: Mapped[int] = mapped_column(Integer, server_default=FetchedValue())
+    source_operation_id: Mapped[str | None] = mapped_column(PGUUID(as_uuid=False), server_default=FetchedValue())
     latest_draft_id: Mapped[str | None] = mapped_column(String(128))
     current_version_id: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("clock_timestamp()"))
@@ -40,6 +42,7 @@ class ProductRow(Base):
 
 
 class DraftRevision(Record, Base):
+    manifest_canonical: Mapped[str | None] = mapped_column(Text, server_default=FetchedValue())
     __tablename__ = "draft_revisions"
     product_id: Mapped[str] = mapped_column(ForeignKey("gateway.products.id"))
     revision: Mapped[int] = mapped_column(Integer)
@@ -89,6 +92,8 @@ class PolicyRevision(Record, Base):
 
 
 class TestRun(Record, Base):
+    evidence_canonical: Mapped[str | None] = mapped_column(Text, server_default=FetchedValue())
+    source_decision_canonicals: Mapped[dict | None] = mapped_column(JSONB, server_default=FetchedValue())
     __tablename__ = "test_runs"
     product_id: Mapped[str] = mapped_column(ForeignKey("gateway.products.id"))
     draft_id: Mapped[str] = mapped_column(ForeignKey("gateway.draft_revisions.id"))
@@ -108,6 +113,8 @@ class TestRun(Record, Base):
 
 
 class ProductVersion(Record, Base):
+    source_operation_id: Mapped[str | None] = mapped_column(PGUUID(as_uuid=False), server_default=FetchedValue())
+    manifest_canonical: Mapped[str | None] = mapped_column(Text)
     __tablename__ = "product_versions"
     product_id: Mapped[str] = mapped_column(ForeignKey("gateway.products.id"))
     version: Mapped[str] = mapped_column(String(128))
@@ -133,6 +140,7 @@ class ProductVersion(Record, Base):
 
 
 class VersionState(Base):
+    source_operation_id: Mapped[str | None] = mapped_column(PGUUID(as_uuid=False), server_default=FetchedValue())
     __tablename__ = "version_states"
     version_id: Mapped[str] = mapped_column(ForeignKey("gateway.product_versions.id"), primary_key=True)
     status: Mapped[str] = mapped_column(String(16), server_default="published")
@@ -164,6 +172,8 @@ class PrincipalGrant(Base):
 
 
 class Execution(Record, Base):
+    query_canonical: Mapped[str | None] = mapped_column(Text)
+    source_access_generation: Mapped[int] = mapped_column(Integer, server_default=FetchedValue())
     __tablename__ = "executions"
     principal_id: Mapped[str] = mapped_column(ForeignKey("gateway.principals.id"))
     product_id: Mapped[str] = mapped_column(String(128))
@@ -273,6 +283,13 @@ class AuditEvent(Record, Base):
     row_count: Mapped[int | None] = mapped_column(Integer)
     adapter: Mapped[str | None] = mapped_column(String(128))
     correlation_id: Mapped[str] = mapped_column(String(128))
+    source_approval_id: Mapped[str | None] = mapped_column(PGUUID(as_uuid=False))
+    source_approval_revision: Mapped[int | None] = mapped_column(Integer)
+    source_approval_digest: Mapped[str | None] = mapped_column(String(64))
+    source_approval_state_revision: Mapped[int | None] = mapped_column(Integer)
+    source_access_reason_code: Mapped[str | None] = mapped_column(String(32))
+    # Marker is assigned by the DB trigger, never by a trusted app caller.
+    created_transaction_id: Mapped[str | None] = mapped_column(String, server_default=FetchedValue())
     __table_args__ = (CheckConstraint("jsonb_typeof(parameter_names) = 'array'", name="parameter_names_array"),
         CheckConstraint("policy_id IS NULL OR policy_id ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'", name="policy_id_format"),
         CheckConstraint("parameter_digest IS NULL OR parameter_digest ~ '^[0-9a-f]{64}$'", name="digest_format"),

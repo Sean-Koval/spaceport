@@ -239,7 +239,7 @@ def registry_database(request):
                 for object_kind in ("TABLES", "SCHEMAS", "FUNCTIONS"):
                     owner.execute(sql.SQL("ALTER DEFAULT PRIVILEGES GRANT ALL PRIVILEGES ON {} TO {}").format(sql.SQL(object_kind), recipients))
         initial_revision = options.get("initial_revision", "head")
-        if initial_revision not in {"head", "0001_registry"}:
+        if initial_revision not in {"head", "0001_registry", "0006_source_preparations"}:
             pytest.fail("The disposable fixture accepts only the reviewed migration targets", pytrace=False)
         first, second = run_migration_pair(urls["owner"], roles, initial_revision,
             worker=session_migration_worker(request))

@@ -65,21 +65,32 @@ def discovery_stub(monkeypatch, clock):
     @asynccontextmanager
     async def transaction():
         uow = SimpleNamespace(session=SimpleNamespace(
-            execute=AsyncMock(return_value=SimpleNamespace(all=lambda: rows))), lock_product=AsyncMock())
+            execute=AsyncMock(return_value=SimpleNamespace(all=lambda: rows)),
+            scalar=AsyncMock(return_value=SimpleNamespace(scope_id='deployment'))),
+            lock_product=AsyncMock(), lock_draft=AsyncMock())
         transactions.append(uow)
         yield uow
     registry = SimpleNamespace(transaction=transaction)
     publishing = SimpleNamespace(_publish_capability=AsyncMock(return_value=True),
         _draft=AsyncMock(return_value=(SimpleNamespace(), None, SimpleNamespace())),
-        _publication_targets=AsyncMock(return_value=[]), _scopes=AsyncMock())
+        _publication_targets=AsyncMock(return_value=[]),
+        _prelock_reviews=AsyncMock(), _prepare_scopes=AsyncMock(return_value=({}, ())),
+        _finalize_reviews=AsyncMock())
     service = module.DraftDiscoveryService(registry=registry, policy=SimpleNamespace(), publishing=publishing,
         cursors=PageCursorCodec(b'd'*32, clock))
     fingerprint = AsyncMock(return_value='fresh-scope')
     monkeypatch.setattr(module, 'scope_fingerprint', fingerprint)
+    monkeypatch.setattr(module, 'scope_policy_ids', AsyncMock(return_value=()))
     service._eligible_policies = AsyncMock(return_value=['policy'])
     summaries = {id: DraftSummary(id=id, product_id=product, version='1.0.0', name='Daily '+product,
         revision=1, editable_full_definition=True, can_test=True, can_publish=True) for product,id in rows}
     service._projection = AsyncMock(side_effect=lambda principal,id,uow: (summaries[id], None))
+    async def prepare(principal, identity, uow, *, loaded=None):
+        # Reuse this test's controlled projections at the separate final phase.
+        # No fake source approval or real policy decision is introduced here.
+        summary, base = await service._projection(principal, identity, uow)
+        return summary, base, ()
+    service._prepare_projection = AsyncMock(side_effect=prepare)
     return service, summaries, publishing, fingerprint, transactions
 
 
@@ -94,7 +105,7 @@ def test_discovery_filters_denials_before_paging_and_checks_lookahead(monkeypatc
     page = asyncio.run(service.search(north_principal, limit=1))
     assert [item.id for item in page.items] == ['b'] and page.next_cursor
     assert [call.args[1] for call in publishing._publish_capability.await_args_list] == ['b', 'c']
-    assert publishing._scopes.await_count == 2
+    assert publishing._prepare_scopes.await_count == 2
     assert fingerprint.await_count == 3
     assert [call.args[0] for call in transactions[-1].lock_product.await_args_list] == ['bravo', 'charlie']
     # Initial scope, three isolated candidates and final release are distinct UoWs.
@@ -116,7 +127,7 @@ def test_discovery_keeps_denied_base_publish_hint_false(monkeypatch, north_princ
     page = asyncio.run(service.search(north_principal, limit=1))
     assert page.items[0].can_publish is False
     assert page.items[0].can_test is True
-    publishing._scopes.assert_not_awaited()
+    publishing._prepare_scopes.assert_not_awaited()
 
 
 @pytest.mark.parametrize('change', ['base', 'revision', 'capability'])

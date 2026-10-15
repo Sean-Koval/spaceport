@@ -30,7 +30,7 @@ from gateway.policy.service import PolicyContent, PolicyService
 from gateway.publishing.service import PublishingService
 from gateway.publishing.test_runner import FixtureCatalog, FixtureRunner
 from gateway.runtime import Runtime
-from gateway.runtime_config import Assets, ROOT, load_assets as legacy_assets
+from gateway.runtime_config import Assets, ROOT, load_assets as legacy_assets, _synthetic_capability
 from scripts.reviewed_cube_bundle_digest import bundle_digest
 
 
@@ -73,25 +73,15 @@ def build_runtime(*, registry, authenticator, secret_resolver, audit_key: bytes,
                   assets: Assets | None=None, clock=None, transport=None) -> Runtime:
     """Compose actual existing services; caller owns explicit setup/provisioning.
 
-    Endpoint overrides are only internal reviewed deployment configuration. They
-    must retain the bundle/adapter/context identities verified by this factory.
+    Only the exact checked-in package, endpoints and synthetic registry qualify.
+    Generalized endpoint or package overrides require separate source support.
     The factory never supplies demo identity to an organization deployment.
     """
     assets=assets if assets is not None else load_assets()
-    verified=load_assets()
-    if (assets.manifest!=verified.manifest or assets.bindings!=verified.bindings
-        or assets.fixture_catalog!=verified.fixture_catalog or assets.policy_id!=verified.policy_id
-        or assets.policy_revision!=verified.policy_revision or assets.policy_content!=verified.policy_content
-        or assets.accounts!=verified.accounts):
-        raise ValueError('Only the retained reviewed example is composed here')
-    for binding in assets.bindings:
-        endpoint=assets.bundles.resolve(binding.model_bundle_digest)
-        expected=verified.bundles.resolve(binding.model_bundle_digest)
-        if endpoint.model_dump(exclude={'url'})!=expected.model_dump(exclude={'url'}):
-            raise ValueError('Reviewed endpoint identity changed')
+    capability=_synthetic_capability(assets,registry,profile='reviewed')
     clock=clock or SystemClock()
     principals=PrincipalStore(registry.sessions)
-    policy=PolicyService(registry,principals,AuditWriter(audit_key))
+    policy=PolicyService(registry,principals,AuditWriter(audit_key),synthetic_capability=capability)
     bindings=StaticBindingResolver(list(assets.bindings))
     def adapter_factory():
         return CubeAdapter(catalog=assets.bundles,bindings=bindings,secret_resolver=secret_resolver,clock=clock,transport=transport)
@@ -109,4 +99,4 @@ def build_runtime(*, registry, authenticator, secret_resolver, audit_key: bytes,
         audit_reader=AuditReadService(registry=registry,policy=policy,cursors=cursors,clock=clock),
         readiness=ReadinessService(registry=registry,policy=policy,adapter=adapter,bindings=bindings,bundles=assets.bundles,
             clock=clock,probe_principal_id='demo-north',probe_product_id=assets.manifest.product_id))
-    return Runtime(services,adapter,adapter_factory)
+    return Runtime(services,adapter,adapter_factory,capability)

@@ -4,36 +4,36 @@ These do not claim a browser journey or real Cube fixture execution. In particul
 capability hints are checked without inventing a successful publication receipt.
 """
 import asyncio
-import importlib
 
 import pytest
 from psycopg.types.json import Jsonb
 
-from gateway.api.cursors import PageCursorCodec
 from gateway.contracts.canonical import canonical_digest
 from gateway.contracts.errors import GatewayError
 from gateway.contracts.identity import Principal
 from gateway.contracts.manifest import validate_manifest
 from gateway.execution.cursors import cursor_digest
 from tests.integration.conftest import registry_database
-from tests.integration.test_audit import principal
+from tests.integration.reviewed_publishing_fixture import principal
+from tests.integration.test_draft_discovery import approve_variant, composition
 from tests.unit.test_policy import rules
+from tests.unit.test_source_approval_contracts import audience
 
 pytestmark = pytest.mark.postgres
 
 
-async def inbox_setup(database, clock):
-    from tests.integration.test_publishing import setup
-    publishing, manifest = await setup(database, roles=('author', 'publisher', 'policy_admin'))
+async def inbox_setup(database, clock, *, additional_audiences=()):
+    discovery, publishing, manifest = await composition(database, clock)
+    # Preserve the reviewed date domains and metadata-only author/publish scope.
+    # Any second reviewer is separately named before the exact variant reviews.
+    publishing.reviewed_test_fixture.document['audiences'].extend(additional_audiences)
     drafts = []
     for product_id in ('a-inbox', 'b-inbox'):
         document = manifest.model_dump(mode='json', exclude={'content_digest'})
         document.update(product_id=product_id, name=f'Saved {product_id}')
-        drafts.append(await publishing.save_draft(principal(), validate_manifest(document), 0))
-    discovery = importlib.import_module('gateway.api.drafts').DraftDiscoveryService(
-        registry=database.registry, policy=publishing.policy, publishing=publishing,
-        cursors=PageCursorCodec(b'c' * 32, clock),
-    )
+        variant = validate_manifest(document)
+        approve_variant(publishing, variant)
+        drafts.append(await publishing.save_draft(principal(), variant, 0))
     return publishing, discovery, drafts
 
 
@@ -104,20 +104,55 @@ def test_draft_owner_loses_inbox_and_direct_review_when_reduced_to_consumer(regi
 
 def test_inbox_cursor_cannot_be_replayed_by_an_equally_authorized_principal(registry_database, clock):
     async def scenario():
-        _, inbox, _ = await inbox_setup(registry_database, clock)
-        page = await inbox.search(principal(), limit=1)
-        assert page.next_cursor
+        other = Principal(id='reviewer-two', subject='synthetic-reviewer-two',
+            kind='user', service_client_id='reviewer-two-client')
+        reviewer = audience(id='reviewer-two-review', principal_id=other.id,
+            principal_kind=other.kind, client_ids=[other.service_client_id],
+            actions=['author', 'publish'],
+            row_constraints=[
+                dict(member='Orders.tenant_id', operator='eq', values=['north']),
+                dict(member='Orders.access_group', operator='in', values=['north']),
+            ])
+        publishing, inbox, drafts = await inbox_setup(registry_database, clock,
+            additional_audiences=(reviewer,))
         registry_database.execute_owner(
-            "INSERT INTO gateway.principals(id,subject,kind) VALUES ('reviewer-two','synthetic-reviewer-two','demo')",
+            'INSERT INTO gateway.principals(id,subject,kind,service_client_id) VALUES (%s,%s,%s,%s)',
+            (other.id, other.subject, other.kind, other.service_client_id),
         )
         registry_database.execute_owner(
             "INSERT INTO gateway.principal_grants(principal_id,policy_id,tenant_id,roles,entitlements) "
             "VALUES ('reviewer-two','revenue-access','north',%s,%s)",
             (Jsonb(['author', 'publisher', 'policy_admin']), Jsonb({'groups': ['north']})),
         )
-        other = Principal(id='reviewer-two', subject='synthetic-reviewer-two', kind='demo', service_client_id=None)
-        assert len((await inbox.search(other)).items) == 2
+        assert await publishing.policy.principals.resolve_principal(other.id) == other
+        page = await inbox.search(principal(), limit=1)
+        assert page.next_cursor
+        fresh = await inbox.search(other)
+        assert len(fresh.items) == 2
+        assert {item.id for item in fresh.items} == {draft.id for draft in drafts}
+        assert all(item.editable_full_definition and item.can_test and item.can_publish
+            for item in fresh.items)
+
+        def state():
+            # Keep genuine setup/allow history intact; replay must add no evidence
+            # or alter the existing drafts, approvals, identity, or audit records.
+            return {table: registry_database.scalar(
+                f"SELECT coalesce(jsonb_agg(to_jsonb(stored) ORDER BY to_jsonb(stored)::text), '[]'::jsonb) "
+                f'FROM gateway.{table} stored',
+            ) for table in (
+                'products', 'draft_revisions', 'product_versions', 'test_runs',
+                'principals', 'principal_grants', 'policies', 'policy_revisions',
+                'source_access_approvals', 'source_access_approval_states', 'source_access_admin_events',
+                'fixture_source_invocations', 'fixture_source_invocation_cases',
+                'fixture_attempts', 'fixture_attempt_states',
+                'fixture_attempt_source_authorities', 'fixture_test_source_authorities',
+                'source_publication_operations', 'executions', 'execution_states',
+                'source_sessions', 'source_reservations', 'results', 'result_cursors', 'audit_events',
+            )}
+
+        before = state()
         await denied(inbox.search(other, limit=1, cursor=page.next_cursor))
+        assert state() == before
     asyncio.run(scenario())
 
 
@@ -159,7 +194,9 @@ def test_inbox_link_retains_revision_identity_after_another_author_edit(registry
         original = drafts[0]
         document = validate_manifest(original.manifest).model_dump(mode='json', exclude={'content_digest'})
         document.update(version='1.1.0', name='Revised saved definition')
-        changed = await publishing.update_draft(principal(), item.id, validate_manifest(document), item.revision)
+        variant = validate_manifest(document)
+        approve_variant(publishing, variant)
+        changed = await publishing.update_draft(principal(), item.id, variant, item.revision)
         old_view = await publishing.get_draft(principal(), item.id)
         assert old_view.id == original.id and old_view.revision == 1
         assert not old_view.is_current_revision and old_view.current_draft_id == changed.id

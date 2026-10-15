@@ -357,11 +357,15 @@ class SourceLifecycle:
             await uow.lock_draft(draft_id)
         await uow.lock_policy(product.manifest.policy_id)
 
-    async def _snapshot(self, uow, authority_spec):
-        row = (await uow.session.execute(text("""WITH snapshot AS MATERIALIZED
-            (SELECT gateway.source_current_authority(CAST(:spec AS jsonb)) value)
+    async def _snapshot(self, uow, authority_spec, *, owner_kind=None, owner_id=None):
+        if owner_kind is None:
+            expression="gateway.source_current_authority(CAST(:spec AS jsonb))"
+        else:
+            expression="gateway.source_owner_snapshot(:kind,:owner,CAST(:spec AS jsonb))"
+        row = (await uow.session.execute(text(f"""WITH snapshot AS MATERIALIZED
+            (SELECT {expression} value)
             SELECT value,encode(sha256(convert_to(value::text,'UTF8')),'hex') stamp FROM snapshot"""),
-            {"spec":json.dumps(authority_spec)})).one()
+            {"spec":json.dumps(authority_spec),"kind":owner_kind,"owner":owner_id})).one()
         return row.value, row.stamp
 
     @staticmethod
@@ -392,11 +396,15 @@ class SourceLifecycle:
             for g in snapshot["grants"] if g["principal_id"] == principal.id and g["active"]])
         return derive_decision(grants, action, product, PolicyContent.model_validate(policy["content"]).rules, policy["revision"])
 
-    async def _audit(self, uow, principal, action, product, decision, correlation_id, parameters):
+    async def _audit(self, uow, principal, action, product, decision, correlation_id, parameters, *, snapshot=None):
         from uuid import uuid4
         from gateway.registry.models import AuditEvent
+        pins={} if snapshot is None else snapshot.get("source_access",{})
+        approval_fields={} if not pins else dict(source_approval_id=pins["approval_id"],
+            source_approval_revision=pins["approval_revision"],source_approval_digest=pins["approval_digest"],
+            source_approval_state_revision=pins["state_revision"],source_access_reason_code="APPROVED")
         event = self.policy.audit.event(principal,action,product=product,policy_revision=decision.policy_revision,
-            decision="allow",correlation_id=correlation_id,parameters=parameters)
+            decision="allow",correlation_id=correlation_id,parameters=parameters,**approval_fields)
         row = AuditEvent(id=str(uuid4()),**event.model_dump(mode="json"))
         uow.session.add(row)
         await uow.session.flush()
@@ -412,7 +420,7 @@ class SourceLifecycle:
         from uuid import uuid4
         audit = await self._audit(uow,actor,"execute" if source.context=="consumer" else "author",product,decision,
             (await uow.session.execute(text("SELECT request_id FROM gateway.executions WHERE id=:id"),{"id":owner_id})).scalar_one()
-                if source.context=="consumer" else owner_id,{})
+                if source.context=="consumer" else owner_id,{},snapshot=snapshot)
         submissions = source.max_jobs_per_execution * len(roster) if source.provider=="bigquery" else len(roster)
         total_bytes = source.total_execution_bytes * len(roster) if source.provider=="bigquery" else None
         if submissions > 8 or total_bytes is not None and total_bytes > 2**53-1:
@@ -434,7 +442,10 @@ class SourceLifecycle:
         source = self.source(binding)
         await self._lock_authority(uow,spec.pinned_product)
         authority_spec = self._authority_spec(principal.id,principal.id,spec.pinned_product)
-        snapshot,_ = await self._snapshot(uow,authority_spec)
+        snapshot,_ = await self._snapshot(uow,authority_spec,owner_kind="execution",owner_id=execution.id)
+        from gateway.source_access import load_execution_access
+        accepted=await load_execution_access(uow,execution.id)
+        deadline=min(deadline,accepted.effective_deadline_at)
         decision = self._decision(snapshot,principal,"execute",spec.pinned_product)
         if canonical_digest(decision) != canonical_digest(current):
             raise ValueError("Source authority changed during admission")
@@ -485,18 +496,22 @@ class SourceLifecycle:
             authority_stamp=row["authority_stamp"],context_digest=row["context_digest"],deadline=row["deadline_at"].astimezone(timezone.utc),
             spec=SourceSessionSpec(**row["plan"]))
 
-    async def _materialize(self,uow,*,group,owner_id,case_id,spec,principal,actor,binding,prepared,executed,current,plan,generation,token,deadline):
+    async def _materialize(self,uow,*,group,owner_id,case_id,spec,principal,actor,binding,prepared,executed,current,plan,generation,token,deadline,review_product=None):
         import secrets
         from uuid import uuid4
         from gateway.contracts.canonical import canonical_digest
         fixture=spec.context=="fixture_test"
-        authority_spec=self._authority_spec(principal.id,actor.id,spec.pinned_product,fixture=fixture,catalog_digest=plan.catalog_digest)
-        snapshot,stamp=await self._snapshot(uow,authority_spec)
-        decision=self._decision(snapshot,principal,"execute",spec.pinned_product,fixture=fixture)
+        product=review_product if fixture else spec.pinned_product
+        if product is None:
+            raise ValueError("The original fixture review target is required")
+        authority_spec=self._authority_spec(principal.id,actor.id,product,fixture=fixture,catalog_digest=plan.catalog_digest)
+        snapshot,stamp=await self._snapshot(uow,authority_spec,
+            owner_kind="fixture_attempt" if fixture else "execution",owner_id=owner_id)
+        decision=self._decision(snapshot,principal,"execute",product,fixture=fixture)
         if canonical_digest(decision)!=canonical_digest(current):
             raise ValueError("The source decision differs from the coherent authority snapshot")
         if fixture:
-            self._decision(snapshot,actor,"author",spec.pinned_product,fixture=True)
+            self._decision(snapshot,actor,"author",product,fixture=True)
         existing=(await uow.session.execute(text("SELECT * FROM gateway.source_sessions WHERE context=:context AND owner_id=:owner"),
             {"context":spec.context,"owner":owner_id})).mappings().one_or_none()
         if existing:
@@ -507,7 +522,7 @@ class SourceLifecycle:
                     {"id":str(existing["id"]),"generation":generation,"token":token,"deadline":min(existing["deadline_at"],deadline)})
                 existing=(await uow.session.execute(text("SELECT * FROM gateway.source_sessions WHERE id=:id"),{"id":existing["id"]})).mappings().one()
             return self._context(existing)
-        audit=await self._audit(uow,principal,"execute",spec.pinned_product,decision,spec.request_id,dict(spec.canonical_query["inputs"]))
+        audit=await self._audit(uow,principal,"execute",product,decision,spec.request_id,dict(spec.canonical_query["inputs"]),snapshot=snapshot)
         sid=str(uuid4()); deadline=min(deadline,group.deadline)
         digest=canonical_digest(dict(group_id=group.group_id,session_id=sid,plan=asdict(plan),authority_stamp=stamp))
         values=dict(id=sid,group=group.group_id,case=case_id,owner=owner_id,source=plan.source_id,revision=plan.source_revision,
@@ -526,66 +541,123 @@ class SourceLifecycle:
 
     async def consumer_attempt(self,queue,claim,prepared,current,session_spec):
         async with self.registry.transaction() as uow:
-            await self._lock_authority(uow,claim.spec.pinned_product)
             loaded=await queue._load(uow,claim.execution_id)
-            await queue._fence(uow,claim)
-            plan=self._validate_plan(claim.spec,prepared,claim.executed_decision,claim.binding,session_spec)
-            group=await self.reserve_consumer(uow,loaded,current,claim.deadline)
-            result=await self._materialize(uow,group=group,owner_id=claim.execution_id,case_id=claim.execution_id,
-                spec=claim.spec,principal=claim.principal,actor=claim.principal,binding=claim.binding,prepared=prepared,
-                executed=claim.executed_decision,current=current,plan=plan,generation=claim.generation,token=claim.lease_token,deadline=claim.deadline)
+            execution,spec,principal,executed,binding=loaded
+            # Queue evaluation prelocks C/P/Q/V and collects preliminary authority.
+            # State/lease and all source/preparation work precede the final A suffix.
+            decision,request=await queue._evaluate(uow,loaded)
+            deadline=await queue._deadline(uow,loaded,decision)
+            queue._check_claim(claim,loaded,deadline)
+            _,lease,_=await queue._fence(uow,claim)
+            plan=self._validate_plan(spec,prepared,executed,binding,session_spec)
+            group=await self.reserve_consumer(uow,loaded,decision,min(deadline,claim.deadline))
+            result=await self._materialize(uow,group=group,owner_id=execution.id,case_id=execution.id,
+                spec=spec,principal=principal,actor=principal,binding=binding,prepared=prepared,
+                executed=executed,current=decision,plan=plan,generation=claim.generation,token=claim.lease_token,
+                deadline=min(deadline,claim.deadline))
+            await uow.session.flush()
+            await queue._finalize(uow,request)
+            await queue._check_tail(uow,min(claim.deadline,deadline,result.deadline),lease.expires_at,spec.request_id)
         return result
 
+    async def _fixture_invocation(self,uow,authority):
+        from gateway.source_access import load_fixture_invocation_access
+        retained=getattr(authority,"source_invocation",None)
+        if retained is None:
+            raise ValueError("The original fixture invocation is required")
+        invocation=await load_fixture_invocation_access(uow,retained.invocation_id)
+        if (invocation!=retained or invocation.actor!=authority.actor or invocation.product!=authority.product
+            or invocation.draft_id!=authority.draft.id or invocation.catalog_digest!=authority.catalog.digest):
+            raise ValueError("The retained fixture invocation differs")
+        return invocation
+
     async def begin_fixture_run(self,authority,run_id):
-        from sqlalchemy import func, select
+        from sqlalchemy import func,select
+        from gateway.contracts.canonical import canonical_digest
         _uuid(run_id)
-        binding=authority.catalog.fixture_binding
-        source=self.source(binding)
-        roster=[case.fixture.id for case in authority.catalog.cases if case.kind not in {"permission_negative","input_negative"}]
-        if not roster or len(roster)>8:
-            raise ValueError("A bounded fixed source-positive fixture roster is required")
         async with self.registry.transaction() as uow:
-            await self._lock_authority(uow,authority.product,draft_id=authority.draft.id)
-            spec=self._authority_spec(authority.actor.id,authority.actor.id,authority.product,fixture=True,catalog_digest=authority.catalog.digest)
-            snapshot,_=await self._snapshot(uow,spec)
-            decision=self._decision(snapshot,authority.actor,"author",authority.product,fixture=True)
-            if decision.policy_revision!=authority.policy_revision or snapshot["draft"]["digest"]!=authority.draft.content_digest:
+            invocation=await self._fixture_invocation(uow,authority)
+            if run_id!=invocation.invocation_id:
+                raise ValueError("Fixture group owner differs")
+            await self._lock_authority(uow,invocation.product,draft_id=invocation.draft_id)
+            binding=authority.catalog.fixture_binding
+            source=self.source(binding)
+            spec=self._authority_spec(invocation.actor.id,invocation.actor.id,invocation.product,
+                fixture=True,catalog_digest=invocation.catalog_digest)
+            snapshot,_=await self._snapshot(uow,spec,owner_kind="fixture_invocation",owner_id=run_id)
+            decision=self._decision(snapshot,invocation.actor,"author",invocation.product,fixture=True)
+            if (canonical_digest(decision)!=canonical_digest(authority.author_decision)
+                or snapshot["draft"]["digest"]!=invocation.draft_digest):
                 raise ValueError("Fixture author authority changed")
+            roster=snapshot["source_access"]["positive_roster"]
             now=await uow.session.scalar(select(func.clock_timestamp()))
-            deadline=now+timedelta(seconds=min(120,decision.limits.execution_timeout_seconds,authority.product.manifest.limits.execution_timeout_seconds))
-            result=await self._insert_group(uow,owner_id=run_id,actor=authority.actor,product=authority.product,source=source,
+            deadline=min(invocation.effective_deadline_at,now+timedelta(seconds=min(120,
+                decision.limits.execution_timeout_seconds,invocation.product.manifest.limits.execution_timeout_seconds)))
+            result=await self._insert_group(uow,owner_id=run_id,actor=invocation.actor,product=invocation.product,source=source,
                 roster=roster,deadline=deadline,authority_spec=spec,snapshot=snapshot,decision=decision)
+            request=await self.policy.source_access.resolve_owner(uow,{'kind':'fixture_invocation','id':run_id},
+                invocation.actor,decision,action='author',request_id=run_id)
+            await self.policy.source_access.finalize(uow,(request,))
+            if await uow.session.scalar(select(func.clock_timestamp()))>=deadline:
+                raise ValueError("The fixture source deadline elapsed")
         return result
 
     async def check_fixture_group(self,uow,group,authority,case):
+        invocation=await self._fixture_invocation(uow,authority)
         await self._epoch(uow)
         row=(await uow.session.execute(text("SELECT *,clock_timestamp() now FROM gateway.source_operation_groups WHERE id=CAST(:id AS uuid)"),
             {"id":group.group_id})).mappings().one()
-        snapshot,_=await self._snapshot(uow,row["authority_spec"])
+        snapshot,_=await self._snapshot(uow,row["authority_spec"],owner_kind="fixture_invocation",owner_id=invocation.invocation_id)
         if (row["closed"] or row["deadline_at"]<=row["now"] or row["authority_snapshot"]!=snapshot
-                or row["actor_id"]!=authority.actor.id or row["authority_spec"]["draft_id"]!=authority.draft.id
-                or row["authority_spec"]["catalog_digest"]!=authority.catalog.digest or case.fixture.id not in row["roster"]):
+            or row["owner_kind"]!='fixture_test' or row["owner_id"]!=invocation.invocation_id
+            or row["actor_id"]!=invocation.actor.id or row["authority_spec"]["draft_id"]!=invocation.draft_id
+            or row["authority_spec"]["catalog_digest"]!=invocation.catalog_digest or case.fixture.id not in row["roster"]
+            or row["roster"]!=snapshot["source_access"]["positive_roster"] or group.deadline>row["deadline_at"]):
             raise ValueError("Fixture source group unavailable")
-        return group.deadline
+        return min(group.deadline,row["deadline_at"],invocation.effective_deadline_at)
 
     async def fixture_attempt(self,group,authority,case,attempt,prepared,current_decision,session_spec):
+        from uuid import uuid4
+        from sqlalchemy import func,select
+        from gateway.contracts.canonical import canonical_digest
         from gateway.contracts.execution import ExecutionSpec,PinnedProduct
         from gateway.contracts.identity import Principal,Decision
         from gateway.contracts.manifest import validate_manifest
-        spec=ExecutionSpec(principal_id=attempt.fixed_principal_id,pinned_product=PinnedProduct(
-            manifest=validate_manifest(attempt.fixture_manifest),binding_digest=attempt.fixture_binding_digest,version_id=attempt.draft_id),
-            canonical_query=attempt.canonical_query,canonical_hash=attempt.canonical_hash,policy_revision=attempt.policy_revision,
-            context="fixture_test",request_id=attempt.request_id)
-        principal=Principal.model_validate(attempt.principal_snapshot)
-        executed=Decision.model_validate(attempt.decision)
-        binding=authority.catalog.fixture_binding
-        plan=self._validate_plan(spec,prepared,executed,binding,session_spec,catalog_digest=authority.catalog.digest)
         async with self.registry.transaction() as uow:
-            await self._lock_authority(uow,authority.product,draft_id=authority.draft.id)
-            await self.check_fixture_group(uow,group,authority,case)
-            result=await self._materialize(uow,group=group,owner_id=attempt.id,case_id=case.fixture.id,spec=spec,
-                principal=principal,actor=authority.actor,binding=binding,prepared=prepared,executed=executed,current=current_decision,
-                plan=plan,generation=1,token=attempt.runner_token,deadline=attempt.deadline_at)
+            invocation=await self._fixture_invocation(uow,authority)
+            await self._lock_authority(uow,invocation.product,draft_id=invocation.draft_id)
+            # The immutable attempt and its mutable running fence precede S/A.
+            stored=(await uow.session.execute(text("SELECT * FROM gateway.fixture_attempts WHERE id=:id"),{'id':attempt.id})).mappings().one()
+            state=await uow.session.scalar(text("SELECT state FROM gateway.fixture_attempt_states WHERE attempt_id=:id FOR UPDATE"),{'id':attempt.id})
+            if (state!='running' or stored['runner_token']!=attempt.runner_token
+                or str(stored['source_invocation_id'])!=invocation.invocation_id or stored['fixture_id']!=case.fixture.id):
+                raise ValueError("Fixture attempt fence differs")
+            group_deadline=await self.check_fixture_group(uow,group,authority,case)
+            spec=ExecutionSpec(principal_id=stored['fixed_principal_id'],pinned_product=PinnedProduct(
+                manifest=validate_manifest(stored['fixture_manifest']),binding_digest=stored['fixture_binding_digest'],version_id=stored['draft_id']),
+                canonical_query=stored['canonical_query'],canonical_hash=stored['canonical_hash'],policy_revision=stored['policy_revision'],
+                context="fixture_test",request_id=stored['request_id'])
+            principal=Principal.model_validate(stored['principal_snapshot']);executed=Decision.model_validate(stored['decision'])
+            binding=authority.catalog.fixture_binding
+            plan=self._validate_plan(spec,prepared,executed,binding,session_spec,catalog_digest=invocation.catalog_digest)
+            actor_spec=self._authority_spec(invocation.actor.id,invocation.actor.id,invocation.product,fixture=True,catalog_digest=invocation.catalog_digest)
+            actor_snapshot,_=await self._snapshot(uow,actor_spec,owner_kind="fixture_invocation",owner_id=invocation.invocation_id)
+            author=self._decision(actor_snapshot,invocation.actor,"author",invocation.product,fixture=True)
+            if canonical_digest(author)!=canonical_digest(authority.author_decision):
+                raise ValueError("Fixture author authority changed")
+            deadline=min(stored['deadline_at'],group_deadline,invocation.effective_deadline_at)
+            result=await self._materialize(uow,group=group,owner_id=stored['id'],case_id=stored['fixture_id'],spec=spec,
+                principal=principal,actor=invocation.actor,binding=binding,prepared=prepared,executed=executed,current=current_decision,
+                plan=plan,generation=1,token=stored['runner_token'],deadline=deadline,review_product=invocation.product)
+            requests=(await self.policy.source_access.resolve_owner(uow,{'kind':'fixture_invocation','id':invocation.invocation_id},
+                invocation.actor,author,action='author',request_id=str(uuid4())),
+                await self.policy.source_access.resolve_owner(uow,{'kind':'fixture_attempt','id':stored['id']},
+                    principal,current_decision,action='execute',request_id=str(uuid4())))
+            await uow.session.flush()
+            await self.policy.source_access.finalize(uow,requests)
+            deadline=min(deadline,result.deadline,*(request.accepted.effective_deadline_at for request in requests))
+            if await uow.session.scalar(select(func.clock_timestamp()))>=deadline:
+                raise ValueError("The fixture source deadline elapsed")
         return result
 
     def _provider_registry(self,context):

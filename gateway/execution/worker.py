@@ -35,8 +35,16 @@ class Worker:
         deadline=effective_deadline(claim)
         clock_started=self.clock.now()
         monotonic_started=asyncio.get_running_loop().time()
+        budget=max(0.0,(deadline-clock_started).total_seconds())
+        # A local wall-clock rollback cannot stretch the fresh DB claim budget.
+        # Issuance precedes commit, so subtract commit/scheduling delay too.
+        claimed_at=getattr(claim,'claimed_at',None)
+        issued=getattr(claim,'monotonic_issued_at',None)
+        if claimed_at is not None and issued is not None:
+            budget=min(budget,max(0.0,(deadline-claimed_at).total_seconds()-max(0.0,monotonic_started-issued)))
         try:
-            async with asyncio.timeout_at(monotonic_started+max(0.0,(deadline-clock_started).total_seconds())) as timeout:
+            if budget<=0: raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
+            async with asyncio.timeout_at(monotonic_started+budget) as timeout:
                 # Claim transaction committed its audit before adapter construction.
                 adapter=self.adapter_factory()
                 prepared=claim.prepared

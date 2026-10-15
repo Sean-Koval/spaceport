@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, select, text
 
 from gateway.contracts.canonical import timestamp
-from gateway.registry.models import AuditEvent, ExecutionState, Result
+from gateway.registry.models import ExecutionState, Result
 
 
 @dataclass(frozen=True)
@@ -64,8 +64,11 @@ class RetentionSweep:
             if not permitted.may_delete or permitted.may_update or permitted.may_read_results:
                 raise ValueError("Audit retention requires the dedicated least-privilege role")
             cutoff = retention_cutoff(now, await uow.session.scalar(text("SELECT clock_timestamp()"))) - timedelta(days=30)
-            candidates = select(AuditEvent.id).where(AuditEvent.created_at <= cutoff).order_by(
-                AuditEvent.created_at, AuditEvent.id).limit(self.BATCH_SIZE)
-            removed = await uow.session.execute(delete(AuditEvent).where(AuditEvent.id.in_(candidates)).returning(AuditEvent.id))
-            deleted_audits = len(removed.scalars().all())
+            # Protected source audit references are excluded before the bounded
+            # limit, so retained provenance cannot starve ordinary event cleanup.
+            deleted_audits = await uow.session.scalar(text(
+                "SELECT gateway.prune_unreferenced_audits(:cutoff,:batch)"),
+                {"cutoff":cutoff,"batch":self.BATCH_SIZE})
+            if type(deleted_audits) is not int or not 0 <= deleted_audits <= self.BATCH_SIZE:
+                raise ValueError("Audit retention returned an invalid bounded count")
         return RetentionCounts(deleted_results=deleted_results, deleted_audits=deleted_audits)

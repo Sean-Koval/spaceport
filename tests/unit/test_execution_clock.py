@@ -9,6 +9,7 @@ import pytest
 
 from gateway.contracts.errors import GatewayError
 from gateway.contracts.execution import ExecutionView
+from gateway.contracts.identity import Principal
 from tests.contract.test_cube_adapter import synthetic
 
 pytestmark = pytest.mark.unit
@@ -364,13 +365,16 @@ def waiting_service(clock, *, saved=5, current=5, product=5):
         'manifest':pinned.manifest.model_copy(update={
             'limits':pinned.manifest.limits.model_copy(update={'sync_wait_seconds':product})})})})
     authorized=SimpleNamespace(view=ExecutionView(execution_id='execution-1',state='accepted',accepted_at=clock.now()),
+        principal=Principal(
+            id=spec.principal_id,subject='synthetic-north',kind='user',service_client_id='test-client'),
         spec=spec,executed_decision=decision(saved),current_decision=decision(current),
         issued_at=clock.now(),monotonic_issued_at=__import__('time').monotonic())
     class StatusQueue:
         calls=0
         next_cap=current
         blocked=False
-        async def wait_authorized(self,execution_id):
+        async def wait_authorized(self,execution_id,*,requester):
+            assert requester==authorized.principal
             self.calls+=1
             if self.blocked: await asyncio.sleep(30)
             return SimpleNamespace(**{**vars(authorized),'current_decision':decision(self.next_cap)})

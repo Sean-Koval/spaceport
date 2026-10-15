@@ -30,7 +30,8 @@ from gateway.policy.service import PolicyService
 from gateway.publishing.service import PublishingService
 from gateway.publishing.test_runner import FixtureRunner
 from gateway.registry.repository import Registry
-from gateway.runtime_config import RuntimeConfig, load_assets, database_url, read_secret, secret_key
+from gateway.runtime_config import (RuntimeConfig, load_assets, database_url, read_secret, secret_key,
+    _synthetic_capability, _revoke_synthetic_capability)
 from gateway.logging import configure_logging
 
 
@@ -39,8 +40,10 @@ class Runtime:
     services: Services
     adapter: CubeAdapter
     adapter_factory: object
+    synthetic_capability: object | None = None
 
     async def close(self):
+        _revoke_synthetic_capability(self.synthetic_capability)
         try:
             await self.adapter.close()
         finally:
@@ -57,7 +60,8 @@ def build_runtime() -> Runtime:
     registry = Registry(database_url('app'))
     principals = PrincipalStore(registry.sessions)
     audit = AuditWriter(secret_key('audit_hmac'))
-    policy = PolicyService(registry,principals,audit)
+    capability = _synthetic_capability(assets,registry,profile='legacy')
+    policy = PolicyService(registry,principals,audit,synthetic_capability=capability)
     bindings = StaticBindingResolver(list(assets.bindings))
     def adapter_factory():
         return CubeAdapter(catalog=assets.bundles,bindings=bindings,secret_resolver=read_secret,clock=clock)
@@ -76,7 +80,7 @@ def build_runtime() -> Runtime:
             templates=(assets.manifest,)),audit_reader=AuditReadService(registry=registry,policy=policy,cursors=cursors,clock=clock),
         readiness=ReadinessService(registry=registry,policy=policy,adapter=adapter,bindings=bindings,bundles=assets.bundles,
             clock=clock,probe_principal_id=config.probe_principal_id,probe_product_id=config.probe_product_id))
-    return Runtime(services,adapter,adapter_factory)
+    return Runtime(services,adapter,adapter_factory,capability)
 
 
 def app_factory():

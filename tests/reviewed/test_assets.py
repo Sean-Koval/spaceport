@@ -4,13 +4,14 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from types import SimpleNamespace
-from unittest.mock import Mock
+
+from unittest.mock import Mock, AsyncMock
 
 import pytest
 
 from gateway.reviewed_runtime import build_runtime,load_assets
 from gateway.adapters.reviewed import ReviewedCubeBinding
+from gateway.registry.repository import Registry
 
 pytestmark=[pytest.mark.unit,pytest.mark.contract]
 ROOT=Path(__file__).resolve().parents[2]
@@ -34,14 +35,15 @@ def test_security_contract_node_suite_and_legacy_bundle_digests():
 
 
 def test_composition_uses_existing_services_and_v2_adapter_without_network(clock):
-    registry=SimpleNamespace(sessions=Mock());authenticator=Mock()
+    registry=Registry('postgresql+psycopg://gwt_0123456789abcdef_app:synthetic@127.0.0.1:1/gateway_test_0123456789abcdef')
+    authenticator=Mock(close=AsyncMock())
     runtime=build_runtime(registry=registry,authenticator=authenticator,secret_resolver=lambda _: 'a'*43,
         audit_key=b'a'*32,cursor_key=b'c'*32,clock=clock)
     assert runtime.services.execution.bindings is runtime.services.bindings
     assert runtime.services.results.bindings is runtime.services.bindings
     assert runtime.services.publishing.fixture_runner.catalog_provider().consumer_binding.adapter_revision=='cube-rest-v2'
     import asyncio
-    asyncio.run(runtime.adapter.close())
+    asyncio.run(runtime.close())
 
 
 def test_loaded_model_drift_fails_closed(tmp_path):

@@ -90,7 +90,7 @@ def read_json(path, *, private=False, durable=False, private_parent=False):
     return parse_json(read_bytes(path, private=private, durable=durable, private_parent=private_parent))
 
 
-def write_json(path, value):
+def write_bytes(path, data):
     """Fsync complete temporary bytes, then atomically publish without replacement.
 
     Once linked at the final name the file is NEVER removed on uncertainty. A
@@ -101,8 +101,7 @@ def write_json(path, value):
     temporary = None
     temporary_owned = False
     try:
-        data = json.dumps(value, allow_nan=False, ensure_ascii=True, sort_keys=True, indent=2).encode() + b'\n'
-        if len(data) > MAX_JSON_BYTES:
+        if type(data) is not bytes or not 1 <= len(data) <= MAX_JSON_BYTES:
             raise FileError()
         opened, parent, name = _parent(path)
         info = os.fstat(parent)
@@ -135,6 +134,14 @@ def write_json(path, value):
                 pass
         for fd in reversed(opened):
             os.close(fd)
+
+
+def write_json(path, value):
+    try:
+        data = json.dumps(value, allow_nan=False, ensure_ascii=True, sort_keys=True, indent=2).encode() + b'\n'
+    except (ValueError, TypeError, RecursionError, UnicodeError):
+        raise FileError() from None
+    write_bytes(path, data)
 
 
 def check_output(path):
