@@ -562,3 +562,142 @@ def test_cleanup_deadline_failure_emits_unavailable_fixed_evidence(tmp_path, mon
     assert report['phases'][-1]['failure_evidence'] == {'reason': 'phase_budget', 'details_status': 'unavailable', 'markers': []}
     output = capsys.readouterr().err
     assert api.PHASE_PREFIX in output and 'PRIVATE_DEADLINE_DETAIL' not in output
+
+
+def test_actual_bigquery_shell_checkpoint_survives_private_phase_and_summary(tmp_path, capsys):
+    """Replay the exact shell emitter, without Docker or package substitution."""
+    import re
+    api = diagnostics()
+    source = (ROOT / 'scripts/verify_cube_runtime.sh').read_text()
+    function = re.search(r'^failure_checkpoint\(\) \{\n.*?^\}', source, re.MULTILINE | re.DOTALL).group(0)
+    checkpoint = next(line for line in source.splitlines() if line == 'CHECKPOINT=cube-bigquery-package')
+    result = subprocess.run(['bash', '-c', function + '\n' + checkpoint + '\nfailure_checkpoint 1\n'],
+        text=True, capture_output=True, timeout=5)
+    assert result.returncode == 0
+    private = tmp_path / 'private-phase.log'
+    private.write_text('PRIVATE_PACKAGE_ERROR\n' + result.stderr)
+    private.chmod(0o600)
+    evidence = api.phase_failure_evidence(private, {'exit_status': 1, 'descendant_cleanup': True})
+    marker = {'kind': 'checkpoint', 'checkpoint': 'cube-bigquery-package', 'exit_status': 1}
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available', 'markers': [marker]}
+    api.emit_phase_failure(evidence)
+    selected = capsys.readouterr().err
+    assert 'PRIVATE_PACKAGE_ERROR' not in selected
+    outer = tmp_path / 'outer-phase.log'; outer.write_text(selected); outer.chmod(0o600)
+    assert api.validate_phase_failure_evidence(api.phase_failure_evidence(
+        outer, {'exit_status': 1, 'descendant_cleanup': True})) == evidence
+
+
+def declared_shell_checkpoints(source):
+    import re
+    import shlex
+    declared = set()
+    for line in source.splitlines():
+        if line.lstrip().startswith('#') or not re.search(r'\bCHECKPOINT\s*=', line):
+            continue
+        assignment = re.fullmatch(r'\s*CHECKPOINT=(.*)', line)
+        assert assignment, 'Checkpoint assignment requires an explicit fixed literal'
+        words = shlex.split(assignment[1], comments=True)
+        assert len(words) == 1, 'Checkpoint assignment requires one fixed literal'
+        declared.add(words[0])
+    return declared
+
+
+def test_every_declared_runtime_shell_checkpoint_has_explicit_evidence_admission():
+    api = diagnostics()
+    declared = set()
+    for name in ('verify_cube_runtime.sh', 'verify_registry_postgres.sh'):
+        declared.update(declared_shell_checkpoints((ROOT / 'scripts' / name).read_text()))
+    assert 'cube-bigquery-package' in declared
+    assert declared <= api.CHECKPOINTS
+
+
+@pytest.mark.parametrize('assignment', ['CHECKPOINT=cube-v2', 'CHECKPOINT="cube-v2"',
+    "CHECKPOINT='cube-v2'", 'CHECKPOINT=$DYNAMIC', 'CHECKPOINT="$(private_command)"'])
+def test_checkpoint_inventory_cannot_silently_omit_unknown_or_dynamic_assignments(assignment):
+    checkpoints = declared_shell_checkpoints(assignment)
+    assert len(checkpoints) == 1 and not checkpoints <= diagnostics().CHECKPOINTS
+
+
+@pytest.mark.parametrize('assignment', ['CHECKPOINT=', 'CHECKPOINT=cube-images; arbitrary',
+    'if condition; then CHECKPOINT=cube-images; fi'])
+def test_checkpoint_inventory_rejects_unreviewed_assignment_syntax(assignment):
+    with pytest.raises(AssertionError):
+        declared_shell_checkpoints(assignment)
+
+
+@pytest.mark.parametrize('checkpoint', [
+    'cube-bigquery-module-resolution', 'cube-bigquery-package-versions',
+    'cube-bigquery-ledger', 'cube-bigquery-driver-construction', 'cube-bigquery-query',
+    'cube-bigquery-serialization', 'cube-bigquery-result-hydration', 'cube-bigquery-replay',
+    'cube-bigquery-io-guard', 'cube-bigquery-cleanup'])
+def test_fixed_bigquery_substage_survives_actual_node_reporter_without_raw_errors(tmp_path, checkpoint):
+    import shlex
+    api = diagnostics()
+    source = (ROOT / 'scripts/verify_cube_runtime.sh').read_text()
+    command = next(line for line in source.splitlines() if 'node --test' in line and 'bigquery-package.test.js' in line)
+    arguments = shlex.split(command)
+    flags = arguments[arguments.index('node') + 1:-1]
+    # The required explicit reporter keeps stderr marker prefixes stable across
+    # image Node versions; no arbitrary TAP/comment parsing is introduced.
+    assert flags == ['--test', '--test-reporter=spec']
+    marker = {'kind': 'checkpoint', 'checkpoint': checkpoint, 'exit_status': 1}
+    script = tmp_path / 'synthetic-package.test.cjs'
+    script.write_text("const test=require('node:test');\n"
+        "test('synthetic package boundary',()=>{\n"
+        "  process.stderr.write(" + json.dumps(api.EVIDENCE_PREFIX + json.dumps(marker) + '\n') + ");\n"
+        "  throw new Error('PRIVATE_PACKAGE_ERROR');\n});\n")
+    result = subprocess.run(['node', *flags, str(script)], capture_output=True, text=True, timeout=5)
+    assert result.returncode == 1
+    private = tmp_path / 'package.log'; private.write_text(result.stdout + result.stderr); private.chmod(0o600)
+    evidence = api.phase_failure_evidence(private, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'available', 'markers': [marker]}
+    assert 'PRIVATE_PACKAGE_ERROR' not in json.dumps(evidence)
+    assert str(script) not in json.dumps(evidence)
+    assert api.validate_phase_failure_evidence(evidence) == evidence
+
+
+@pytest.mark.parametrize('marker', [
+    {'kind': 'checkpoint', 'checkpoint': 'cube-bigquery-private-sentinel', 'exit_status': 1},
+    {'kind': 'checkpoint', 'checkpoint': 'cube-bigquery-query', 'exit_status': 1, 'error': 'PRIVATE_SENTINEL'},
+    {'kind': 'checkpoint', 'checkpoint': 'cube-bigquery-query', 'exit_status': True},
+])
+def test_bigquery_diagnostics_never_admit_dynamic_names_values_or_fields(tmp_path, marker):
+    api = diagnostics()
+    private = tmp_path / 'package.log'; private.write_text(api.EVIDENCE_PREFIX + json.dumps(marker) + '\n'); private.chmod(0o600)
+    evidence = api.phase_failure_evidence(private, {'exit_status': 1, 'descendant_cleanup': True})
+    assert evidence == {'reason': 'process_exit', 'details_status': 'invalid', 'markers': []}
+    assert 'PRIVATE_SENTINEL' not in json.dumps(evidence)
+
+
+def test_actual_bigquery_helper_vocabulary_and_receipts_match_private_parser(tmp_path):
+    api = diagnostics()
+    # Load the real helper and exercise its exported emitter. No package driver,
+    # provider SDK, credentials, socket, or mocked response is needed here.
+    program = """
+const { STAGES, failureEvidence } = require('./tests/runtime/bigquery-probe-evidence.cjs');
+const rows = STAGES.map(stage => {
+  const lines = [];
+  const receipt = failureEvidence(line => lines.push(line));
+  receipt.stage(stage);
+  receipt.emit();
+  return { stage, lines };
+});
+process.stdout.write(JSON.stringify(rows));
+"""
+    result = subprocess.run(['node', '-e', program], cwd=ROOT,
+        capture_output=True, text=True, timeout=5, check=True)
+    rows = json.loads(result.stdout)
+    assert isinstance(rows, list) and rows
+    stages = [row['stage'] for row in rows]
+    assert len(stages) == len(set(stages)) and set(stages) <= api.CHECKPOINTS
+    for index, row in enumerate(rows):
+        assert set(row) == {'stage', 'lines'} and len(row['lines']) == 1
+        marker = {'kind': 'checkpoint', 'checkpoint': row['stage'], 'exit_status': 1}
+        private = tmp_path / f'package-{index}.log'
+        private.write_text('PRIVATE_PROVIDER_ERROR\n' + row['lines'][0])
+        private.chmod(0o600)
+        evidence = api.phase_failure_evidence(private, {'exit_status': 1, 'descendant_cleanup': True})
+        assert evidence == {'reason': 'process_exit', 'details_status': 'available', 'markers': [marker]}
+        assert api.validate_phase_failure_evidence(evidence) == evidence
+        assert 'PRIVATE_PROVIDER_ERROR' not in json.dumps(evidence)

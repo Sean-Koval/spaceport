@@ -244,7 +244,7 @@ bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube
 # Actual installed BigQuery driver/SDK protocol only. The package contract uses
 # synthetic metadata with explicit socket/auth denial, never a cloud account.
 CHECKPOINT=cube-bigquery-package
-bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test tests/runtime/bigquery-package.test.js
+bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test --test-reporter=spec tests/runtime/bigquery-package.test.js
 CHECKPOINT=cube-egress
 for service in cube cube-test cube-reviewed cube-reviewed-test; do
   bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'

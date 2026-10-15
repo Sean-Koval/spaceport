@@ -132,7 +132,7 @@ def test_missing_reviewed_stack_is_required_failure_never_skip():
 
 def test_required_bigquery_package_probe_uses_existing_isolated_reviewed_service():
     source = (ROOT / 'scripts/verify_cube_runtime.sh').read_text()
-    command = 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test tests/runtime/bigquery-package.test.js'
+    command = 'bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test --test-reporter=spec tests/runtime/bigquery-package.test.js'
     assert source.splitlines().count(command) == 1
     assert source.index('CHECKPOINT=cube-bigquery-package') < source.index(command) < source.index('CHECKPOINT=cube-egress')
     assert 'set -euo pipefail' in source

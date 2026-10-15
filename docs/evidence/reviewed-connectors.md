@@ -22,14 +22,28 @@ Independent Domo/GCS code review caught and corrected statement-catalog substitu
 
 ## Verification status
 
-Independent whole-source review approved local source `9542b742343906ccb86752280bcfec596860ae4d`, tree `dd1433f63880b98b468a3980cc6296435bafccae`, for a private draft PR and the required hosted gate. Subsequent changes in this evidence record and the BigQuery status wording are documentation-only.
+Independent whole-source review approved local source `9542b742343906ccb86752280bcfec596860ae4d`, tree `dd1433f63880b98b468a3980cc6296435bafccae`, for a private draft PR and the required hosted gate. Subsequent changes through local `660e55a373e73f3304b4f7de0dd4ee03cd246262` were documentation-only. The later probe/diagnostic corrections are described below.
 
 - The unchanged frontend passed **254 tests across 24 files**, typecheck, generated-client consistency, production build and formatting checks with Node 24.19.0/npm 11.9.0.
 - Complete genuine backend collection is **359 cases**, including 13 new reviewed-Cube cases. Collection is not execution.
 - Reviewed v1 loaded assets, public OpenAPI/MCP snapshots, persisted PreparedQuery/migrations and all workflow files remain byte-identical to the starting tree.
 - Changed-document relative links: **42 checked, zero missing** before final evidence wording. Shell syntax and Git diff checks passed.
-- Final combined unit/contract run: **2,553 passed, 386 deselected**, 151.43 seconds (153.446 seconds wall-clock), exit 0. This stays within the unchanged 180-second source-test cap. Command: `.venv/bin/python -m pytest -m 'unit or contract' -q`. The code tested is the reviewed source above; only final evidence/status wording changed afterward.
+- Final combined unit/contract run: **2,553 passed, 386 deselected**, 151.43 seconds (153.446 seconds wall-clock), exit 0. This stays within the unchanged 180-second source-test cap. Command: `.venv/bin/python -m pytest -m 'unit or contract' -q`. The code tested is the reviewed source above; only final evidence/status wording changed through local `660e55a` afterward.
 
-The new genuine PostgreSQL/Cube cases and actual-image BigQuery package probe require the manual exact-source backend gate. The package probe denies credentials/auth/network and intercepts the provider boundary after real SDK request construction; it is not a live BigQuery query. Missing/mismatched packages fail rather than skip. Local Docker/package runtime is unavailable, so offline controls, source tests and collection cannot substitute for that run.
+The new genuine PostgreSQL/Cube cases and actual-image BigQuery package probe require the manual exact-source backend gate. The package probe denies credentials/auth/network and intercepts the provider boundary after real SDK request construction; it is not a live BigQuery query. Missing/mismatched packages fail rather than skip. Local Docker/immutable-image runtime is unavailable, so offline controls, source tests and collection cannot substitute for that run.
 
 All workflows remain manual-only. No live BigQuery/Domo/GCS/organization-PostgreSQL query, credential grant, IAM change, paid source request, deployment or main merge is included. Rendered-browser/composed-demo acceptance and production qualification remain separate.
+
+## Hosted gate attempt 16
+
+[Run 16](https://github.com/Sean-Koval/spaceport/actions/runs/38682007973) checked out exact remote source `78d14431de4398c947e8dccbd71039e77f296ed1`, tree `9eae93bd464e119188075cab59ffd7a5ae2bf8e9`, using the unchanged manual workflow on main `569cf9b2f06b991003461ee2717dcd4b85b530ad`. The source phase passed all **2,553 unit/contract tests**. Backend setup exited before an admitted genuine-backend result, so this attempt provides **no PostgreSQL/Cube or packaged BigQuery acceptance**. Exact registered cleanup passed.
+
+The bounded receipt marked failure detail invalid. Investigation reproduced a reporting defect: the shell can emit the new `cube-bigquery-package` checkpoint, but the strict diagnostic parser did not allow that enum. Such a marker clears all diagnostic markers by design. This reproduction explains how information could be lost; it does not establish the underlying failed substage. Raw private logs, credentials and exceptions are not published. The job ran from 04:32:39 to 04:36:31 UTC (232 seconds, four rounded Ubuntu job minutes).
+
+### Probe and diagnostic corrections
+
+The exact shell marker reproduction now has a strict allowlisted checkpoint and shell-vocabulary regression; fixed Node substages retain the same closed marker schema and limits. The new probe uses the spec reporter because TAP prefixes otherwise obscure those markers. No private exception content is admitted.
+
+A separate isolated official npm installation of Cube driver **1.8.5** with SDK **7.9.4** reproduced two probe-boundary assumptions: serialized request mode is lowercase `positional`, and the SDK metadata request path is slashless `jobs/<id>`. Correcting those test assertions/stubs produced a passing guarded local package probe, independently repeated. Provider metadata canonicalization remains a synthetic fixture assumption. Driver and ledger controls are unchanged. This is neither immutable-image nor live-provider evidence, and the lost run16 receipt cannot establish that these were its exact failure causes.
+
+Independent review cleared the integrated correction code at local `e62a4e5` and this evidence wording. Final full source verification on that code: **2,577 passed, 386 deselected in 154.98 seconds**, exit 0, using `.venv/bin/python -m pytest -m 'unit or contract' -q`. The unchanged source cap remains 180 seconds. No workflow, driver/ledger or gateway implementation changed in these corrections; immutable-image/backend acceptance still awaits the next exact-source hosted gate.

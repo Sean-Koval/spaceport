@@ -8,7 +8,11 @@
 
 The deterministic Node suite runs the production control implementation against real local files and real independent processes, including a SIGKILL case. Provider calls and the small upstream interface harness are simulated. The harness is explicitly **not** the packaged Cube class or its hydration implementation.
 
-A separate mandatory image test, `tests/runtime/bigquery-package.test.js`, loads the actual pinned Cube superclass and installed Google SDK. It intercepts the SDK transport after request serialization, supplies synthetic provider responses, and forbids sockets, DNS, HTTP/fetch and credential-file reads. It checks the actual inherited query/hydration path and `jobs.insert` JSON, including top-level `configuration.jobTimeoutMs` and `configuration.query.maximumBytesBilled`. Missing/mismatched packages fail, never skip. Local execution currently fails because the Cube package is not installed; actual-image execution is **NOT RUN** until its source-bound hosted evidence is recorded. The script does not prove real provider behavior.
+A separate mandatory image test, `tests/runtime/bigquery-package.test.js`, loads the actual pinned Cube superclass and installed Google SDK. It intercepts the SDK transport after request serialization, supplies synthetic provider responses, and forbids sockets, DNS, HTTP/fetch and credential-file reads. It checks the actual inherited query/hydration path and `jobs.insert` JSON, including top-level `configuration.jobTimeoutMs` and `configuration.query.maximumBytesBilled`. Missing/mismatched packages fail, never skip. An isolated local install from the official npm registry (`@cubejs-backend/bigquery-driver@1.8.5`, resolved Google SDK **7.9.4**, install scripts disabled) passed this guarded probe on 15 October 2026. This is package-level evidence, not the immutable image: the source-bound hosted image probe remains unverified until a passing receipt is recorded. The script does not prove real provider behavior.
+
+The actual SDK sends lowercase `positional` in query configuration. Its metadata helper reaches the intercepted transport with `jobs/<id>` (without a leading slash), while result reads use `/queries/<id>`. The fixture asserts these exact package boundaries. Synthetic metadata explicitly supplies uppercase `POSITIONAL`; that canonicalization is an assumed fixture behavior, **not evidence that Google accepts or normalizes the request**. The driver still rejects other metadata enum forms. Actual-provider qualification of this strict mapping, and provider-populated destinations, remains a live-activation prerequisite.
+
+Failures emit only a fixed, closed checkpoint enum with `kind`, `checkpoint`, and `exit_status` fields. No error, request, SQL, credential, path or version is included in these receipts. Stages identify the last entered probe operation, not a proven root cause. The image harness pins the spec reporter so receipt prefixes survive the Node test runner unchanged. Full test output remains private to the diagnostic boundary.
 
 The image harness runs this package test only with read-only candidate/test mounts and the existing bounded manual backend workflow. It does not add cloud egress or credentials.
 
@@ -90,7 +94,7 @@ node --test tests/node/bigquery-*.test.cjs
 Inside the separately approved immutable Cube image only:
 
 ```sh
-GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery node --test tests/runtime/bigquery-package.test.js
+GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery node --test --test-reporter=spec tests/runtime/bigquery-package.test.js
 ```
 
 Required regressions cover real cross-process exclusion, SIGKILL/unknown intent, restart/corruption/missing storage, same-job replay, all-job budget, atomic seal/late admission, generation/deadline changes, source-write metadata rejection, provider mismatches, zero-call disabled paths, limits, redaction and unchanged live gate. The complete repository unit/contract and genuine PostgreSQL/Cube backend gates remain required for the integrated candidate.

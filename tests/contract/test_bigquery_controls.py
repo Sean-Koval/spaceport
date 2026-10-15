@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_bigquery_offline_controls_with_real_storage_and_process_exclusivity():
     completed = subprocess.run(
-        ["node", "--test", "--test-reporter=tap", *[f"tests/node/bigquery-{name}.test.cjs" for name in ("ledger", "driver", "assets")]],
+        ["node", "--test", "--test-reporter=tap", *[f"tests/node/bigquery-{name}.test.cjs" for name in ("ledger", "driver", "assets", "probe")]],
         cwd=ROOT, text=True, capture_output=True, timeout=30,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
