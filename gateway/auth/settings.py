@@ -12,7 +12,7 @@ from gateway.contracts.canonical import Array, Identifier, StrictModel
 
 class Settings(StrictModel):
     mode: Literal["demo", "production"] = "demo"
-    source: Literal["synthetic_postgres", "postgres", "bigquery"] = "synthetic_postgres"
+    source: Literal["synthetic_postgres", "postgres", "bigquery", "reviewed_sources"] = "synthetic_postgres"
     bind_host: Annotated[str, Field(min_length=1, max_length=255)] = "127.0.0.1"
     public_ingress: bool = False
     trust_forwarded_headers: bool = False

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import hashlib
 from uuid import uuid4
 
-from sqlalchemy import column, func, select, table, update
+from sqlalchemy import column, func, select, table, update, text
 
 from gateway.adapters.base import authorization_scope_digest, check_binding
 from gateway.adapters.normalize import NormalizationContext, normalize
@@ -114,8 +114,9 @@ async def pending_capacity_counts(uow,principal_id):
 
 class ExecutionQueue:
     LEASE_SECONDS=30
-    def __init__(self,registry,policy,bindings,*,clock=None):
+    def __init__(self,registry,policy,bindings,*,clock=None,source_lifecycle=None):
         self.registry,self.policy,self.bindings=registry,policy,bindings
+        self.source_lifecycle=source_lifecycle
         self.clock=clock or SystemClock()
 
     async def lock_capacity(self,uow):
@@ -245,6 +246,9 @@ class ExecutionQueue:
             return self._authorized(execution_view(execution,state),spec,principal,executed,current)
 
     async def _expire(self,uow):
+        if self.source_lifecycle is not None:
+            await self.source_lifecycle._epoch(uow)
+            await uow.session.execute(text("SELECT gateway.source_expire_groups(32)"))
         now=await self._now(uow)
         await uow.session.execute(update(ExecutionState).where(ExecutionState.state.in_(_PENDING),
             ExecutionState.execution_id.in_(select(Execution.id).where(Execution.deadline_at<=now))).values(
@@ -291,17 +295,38 @@ class ExecutionQueue:
                         except (ValueError,TypeError):
                             raise failure(ErrorCode.BINDING_DRIFT,execution.request_id) from None
                         loaded=await self._load(uow,target)
-                        current=await self._authorize(uow,loaded,initial=prepared_row is None)
+                        source_mode=self._source_mode(loaded[4])
+                        existing_group=None
+                        if source_mode:
+                            await self.source_lifecycle._lock_authority(uow,loaded[1].pinned_product)
+                            if loaded[4].adapter_revision=='domo-named-v2':
+                                from gateway.adapters.source_preparations import load_source_prepared
+                                prepared=await load_source_prepared(uow,'consumer',target,loaded[4])
+                            existing_group=(await uow.session.execute(text("SELECT id,closed,settled_at FROM gateway.source_operation_groups WHERE owner_kind='consumer' AND owner_id=:owner"),{'owner':target})).mappings().one_or_none()
+                            if existing_group and (existing_group['closed'] or existing_group['settled_at'] is not None):
+                                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,execution.request_id)
+                        current=await self._authorize(uow,loaded,initial=prepared is None)
                         own,total=await source_capacity_counts(uow,execution.principal_id)
                         running=await uow.session.scalar(select(func.count()).select_from(ExecutionState).where(
                             ExecutionState.state=='running',ExecutionState.execution_id!=target))
                         own_running=await uow.session.scalar(select(func.count()).select_from(ExecutionState).join(Execution,
                             Execution.id==ExecutionState.execution_id).where(ExecutionState.state=='running',
                             ExecutionState.execution_id!=target,Execution.principal_id==execution.principal_id))
+                        # A reclaim retains its one logical group, including every
+                        # prior intent. It must not count its own hold twice.
+                        if existing_group is not None:
+                            own-=1;total-=1
                         if (total>=current.limits.deployment_concurrency or own>=current.limits.per_principal_concurrency
                             or running>=current.limits.deployment_concurrency or own_running>=current.limits.per_principal_concurrency):
                             target=None
                             continue
+                        source_group=None
+                        if source_mode:
+                            try:
+                                source_group=await self.source_lifecycle.reserve_consumer(uow,loaded,current,
+                                    authority_deadline(execution.created_at,execution.deadline_at,loaded[1],loaded[3],current))
+                            except (ValueError,TypeError):
+                                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,execution.request_id) from None
                         state=await uow.session.scalar(select(ExecutionState).where(ExecutionState.execution_id==target).with_for_update())
                         token=str(uuid4());generation=lease.generation+1 if lease else 1
                         now=await self._now(uow)
@@ -319,11 +344,15 @@ class ExecutionQueue:
                             lease.worker_id=worker_id;lease.lease_token=token;lease.generation=generation
                             lease.expires_at=expiry;lease.source_reserved_until=execution.deadline_at
                         state.state='running';state.started_at=state.started_at or now
-                        reservation=SourceReservation(id=str(uuid4()),execution_id=target,principal_id=execution.principal_id,
-                            lease_token=token,generation=generation)
-                        uow.session.add(reservation)
+                        if source_mode:
+                            reservation_id=source_group.group_id
+                        else:
+                            reservation=SourceReservation(id=str(uuid4()),execution_id=target,principal_id=execution.principal_id,
+                                lease_token=token,generation=generation)
+                            uow.session.add(reservation)
+                            reservation_id=reservation.id
                         await uow.session.flush()
-                        return Claim(target,token,generation,reservation.id,loaded[1],loaded[2],loaded[3],loaded[4],
+                        return Claim(target,token,generation,reservation_id,loaded[1],loaded[2],loaded[3],loaded[4],
                             prepared,
                             execution.deadline_at,execution.created_at,state.started_at)
                     return None
@@ -340,6 +369,10 @@ class ExecutionQueue:
             if state is None or state.state not in _PENDING or (lease.lease_token if lease else None)!=expected_token: return
             state.state='timed_out' if code==ErrorCode.EXECUTION_TIMEOUT else 'failed'
             state.error_code=ErrorCode(code).value;state.completed_at=await self._now(uow)
+            if self.source_lifecycle is not None:
+                group_id=await uow.session.scalar(text("SELECT id FROM gateway.source_operation_groups WHERE owner_kind='consumer' AND owner_id=:owner"),{'owner':execution_id})
+                if group_id is not None:
+                    await uow.session.execute(text("SELECT gateway.source_close_group(:id,'failure')"),{'id':group_id})
 
     async def _fence(self,uow,claim,*,allow_expired=False,allow_timed_out=False):
         state=await uow.session.scalar(select(ExecutionState).where(ExecutionState.execution_id==claim.execution_id).with_for_update().execution_options(populate_existing=True))
@@ -350,11 +383,59 @@ class ExecutionQueue:
             raise failure(ErrorCode.CONFLICT,claim.spec.request_id)
         return state,lease,now
 
+    def _source_mode(self,binding):
+        from gateway.source_lifecycle import SourceLifecycle
+        if not SourceLifecycle.required(binding):
+            return False
+        if self.source_lifecycle is None:
+            raise failure(ErrorCode.BINDING_DRIFT,'source-runtime')
+        return True
+
+    async def source_attempt(self,claim,prepared,current,session_spec):
+        if not self._source_mode(claim.binding):
+            raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
+        try:
+            return await self.source_lifecycle.consumer_attempt(self,claim,prepared,current,session_spec)
+        except (ValueError,TypeError):
+            raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,claim.spec.request_id) from None
+
+    async def _close_source(self,uow,claim,reason,*,require_terminal=False):
+        # Caller has already locked and checked the exact CURRENT lease fence.
+        # Old worker cleanup must never close a successor's stable source group.
+        row=(await uow.session.execute(text("SELECT id FROM gateway.source_operation_groups WHERE owner_kind='consumer' AND owner_id=:owner"),
+            {'owner':claim.execution_id})).one_or_none()
+        if row is None or str(row.id)!=claim.reservation_id:
+            raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
+        closed=await uow.session.scalar(text("SELECT gateway.source_close_group(:id,:reason)"),{'id':row.id,'reason':reason})
+        if require_terminal:
+            status=await uow.session.scalar(text("SELECT gateway.source_status(id) FROM gateway.source_sessions WHERE context='consumer' AND owner_id=:owner"),{'owner':claim.execution_id})
+            if status is None or not status['sealed'] or not status['terminal'] or not closed['settled']:
+                raise failure(ErrorCode.UPSTREAM_UNAVAILABLE,claim.spec.request_id)
+
+    async def _validate_source_candidate(self,uow,claim,completed):
+        if claim.binding.adapter_revision!='domo-named-v2':
+            return
+        from gateway.adapters.domo_completed import DomoCompleted
+        from gateway.source_lifecycle import SourceLifecycle
+        if type(completed) is not DomoCompleted:
+            raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
+        row=(await uow.session.execute(text("SELECT * FROM gateway.source_sessions WHERE context='consumer' AND owner_id=:owner"),
+            {'owner':claim.execution_id})).mappings().one_or_none()
+        if row is None:
+            raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
+        retained=SourceLifecycle._context(row)
+        if (canonical_digest(completed.permit.context.wire_context())!=canonical_digest(retained.wire_context())
+                or retained.generation!=claim.generation or retained.group_id!=claim.reservation_id):
+            raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
+        completed.evidence()
+
     async def gate(self,claim):
         """Commit fresh authorization before each upstream attempt/pending poll."""
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,claim.execution_id)
+            if self._source_mode(claim.binding):
+                await self.source_lifecycle._lock_authority(uow,claim.spec.pinned_product)
             prepared=await uow.session.get(ExecutionPreparation,claim.execution_id)
             current=await self._authorize(uow,loaded,initial=prepared is None)
             state,lease,now=await self._fence(uow,claim)
@@ -389,6 +470,9 @@ class ExecutionQueue:
             return changed.scalar_one_or_none() is not None
 
     async def _release(self,uow,claim):
+        if self._source_mode(claim.binding):
+            await self._close_source(uow,claim,'completed',require_terminal=True)
+            return
         # Trigger checks the current token/generation and supplies its own clock.
         await uow.session.execute(update(SourceReservation).where(SourceReservation.id==claim.reservation_id,
             SourceReservation.lease_token==claim.lease_token,SourceReservation.generation==claim.generation,
@@ -398,14 +482,17 @@ class ExecutionQueue:
         try:
             async with self.registry.transaction() as uow:
                 await self.lock_capacity(uow)
-                state,lease,now=await self._fence(uow,claim,allow_expired=True,allow_timed_out=source_completed)
+                source_mode=self._source_mode(claim.binding)
+                state,lease,now=await self._fence(uow,claim,allow_expired=True,allow_timed_out=source_completed or source_mode)
+                if source_mode:
+                    await self._close_source(uow,claim,'deadline' if code==ErrorCode.EXECUTION_TIMEOUT else 'failure')
                 if state.state=='timed_out':
-                    await self._release(uow,claim)
+                    if not source_mode: await self._release(uow,claim)
                     return True
                 state.state='timed_out' if code==ErrorCode.EXECUTION_TIMEOUT or now>=claim.deadline else 'failed'
                 state.error_code=ErrorCode.EXECUTION_TIMEOUT.value if state.state=='timed_out' else ErrorCode(code).value
                 state.completed_at=now
-                if source_completed: await self._release(uow,claim)
+                if source_completed and not source_mode: await self._release(uow,claim)
                 return True
         except GatewayError as error:
             if error.code==ErrorCode.CONFLICT: return False
@@ -416,9 +503,14 @@ class ExecutionQueue:
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,claim.execution_id)
+            if self._source_mode(claim.binding):
+                await self.source_lifecycle._lock_authority(uow,claim.spec.pinned_product)
             current=await self._authorize(uow,loaded,action='result')
             state,lease,now=await self._fence(uow,claim)
             if now>=effective_deadline(claim,current): raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
+            if self._source_mode(claim.binding):
+                await self._validate_source_candidate(uow,claim,completed)
+                await self._close_source(uow,claim,'completed',require_terminal=True)
             execution=loaded[0]
             view=ExecutionView(execution_id=execution.id,state='succeeded',accepted_at=execution.created_at,
                 started_at=state.started_at,completed_at=now)

@@ -135,7 +135,13 @@ def migrate(url, roles, target="head"):
         pytest.fail("Disposable owner migration failed: " + safe_migration_error(completed, url), pytrace=False)
 
 
-def run_migration_pair(url, roles, target="head"):
+def run_migration_pair(url, roles, target="head", *, worker=None):
+    if worker is not None:
+        from tests.integration.registry_migration_worker import MigrationWorkerError
+        try:
+            return worker.run(url, roles, target)
+        except MigrationWorkerError:
+            pytest.fail("Disposable owner migration worker failed", pytrace=False)
     from tests.integration.registry_migration_pair import parse_receipt
     env = {**os.environ, "GATEWAY_MIGRATION_DATABASE_URL": url.render_as_string(hide_password=False),
         **{f"GATEWAY_{key.upper()}_ROLE": value for key, value in roles.items()}}
@@ -154,6 +160,26 @@ def run_migration_pair(url, roles, target="head"):
     except ValueError:
         pytest.fail("Disposable owner migration pair evidence is invalid", pytrace=False)
     return value['first'], value['second']
+
+
+def session_migration_worker(request):
+    from tests.integration.registry_migration_worker import MigrationWorker, SESSION_WORKER_KEY
+    try:
+        admin_url = validate_test_admin_url(os.environ.get("GATEWAY_TEST_POSTGRES_ADMIN_URL"),
+            os.environ.get("GATEWAY_TEST_POSTGRES_AUTHORIZATION"))
+    except ValueError as error:
+        pytest.fail(str(error), pytrace=False)
+    worker = request.session.stash.get(SESSION_WORKER_KEY, None)
+    if worker is not None:
+        if worker._endpoint != (admin_url.host, admin_url.port):
+            worker.close()
+            pytest.fail("Disposable migration worker cluster changed", pytrace=False)
+        return worker
+    # The worker receives only the pinned endpoint, never the admin credential.
+    worker = MigrationWorker(admin_url.host, admin_url.port)
+    request.session.addfinalizer(worker.close)
+    request.session.stash[SESSION_WORKER_KEY] = worker
+    return worker
 
 
 @pytest.fixture
@@ -215,7 +241,8 @@ def registry_database(request):
         initial_revision = options.get("initial_revision", "head")
         if initial_revision not in {"head", "0001_registry"}:
             pytest.fail("The disposable fixture accepts only the reviewed migration targets", pytrace=False)
-        first, second = run_migration_pair(urls["owner"], roles, initial_revision)
+        first, second = run_migration_pair(urls["owner"], roles, initial_revision,
+            worker=session_migration_worker(request))
         with psycopg.connect(**connection_kwargs(urls["owner"])) as owner:
             head = owner.execute("SELECT version_num FROM public.alembic_version").fetchone()[0]
             owner.execute("CREATE SCHEMA fixture_source; CREATE TABLE fixture_source.orders (id text PRIMARY KEY, amount numeric(38,2)); INSERT INTO fixture_source.orders VALUES ('synthetic-order',10.10)")

@@ -9,7 +9,7 @@ from contextvars import ContextVar
 from typing import Awaitable, Callable
 from uuid import uuid4
 
-from gateway.adapters.reviewed import validate_binding_decision
+from gateway.adapters.reviewed import validate_binding_decision, binding_grain_fields, requires_exact_decision
 from gateway.adapters.base import (BindingResolver, authorization_scope_digest,
     check_binding, validate_query_visibility)
 from gateway.contracts.canonical import canonical_digest
@@ -36,7 +36,8 @@ def check_current_scope(product, request, binding, current, executed, request_id
     if (authorization_scope_digest(current)!=authorization_scope_digest(executed)
         or not set(current.visible_fields)<=set(executed.visible_fields)
         or not set(executed.visible_fields)<=set(product.manifest.outputs)
-        or not {name for name,item in binding.fields.items() if item.kind!='measure'}<=set(current.visible_fields)):
+        or not set(binding_grain_fields(binding))<=set(current.visible_fields)
+        or requires_exact_decision(binding) and canonical_digest(current)!=canonical_digest(executed)):
         raise GatewayError(ErrorCode.NOT_FOUND_OR_FORBIDDEN,request_id,'The current scope no longer matches this execution.')
     validate_query_visibility(binding,request,current,request_id)
     bounds=product.manifest.date_boundaries
@@ -124,11 +125,11 @@ class FixtureCapability:
 
 
 class ExecutionService:
-    def __init__(self, *, registry, policy, bindings: BindingResolver, clock: Clock | None=None):
+    def __init__(self, *, registry, policy, bindings: BindingResolver, clock: Clock | None=None, source_lifecycle=None):
         from .queue import ExecutionQueue
         self.registry,self.policy,self.bindings=registry,policy,bindings
         self.clock=clock or SystemClock()
-        self.queue=ExecutionQueue(registry,policy,bindings,clock=self.clock)
+        self.queue=ExecutionQueue(registry,policy,bindings,clock=self.clock,source_lifecycle=source_lifecycle)
 
     async def submit(self, principal: Principal, request: QueryRequest) -> ExecutionView:
         return (await self._submit(principal,request)).view

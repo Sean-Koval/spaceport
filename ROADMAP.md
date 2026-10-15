@@ -8,6 +8,19 @@ A team publishes a reusable, tested data product once. A person or an agent can 
 
 Work is ordered by usable outcomes and evidence. Synthetic fixtures, mock contracts, live-source checks and production readiness remain separate. There are no delivery-date commitments in this roadmap.
 
+## Current connector pilot wave
+
+PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The next [reviewed source pilot](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) is an implementation candidate, with [separate evidence](docs/evidence/source-pilot-runtime.md), not a live deployment.
+
+- Deliver the usable operator CLI, retained sample packages, source verification recipe and complete GKE application inventory for existing infrastructure.
+- Complete actual gateway/registry product journeys for BigQuery and Domo, with only provider boundaries simulated. Require the installed runtime and actual image gates, not standalone libraries alone.
+- Retain source holds across crashes, revocation, lease generations and unknown provider outcomes. Require durable commits and current authority before data calls; never release unknown capacity merely because the gateway times out.
+- Independently review and test the exact final private PR. The next merge needs separate approval.
+- Before calling this organization-usable, implement a separately reviewed security slice: protected data-owner approval and revocation for explicit non-PII products, plus rejection of unsupported delegated-source modes. User/agent relationships and source-user entitlement intersection are requirements, not current capabilities.
+- Then, under separate operator approval, qualify live identities, approved tables/datasets, PDP/business definitions, quotas, freshness and network controls. Browser SSO/PKCE and production/composed acceptance remain separate work.
+
+The [pilot runbook](docs/operations/source-pilot.md) describes the author/test/publish workflow and explicit setup actions. GCS remains the offline exact-generation artifact interface; a live route and policy inheritance are later work.
+
 ## 0. Establish a tested private-main baseline
 
 **Status: completed for the merged baseline.** Private `main` commit `e03a5a10fa78da78d18a964bc631a79633344b60` has the exact tested tree `b589ae8a0560dea59b45a112fd2409984128a0d9`: 1,847 unit/contract tests, 294 genuine backend tests and cleanup passed in [run 38615111132](https://github.com/Sean-Koval/spaceport/actions/runs/38615111132). The [baseline record](docs/evidence/private-main-baseline.md) scopes this evidence. Composed-demo acceptance remains open.
@@ -121,18 +134,18 @@ Next: select the actual identity provider and validate Studio delegation/browser
 
 ## 2B. Deliver reviewed connector software
 
-**Status: implementation candidate; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). No live source or deployment is activated.**
+**Status: foundation merged in PR 4; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). The current pilot wave extends its source-serving slices. No live source or deployment is activated.**
 
 - Complete the internal reviewed PostgreSQL/Cube v2 path: explicit versioned bindings, exact accepted-query replay, current policy checks, isolated fixture bundles and same-query hidden source checkpoints. Existing v1 bundles/public contracts remain unchanged.
 - Checkpoint joins require unique scoped source rows and atomic producer publication with data. Cache hits keep the original checkpoint and continue to age. Empty results have unknown freshness and cannot satisfy required freshness.
-- Retain a BigQuery driver/admission library candidate with durable source budgets and sealing. Before gateway integration, review trusted attempt-context propagation and authenticated sealed-completion status. Do not release source capacity on a local timeout or unproven cancellation.
-- Include offline Domo finite named-query and GCS exact-object readers, with no default transport, source credentials or runtime route. Domo must later receive a non-Cube execution/normalization contract; GCS must receive an explicit artifact authorization and product-policy relationship before serving.
+- The foundation retained a BigQuery driver/admission library. The current pilot adds trusted attempt propagation, durable PostgreSQL lifecycle control and gateway integration. Do not release source capacity on a local timeout or unproven cancellation.
+- The foundation included offline Domo and GCS readers. The current pilot adds Domo-specific REST execution and normalization; GCS still requires explicit artifact authorization and a product-policy relationship before serving.
 
 Acceptance separates source/mock checks, actual disposable PostgreSQL/Cube checks, packaged-driver checks and live evidence. The next real-source step is one operator-reviewed source/model with authoritative answers and approved access, not unrestricted database or bucket discovery. Do not infer immutability, producer atomicity or permission equivalence from configuration labels.
 
 ## 3. Deliver one real BigQuery-backed product
 
-**Status: live/gateway activation gated. The new bounded driver/admission library is an executable offline-tested candidate, not a complete serving connector.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
+**Status: live activation gated. The current pilot implements reviewed gateway/Cube serving and durable source control, with synthetic-provider evidence and remaining exact-image qualification.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
 
 Tasks:
 
@@ -151,7 +164,7 @@ Acceptance:
 
 ## 4. Reconcile and serve the first Domo product
 
-**Status: Phase 1b remains gated. An offline finite named-query reader exists, but no Domo runtime execution path or live authentication is enabled.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
+**Status: live Phase 1b qualification remains gated. The current pilot implements finite approved-statement REST serving and isolated fixture workflows; live authentication/PDP and authoritative business reconciliation remain unverified.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
 
 Tasks:
 

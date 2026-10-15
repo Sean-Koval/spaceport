@@ -2,6 +2,8 @@
 
 Overall acceptance: **BLOCKED**. This is the requirement/evidence index, not a completed acceptance certificate. The [merged private-main baseline](private-main-baseline.md) passed its complete backend gate on 2026-10-14: 1,847 unit/contract tests, 294 genuine backend tests and verified cleanup. That receipt covers only its exact source tree. The composed application, rendered-browser journey and fresh no-acquisition repeat remain unverified; changed source requires new checks. Collection, synthetic XML or an existing `PASS` string is not execution evidence.
 
+The subsequent connector foundation merged in PR 4 with [run 18 evidence](reviewed-connectors.md#hosted-gate-attempt-18-pass). The new [source pilot evidence](source-pilot-runtime.md) records genuine local PostgreSQL and installed-service development checks, separately from synthetic provider responses. It does not inherit the foundation’s hosted receipt or satisfy the composed browser/live-source gates below.
+
 ## Evidence classes
 
 - **Unit/contract:** deterministic validation, normalization and mocked adapter behavior. Loopback sockets with service doubles prove wire compatibility only.

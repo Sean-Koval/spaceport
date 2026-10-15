@@ -33,7 +33,9 @@ PHASE_PREFIX = 'GATEWAY_PHASE_FAILURE '
 PROGRESS_PREFIX = 'GATEWAY_PRIVATE_PYTEST_PROGRESS '
 MAX_PROGRESS_LINES = 10000
 MAX_PROGRESS_BYTES = 4 * 1024 * 1024
-CHECKPOINTS = frozenset('''cube-preflight cube-register-cleanup cube-create-secrets cube-images
+CHECKPOINTS = frozenset('''source-runtime-wrapper source-runtime-control source-runtime-child
+    source-config source-startup source-main source-revocation source-reclaim source-zero source-unknown source-cleanup
+    source-journey-image source-journey-smoke source-image-build source-image-smoke source-gateway-image source-gateway-cli source-gateway-import source-create-secrets source-fixture-bootstrap cube-bigquery-serving cube-preflight cube-register-cleanup cube-create-secrets cube-images
     cube-secret-readability cube-probe-image cube-stack-readiness cube-role-initializers
     cube-runtime-versions cube-topology cube-node-security cube-auth-security cube-bigquery-package
     cube-bigquery-module-resolution cube-bigquery-package-versions cube-bigquery-ledger
@@ -45,6 +47,13 @@ CHECKPOINTS = frozenset('''cube-preflight cube-register-cleanup cube-create-secr
     registry-junit-admission registry-acceptance backend-preflight backend-collection
     backend-tests backend-junit-admission backend-source-recheck backend-endpoint-recheck
     backend-receipt-write backend-report-admission'''.split())
+JOURNEY_TEST = 'tests/integration/test_bigquery_gateway.py::test_real_bigquery_author_fixture_publish_describe_worker_result'
+JOURNEY_STAGES = frozenset(('configuration', 'attestation', 'source', 'descriptor', 'execution', 'receipt', 'cleanup',
+    'image_bootstrap', 'image_source', 'image_descriptor', 'image_database', 'image_package_bootstrap',
+    'image_cube_startup', 'image_fixture_test', 'image_publish', 'image_catalog', 'image_query', 'image_worker',
+    'image_result', 'image_settlement', 'image_teardown', 'image_counts'))
+JOURNEY_ERRORS = frozenset(('permission', 'missing_file', 'import', 'timeout', 'assertion', 'value', 'type',
+    'unexpected', 'output_limit', 'process_exit', 'io', 'encoding'))
 PHASE_REASONS = frozenset(('process_exit', 'timeout', 'output_limit', 'interrupted',
     'orphaned_descendants', 'unverified_cleanup', 'phase_budget', 'supervision_exception',
     'work_interrupted', 'unavailable'))
@@ -138,6 +147,10 @@ def validate_failure_marker(value):
         if (set(value) != {'kind', 'checkpoint', 'exit_status'} or value['checkpoint'] not in CHECKPOINTS
             or type(value['exit_status']) is not int or not 1 <= value['exit_status'] <= 255):
             raise ValueError()
+    elif value.get('kind') == 'journey':
+        if (set(value) != {'kind', 'stage', 'error'} or type(value['stage']) is not str
+            or type(value['error']) is not str or value['stage'] not in JOURNEY_STAGES
+            or value['error'] not in JOURNEY_ERRORS): raise ValueError()
     elif value.get('kind') == 'phase':
         if (set(value) != {'kind', 'phase', 'reason'} or value['phase'] != 'backends'
             or value['reason'] not in PHASE_REASONS):
@@ -328,6 +341,22 @@ def structured_test_failure(report):
     return {'kind': 'test', 'test': test, 'stage': report.when, 'exception': exception, 'trace': trace[-4:]}
 
 
+def structured_journey_failure(report):
+    # One exact collected test and one closed message grammar; never serialize
+    # exception attributes, arbitrary text, captured output or provider values.
+    if report.nodeid != JOURNEY_TEST or JOURNEY_TEST not in _collected_tests or report.when != 'call':
+        return None
+    message = getattr(getattr(report.longrepr, 'reprcrash', None), 'message', '')
+    if type(message) is not str or len(message) > 256: return None
+    match = re.fullmatch(r'(?:tests\.integration\.source_journey_host\.)?HostedJourneyFailure: '
+        r'Hosted synthetic BigQuery journey failed at ([a-z_]+) \(([a-z_]+)\)', message)
+    if match is None: return None
+    try:
+        return validate_failure_marker({'kind': 'journey', 'stage': match[1], 'error': match[2]})
+    except ValueError:
+        return None
+
+
 def pytest_runtest_logreport(report):
     """Flush the first failure before pytest enters possibly slow teardown.
 
@@ -341,6 +370,9 @@ def pytest_runtest_logreport(report):
             value = structured_test_failure(report)
             if value is not None:
                 print('\n' + EVIDENCE_PREFIX + json.dumps(validate_failure_marker(value), sort_keys=True), flush=True)
+            journey = structured_journey_failure(report)
+            if journey is not None:
+                print('\n' + EVIDENCE_PREFIX + json.dumps(journey, sort_keys=True), flush=True)
         else:
             print(f"\nFIRST FAILURE ({report.when}): {report.nodeid}\n{report.longreprtext}", flush=True)
     if _progress_evidence and report.when in {'setup', 'call', 'teardown'}:

@@ -1,0 +1,30 @@
+# Synthetic retained model. It names no existing cloud resource.
+cubes:
+  - name: Usage
+    sql: >
+      SELECT row_key, tenant_id, access_group, event_date, account_id, usage_events
+      FROM `fixture-project.inputs.usage`
+    refresh_key:
+      sql: SELECT 'stable' AS refresh_key
+    measures:
+      - name: events
+        sql: CAST(SUM({CUBE}.usage_events) AS STRING)
+        type: number
+    dimensions:
+      - name: row_key
+        sql: row_key
+        type: string
+        primary_key: true
+        public: false
+      - name: tenant
+        sql: tenant_id
+        type: string
+      - name: group
+        sql: access_group
+        type: string
+      - name: day
+        sql: event_date
+        type: time
+      - name: account
+        sql: account_id
+        type: string

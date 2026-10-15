@@ -182,6 +182,7 @@ def test_failed_pair_still_cleans_only_its_fresh_database_and_four_roles(monkeyp
         if failure == 'os': raise OSError('PRIVATE_ERROR')
         return SimpleNamespace(returncode=1 if failure == 'nonzero' else 0, stdout='PRIVATE_ERROR', stderr='PRIVATE_ERROR')
     monkeypatch.setattr(fixture.subprocess, 'run', run)
+    monkeypatch.setattr(fixture, 'session_migration_worker', lambda request: None)
     with pytest.raises(pytest.fail.Exception):
         next(fixture.registry_database.__wrapped__(SimpleNamespace(param={})))
     drops = [query for query in queries if query.startswith('DROP ')]

@@ -46,7 +46,7 @@ def test_reviewed_services_are_explicit_opt_in_without_new_secrets_or_ports():
 
 def test_backend_verifier_starts_restarts_and_cleans_the_same_reviewed_stack():
     source = (ROOT / 'scripts/verify_cube_runtime.sh').read_text()
-    assert '-f infra/compose.reviewed.yaml)' in source
+    assert '-f infra/compose.reviewed.yaml -f infra/compose.source-test.yaml)' in source
     assert 'start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test edge' in source
     assert 'restart registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test' in source
     assert 'start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test\n' in source

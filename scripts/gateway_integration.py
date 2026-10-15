@@ -484,7 +484,7 @@ def integrate(mode, root):
     report = {'schema_version': 1, 'mode': mode, 'classification': 'actual', 'status': 'BLOCKED',
         'started_at': utc_now(), 'phases': rows, 'work_budget_seconds': allowance['work_seconds'], 'job_budget': allowance,
         'cleanup_reserve_seconds': CLEANUP_SECONDS, 'separate_backend_gate_required': mode == 'demo',
-        'limitations': {'live_bigquery': 'NOT RUN', 'studio': 'NOT TESTED', 'domo': 'NOT IMPLEMENTED', 'production': 'NOT APPROVED'}}
+        'limitations': {'live_bigquery': 'NOT RUN', 'studio': 'NOT TESTED', 'domo': 'LIVE ACCESS NOT RUN', 'production': 'NOT APPROVED'}}
     previous_alarm = signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(Blocked('Overall work budget exhausted')))
     signal.setitimer(signal.ITIMER_REAL, allowance['work_seconds'])
     try:

@@ -52,12 +52,16 @@ fi
 readonly TEMP_DIR="$(mktemp -d)"
 readonly PROJECT="gateway-cube-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
 export GATEWAY_RUNTIME_SECRET_DIR="$TEMP_DIR/secrets"
+export GATEWAY_SOURCE_SECRET_DIR="$TEMP_DIR/source-secrets"
+export GATEWAY_SOURCE_FIXTURE_DIR="$TEMP_DIR/source-fixture"
 export GATEWAY_RUNTIME_EVIDENCE_DIR="$TEMP_DIR/evidence"
 export GATEWAY_PROBE_IMAGE="$PROJECT-probe:local"
-export GATEWAY_CUBE_RUN_LABEL="${GITHUB_RUN_ID:-$PROJECT}-${GITHUB_RUN_ATTEMPT:-local}"
+export GATEWAY_APP_PROBE_IMAGE="$PROJECT-app-probe:local"
+export GATEWAY_BIGQUERY_PROBE_IMAGE="$PROJECT-bigquery:local"
+export GATEWAY_SOURCE_JOURNEY_IMAGE_TAG="$PROJECT-journey:local"
+export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
   CHECKPOINT=cube-register-cleanup
-  export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"
   uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
 import sys
@@ -65,7 +69,7 @@ from scripts.gateway_integration import register_compatibility
 register_compatibility(Path(sys.argv[1]), 'cube', sys.argv[2], sys.argv[3])
 PYCLEANUP
 fi
-COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml -f infra/compose.reviewed.yaml)
+COMPOSE=(docker compose --project-name "$PROJECT" -f infra/compose.yaml -f infra/compose.test.yaml -f infra/compose.reviewed.yaml -f infra/compose.source-test.yaml)
 start_private_stack() {
   local result=0
   bounded 180 "${COMPOSE[@]}" up -d --wait --wait-timeout 150 "$@" || result=$?
@@ -79,17 +83,55 @@ start_private_stack() {
   return "$result"
 }
 cleanup() {
-  failure_checkpoint "$?"
+  local original_status="$?" cleanup_status=0
+  failure_checkpoint "$original_status"
   bounded 45 "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  # Remove the combined test image before its related runtime evidence images.
+  if [[ -n "${GATEWAY_SOURCE_JOURNEY_IMAGE_TAG:-}" ]]; then
+    bounded 15 docker image rm "$GATEWAY_SOURCE_JOURNEY_IMAGE_TAG" >/dev/null 2>&1 || true
+  fi
   bounded 15 docker image rm "$GATEWAY_PROBE_IMAGE" >/dev/null 2>&1 || true
-  rm -rf -- "$TEMP_DIR"
+  if [[ -n "${GATEWAY_APP_PROBE_IMAGE:-}" ]]; then
+    bounded 15 docker image rm "$GATEWAY_APP_PROBE_IMAGE" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${GATEWAY_BIGQUERY_PROBE_IMAGE:-}" ]]; then
+    bounded 15 docker image rm "$GATEWAY_BIGQUERY_PROBE_IMAGE" >/dev/null 2>&1 || true
+  fi
+  # Exact-label cleanup owns ambiguous docker creates even without a returned CID.
+  # Keep the private recovery record if removal or absence cannot be verified.
+  bounded 45 uv run --locked --offline python - "$TEMP_DIR" <<'PYCLEANLOCAL' || cleanup_status=$?
+from pathlib import Path
+import sys
+from scripts.gateway_integration import cleanup_compatibility
+cleanup_compatibility(Path(sys.argv[1]))
+PYCLEANLOCAL
+  if (( cleanup_status == 0 )); then
+    rm -rf -- "$TEMP_DIR"
+  else
+    printf 'BLOCKED: Exact run cleanup is unverified; private recovery identity retained.\n' >&2
+  fi
+  if (( original_status != 0 )); then return "$original_status"; fi
+  return "$cleanup_status"
 }
+# Every mode owns an exact private recovery record before allocating resources.
+uv run --locked --offline python - "$TEMP_DIR" "$PROJECT" "$GATEWAY_CUBE_RUN_LABEL" <<'PYREGISTERLOCAL'
+from pathlib import Path
+import sys
+from scripts.gateway_integration import register_compatibility
+register_compatibility(Path(sys.argv[1]), 'cube', sys.argv[2], sys.argv[3])
+PYREGISTERLOCAL
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-mkdir "$GATEWAY_RUNTIME_SECRET_DIR" "$GATEWAY_RUNTIME_EVIDENCE_DIR" "$TEMP_DIR/build"
+mkdir "$GATEWAY_RUNTIME_SECRET_DIR" "$GATEWAY_SOURCE_SECRET_DIR" "$GATEWAY_RUNTIME_EVIDENCE_DIR" "$TEMP_DIR/build"
+# This directory contains synthetic safe fixture JSON only, never credentials.
+# Private TEMP_DIR prevents host traversal; the readonly container mount needs
+# directory traversal by Cube's distinct non-root UID.
+mkdir -m 0755 "$GATEWAY_SOURCE_FIXTURE_DIR"
 CHECKPOINT=cube-create-secrets
 uv run --locked --offline python scripts/cube_runtime_secrets.py --secret-dir "$GATEWAY_RUNTIME_SECRET_DIR"
+CHECKPOINT=source-create-secrets
+uv run --locked --offline python scripts/source_runtime_secrets.py --secret-dir "$GATEWAY_SOURCE_SECRET_DIR"
 # Preparation happens before the internally isolated services start. Exact
 # official images only; this process has no registry login or external secrets.
 CHECKPOINT=cube-images
@@ -160,6 +202,54 @@ cp -a "$packages" "$TEMP_DIR/build/packages"
 cp infra/Probe.Dockerfile "$TEMP_DIR/build/Dockerfile"
 bounded 120 docker build --network none --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_PROBE_IMAGE" "$TEMP_DIR/build"
 bounded 15 docker run --rm --network none --entrypoint /opt/python/bin/python3.12 "$GATEWAY_PROBE_IMAGE" --version
+# Build the actual installable gateway image from its reviewed pinned Dockerfile.
+# Acquisition uses locked official dependencies; the resulting non-root image is
+# exercised with no network, secrets, writable root or added capabilities.
+CHECKPOINT=source-gateway-image
+bounded 120 docker build --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_APP_PROBE_IMAGE" -f gateway/Dockerfile .
+CHECKPOINT=source-gateway-cli
+bounded 15 docker run --rm --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 256m --workdir /tmp "$GATEWAY_APP_PROBE_IMAGE" -m scripts.spaceport --help
+CHECKPOINT=source-gateway-import
+bounded 15 docker run --rm --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 256m "$GATEWAY_APP_PROBE_IMAGE" -c 'import gateway.source_pilot_runtime, gateway.source_pilot_config, gateway.product_packages; print("Verified gateway source runtime imports without network or credentials")'
+# Build only from the immutable Cube image already acquired above. No package
+# installation or build networking is permitted in this source runtime image.
+CHECKPOINT=source-image-build
+bounded 120 docker build --network none --platform linux/amd64 --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --tag "$GATEWAY_BIGQUERY_PROBE_IMAGE" -f cube/bigquery-runtime/Dockerfile .
+CHECKPOINT=source-image-smoke
+bounded 30 uv run --locked --offline python -m tests.integration.source_runtime_image_gate --image "$GATEWAY_BIGQUERY_PROBE_IMAGE" --run-label "$GATEWAY_CUBE_RUN_LABEL"
+# Full gateway journey copies the same locked Python inputs into the pinned Cube base.
+# Related image IDs are evidence references, not ancestry or copied-byte attestations.
+# The one ordinary backend testcase invokes its exact image; no selection is omitted.
+CHECKPOINT=source-journey-image
+GATEWAY_SOURCE_JOURNEY_RUNTIME_IMAGE_ID="$(bounded 15 docker image inspect "$GATEWAY_BIGQUERY_PROBE_IMAGE" --format '{{.Id}}')"
+GATEWAY_SOURCE_JOURNEY_PROBE_IMAGE_ID="$(bounded 15 docker image inspect "$GATEWAY_PROBE_IMAGE" --format '{{.Id}}')"
+[[ "$GATEWAY_SOURCE_JOURNEY_RUNTIME_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ && "$GATEWAY_SOURCE_JOURNEY_PROBE_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+export GATEWAY_SOURCE_JOURNEY_RUNTIME_IMAGE_ID GATEWAY_SOURCE_JOURNEY_PROBE_IMAGE_ID
+cp -a cube/bigquery-runtime "$TEMP_DIR/build/bigquery-runtime"
+cp infra/SourceJourney.Dockerfile "$TEMP_DIR/build/SourceJourney.Dockerfile"
+bounded 120 docker build --network none --platform linux/amd64 --label "gateway.cube.run=$GATEWAY_CUBE_RUN_LABEL" --build-arg "RUNTIME_IMAGE_ID=$GATEWAY_SOURCE_JOURNEY_RUNTIME_IMAGE_ID" --build-arg "PROBE_IMAGE_ID=$GATEWAY_SOURCE_JOURNEY_PROBE_IMAGE_ID" --tag "$GATEWAY_SOURCE_JOURNEY_IMAGE_TAG" -f "$TEMP_DIR/build/SourceJourney.Dockerfile" "$TEMP_DIR/build"
+GATEWAY_SOURCE_JOURNEY_IMAGE_ID="$(bounded 15 docker image inspect "$GATEWAY_SOURCE_JOURNEY_IMAGE_TAG" --format '{{.Id}}')"
+[[ "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
+export GATEWAY_SOURCE_JOURNEY_IMAGE_ID
+CHECKPOINT=source-journey-smoke
+bounded 20 uv run --locked --offline python - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL" <<'PYJOURNEYSMOKE'
+import json
+import sys
+from scripts.pytest_runtime_diagnostics import EVIDENCE_PREFIX, validate_failure_marker
+from tests.integration.source_journey_host import HostedJourneyFailure, run_image_smoke
+try:
+    run_image_smoke(sys.argv[1], sys.argv[2])
+except HostedJourneyFailure as error:
+    try:
+        marker = validate_failure_marker({'kind': 'journey', 'stage': error.journey_stage, 'error': error.journey_error})
+    except (ValueError, TypeError, AttributeError):
+        raise SystemExit('Exact combined journey image smoke failed') from None
+    print(EVIDENCE_PREFIX + json.dumps(marker, sort_keys=True), flush=True)
+    raise SystemExit(1)
+except Exception:
+    raise SystemExit('Exact combined journey image smoke failed') from None
+print('Verified exact combined journey image imports without network or credentials')
+PYJOURNEYSMOKE
 bounded 15 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
 CHECKPOINT=cube-stack-readiness
 start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test edge
@@ -245,6 +335,13 @@ bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_CUBE_CONFIG_MODULE=/cube/conf/cube
 # synthetic metadata with explicit socket/auth denial, never a cloud account.
 CHECKPOINT=cube-bigquery-package
 bounded 60 "${COMPOSE[@]}" exec -T -e GATEWAY_BIGQUERY_CONTROLS_DIR=/cube/conf/bigquery cube-reviewed node --test --test-reporter=spec tests/runtime/bigquery-package.test.js
+# New source lifecycle uses a separate disposable database on the existing
+# private registry. Bootstrap credentials never enter the Node runtime process.
+# Only the final SDK/provider boundary is synthetic; no real cloud queries.
+CHECKPOINT=source-fixture-bootstrap
+bounded 60 "${COMPOSE[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" source-bootstrap
+CHECKPOINT=cube-bigquery-serving
+bounded 120 uv run --locked --offline python scripts/source_runtime_gate.py --project "$PROJECT" --run-label "$GATEWAY_CUBE_RUN_LABEL"
 CHECKPOINT=cube-egress
 for service in cube cube-test cube-reviewed cube-reviewed-test; do
   bounded 15 "${COMPOSE[@]}" exec -T "$service" node - <<'JS'

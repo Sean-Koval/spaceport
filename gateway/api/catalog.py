@@ -5,7 +5,9 @@ from sqlalchemy import select
 from gateway.contracts.canonical import Identifier, Version, canonical_digest
 from gateway.contracts.errors import ErrorCode, GatewayError, invalid_input
 from gateway.contracts.identity import Principal
-from gateway.adapters.base import check_binding,validate_query_visibility
+from gateway.adapters.base import check_binding,validate_query_visibility,authorization_scope_digest
+from gateway.adapters.reviewed import binding_time_fields
+from gateway.adapters.domo_runtime import DomoRuntimeBinding,domo_request_digest
 from gateway.contracts.query import QueryRequest,validate_query
 from gateway.contracts.manifest import SortDefinition,iso_date
 from gateway.contracts.execution import Provenance
@@ -54,6 +56,11 @@ def visible_examples(manifest,decision,binding):
         bounds=manifest.date_boundaries
         if bounds and (iso_date(request.inputs[bounds.end_input])-iso_date(request.inputs[bounds.start_input])).days>decision.limits.max_date_range_days:
             continue
+        if isinstance(binding,DomoRuntimeBinding):
+            identity=(domo_request_digest(request),authorization_scope_digest(decision),canonical_digest(decision))
+            if any((variant.query_digest,variant.scope_digest,variant.decision_digest)==identity for variant in binding.variants):
+                examples.append(example)
+            continue
         permitted=True
         for name,field in binding.input_fields.items():
             if name not in request.inputs or request.inputs[name] is None:continue
@@ -71,7 +78,7 @@ def project_product(target,decision,binding,status):
     if binding.context!='consumer' or not visible<=set(manifest.outputs):raise not_found()
     full=visible==set(manifest.outputs)
     allowed_inputs={name for name,field in binding.input_fields.items() if field in visible}
-    times={name for name,value in binding.fields.items() if value.kind=='time'}
+    times=set(binding_time_fields(binding))
     boundaries=manifest.date_boundaries if times<=visible else None
     if boundaries:allowed_inputs|={boundaries.start_input,boundaries.end_input}
     return ProductDescription(product_id=manifest.product_id,version=manifest.version,digest=manifest.content_digest,

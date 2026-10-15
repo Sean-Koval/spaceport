@@ -41,10 +41,9 @@ readonly POSTGRES_IMAGE='postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f5
 readonly RUN_ID="gateway-registry-test-$(uv run --locked --offline python -c 'import secrets; print(secrets.token_hex(8))')"
 readonly TEMP_DIR="$(mktemp -d)"
 readonly CONTAINER="$RUN_ID"
-RUN_LABEL="${GITHUB_RUN_ID:-$RUN_ID}-${GITHUB_RUN_ATTEMPT:-local}"
+RUN_LABEL="$RUN_ID-local"
 if [[ "$VERIFY_MODE" == backend-acceptance || "$VERIFY_MODE" == demo-prerequisites ]]; then
   CHECKPOINT=registry-register-cleanup
-  RUN_LABEL="$RUN_ID-local"
   uv run --locked --offline python - "${INTEGRATION_RECEIPTS%/*}" "$RUN_ID" "$RUN_LABEL" <<'PYCLEANUP'
 from pathlib import Path
 import sys
@@ -93,6 +92,11 @@ CONTAINER_ID="$(docker run --detach --name "$CONTAINER" --platform linux/amd64 \
   --env-file "$TEMP_DIR/postgres.env" --publish 127.0.0.1::5432 \
   --memory 512m --cpus 1 --pids-limit 128 --security-opt no-new-privileges \
   "$POSTGRES_IMAGE")"
+# The source journey launcher independently attests this exact disposable registry.
+if [[ -n "${GATEWAY_SOURCE_JOURNEY_IMAGE_ID+x}" ]]; then
+  export GATEWAY_SOURCE_JOURNEY_REGISTRY_CONTAINER="$CONTAINER_ID"
+  export GATEWAY_SOURCE_JOURNEY_REGISTRY_RUN_LABEL="$RUN_LABEL"
+fi
 readonly PORT="$(docker inspect "$CONTAINER" --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}')"
 [[ "$PORT" =~ ^[0-9]+$ ]]
 CHECKPOINT=registry-readiness

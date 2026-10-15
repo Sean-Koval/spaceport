@@ -38,6 +38,10 @@ def normalize_value(schema: FieldSchema, value):
 
 
 def normalize(product: PinnedProduct, completed: Completed, execution: ExecutionView, *, context: NormalizationContext) -> ResultEnvelope:
+    from .domo_runtime import DomoRuntimeBinding
+    if isinstance(context.binding,DomoRuntimeBinding):
+        from .domo_normalize import normalize_domo_envelope
+        return normalize_domo_envelope(product,completed,execution,context=context)
     request_id=context.spec.request_id
     def error(code,message): return GatewayError(code,request_id,message)
     try:
@@ -48,6 +52,9 @@ def normalize(product: PinnedProduct, completed: Completed, execution: Execution
         decision=validate_binding_decision(context.binding,decision,request_id)
         executed=validate_binding_decision(context.binding,executed,request_id)
         completed=Completed.model_validate(completed.model_dump(mode="python"))
+        from .bigquery_runtime import BigQueryBinding, validate_bigquery_completed
+        if isinstance(context.binding,BigQueryBinding):
+            validate_bigquery_completed(context.binding,completed)
         execution=ExecutionView.model_validate(execution.model_dump(mode="python"))
         if canonical_digest(spec.pinned_product)!=canonical_digest(product): raise ValueError
         if (decision.principal_id!=spec.principal_id or decision.policy_revision!=spec.policy_revision

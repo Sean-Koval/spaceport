@@ -13,7 +13,9 @@ import sys
 from alembic import command
 from alembic.config import Config
 import psycopg
+from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
+from sqlalchemy.pool import NullPool
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = frozenset(('head', '0001_registry'))
@@ -51,6 +53,29 @@ def collect_pair(target):
     second = migration_snapshot(url)
     return {'schema_version': 1, 'database': url.database, 'owner': url.username,
         'target': target, 'first': first, 'second': second}
+
+
+def collect_owned_pair(url, roles, target):
+    """Reuse imports only; never reuse an upgrade's config, connection or engine.
+
+    The worker validates its private descriptor before calling this function.
+    Explicit attributes avoid process-wide credential or role environment state.
+    """
+    snapshots = []
+    for _ in range(2):
+        config = Config(str(ROOT / 'alembic.ini'))
+        config.attributes['registry_roles'] = dict(roles)
+        engine = create_engine(url, poolclass=NullPool, echo=False, hide_parameters=True,
+            connect_args={'connect_timeout': 5})
+        try:
+            with engine.connect() as connection:
+                config.attributes['connection'] = connection
+                command.upgrade(config, target)
+        finally:
+            engine.dispose()
+        snapshots.append(migration_snapshot(url))
+    return {'schema_version': 1, 'database': url.database, 'owner': url.username,
+        'target': target, 'first': snapshots[0], 'second': snapshots[1]}
 
 
 def unique_object(pairs):
