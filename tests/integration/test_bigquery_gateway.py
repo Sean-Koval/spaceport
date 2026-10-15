@@ -39,7 +39,7 @@ def components(seed,routes):
     return SimpleNamespace(manifest=manifest,package=retained.package,factory=factory,publishing=publishing,responses=responses)
 
 
-async def gateway_journey(db,root):
+async def gateway_journey(db,root,*,stage=lambda value:None):
     from tests.integration.source_pilot_bigquery_seed import seed_bigquery_pilot
     from tests.integration.source_pilot_bigquery_child import bigquery_child
     from gateway.api.catalog import CatalogService
@@ -47,22 +47,28 @@ async def gateway_journey(db,root):
     from gateway.execution.worker import Worker
     from gateway.execution.results import ResultService
     from gateway.product_packages import build_source_check_plan
+    stage('package_bootstrap')
     async with seed_bigquery_pilot(db,root) as seed:
+        stage('cube_startup')
         async with bigquery_child(seed.child_config,seed.origins) as child:
             c=components(seed,child['routes'])
+            stage('fixture_test')
             draft=await c.publishing.save_draft(seed.principals['usage-author'],c.manifest,0)
             tested=await c.publishing.test(seed.principals['usage-author'],draft.id)
             assert tested.status=='passed',(db.scalar('SELECT count(*) FROM gateway.source_sessions'),
                 db.scalar('SELECT count(*) FROM gateway.bigquery_source_jobs'),
                 db.scalar("SELECT count(*) FROM gateway.bigquery_source_jobs WHERE state='done'"),
                 c.responses,[(v['fixture_id'],v['actual_error']) for v in tested.evidence['checks']])
+            stage('publish')
             await c.publishing.publish(seed.principals['usage-publisher'],draft.id,c.manifest.content_digest,1,
                 'Reviewed isolated synthetic Cube and PostgreSQL journey')
+            stage('settlement')
             assert db.scalar('SELECT count(*) FROM gateway.fixture_source_reservations')==0
             assert db.scalar('SELECT count(*) FROM gateway.source_sessions')==4
             assert db.scalar('SELECT count(*) FROM gateway.source_operation_groups WHERE closed AND settled_at IS NOT NULL')==1
             assert db.scalar('SELECT count(*) FROM gateway.held_source_capacity')==0
             assert db.scalar('SELECT count(*) FROM gateway.bigquery_source_jobs')==8
+            stage('catalog')
             consumer=seed.principals['usage-consumer-all']
             description=await CatalogService(registry=seed.registry,policy=seed.policy,bindings=seed.bindings,cursors=None).describe(
                 consumer,c.manifest.product_id,c.manifest.version)
@@ -71,18 +77,23 @@ async def gateway_journey(db,root):
             assert canonical_bytes(description.provenance)==canonical_bytes(plan.expected_provenance)
             assert description.limits==c.manifest.limits
             assert not any(value in str(description.model_dump(mode='json')) for value in ('/run/secrets/','billing_project','iam.gserviceaccount.com'))
+            stage('query')
             execution=ExecutionService(registry=seed.registry,policy=seed.policy,bindings=seed.bindings,source_lifecycle=seed.lifecycle)
             accepted=await execution.submit(consumer,plan.request)
+            stage('worker')
             worker=Worker(execution.queue,adapter_factory=c.factory('consumer'),worker_id='synthetic-bq-worker')
             assert await worker.run_once()
+            stage('result')
             result=await ResultService(seed.registry,seed.policy,seed.bindings,SystemClock()).get(consumer,accepted.execution_id)
             assert canonical_bytes(result.rows)==canonical_bytes(plan.expected_rows)
             assert result.freshness.status=='unknown' and result.source_watermark is None
+            stage('settlement')
             assert db.scalar('SELECT count(*) FROM gateway.bigquery_source_jobs WHERE state=\'done\'')==10
             assert db.scalar('SELECT count(*) FROM gateway.source_sessions WHERE sealed')==5
             assert db.scalar('SELECT count(*) FROM gateway.held_source_capacity')==0
             assert db.scalar('SELECT count(*) FROM gateway.source_reservations')==0
             assert db.scalar('SELECT count(*) FROM gateway.source_operation_groups WHERE closed AND settled_at IS NOT NULL')==2
+            stage('teardown')
         assert child['result']['counts']['inserts']==10
         assert 10<=child['result']['counts']['metadata']<=10000
         assert 5<=child['result']['counts']['results']<=16

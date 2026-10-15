@@ -231,6 +231,25 @@ bounded 120 docker build --network none --platform linux/amd64 --label "gateway.
 GATEWAY_SOURCE_JOURNEY_IMAGE_ID="$(bounded 15 docker image inspect "$GATEWAY_SOURCE_JOURNEY_IMAGE_TAG" --format '{{.Id}}')"
 [[ "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]]
 export GATEWAY_SOURCE_JOURNEY_IMAGE_ID
+CHECKPOINT=source-journey-smoke
+bounded 20 uv run --locked --offline python - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL" <<'PYJOURNEYSMOKE'
+import json
+import sys
+from scripts.pytest_runtime_diagnostics import EVIDENCE_PREFIX, validate_failure_marker
+from tests.integration.source_journey_host import HostedJourneyFailure, run_image_smoke
+try:
+    run_image_smoke(sys.argv[1], sys.argv[2])
+except HostedJourneyFailure as error:
+    try:
+        marker = validate_failure_marker({'kind': 'journey', 'stage': error.journey_stage, 'error': error.journey_error})
+    except (ValueError, TypeError, AttributeError):
+        raise SystemExit('Exact combined journey image smoke failed') from None
+    print(EVIDENCE_PREFIX + json.dumps(marker, sort_keys=True), flush=True)
+    raise SystemExit(1)
+except Exception:
+    raise SystemExit('Exact combined journey image smoke failed') from None
+print('Verified exact combined journey image imports without network or credentials')
+PYJOURNEYSMOKE
 bounded 15 "${COMPOSE[@]}" config --format json > "$GATEWAY_RUNTIME_EVIDENCE_DIR/compose.json"
 CHECKPOINT=cube-stack-readiness
 start_private_stack registry-db demo-db cube cube-test cube-reviewed cube-reviewed-test edge

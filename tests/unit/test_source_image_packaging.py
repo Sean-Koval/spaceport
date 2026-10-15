@@ -93,3 +93,67 @@ bounded() {
     assert source.index('PYREGISTERLOCAL\ntrap cleanup EXIT')<source.index('CHECKPOINT=cube-create-secrets')
     assert 'export GATEWAY_CUBE_RUN_LABEL="$PROJECT-local"' in source
     assert 'RUN_LABEL="$RUN_ID-local"' in (ROOT/'scripts/verify_registry_postgres.sh').read_text()
+
+
+def test_combined_image_import_smoke_precedes_database_credentials_and_backend():
+    source=(ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    command='bounded 20 uv run --locked --offline python - "$GATEWAY_SOURCE_JOURNEY_IMAGE_ID" "$GATEWAY_CUBE_RUN_LABEL"'
+    assert source.count(command)==1
+    assert source.index('export GATEWAY_SOURCE_JOURNEY_IMAGE_ID')<source.index(command)<source.index('CHECKPOINT=cube-stack-readiness')
+    assert 'from tests.integration.source_journey_host import HostedJourneyFailure, run_image_smoke' in source
+    assert 'run_image_smoke(sys.argv[1], sys.argv[2])' in source
+    from scripts.pytest_runtime_diagnostics import CHECKPOINTS
+    assert 'source-journey-smoke' in CHECKPOINTS
+
+
+@pytest.mark.parametrize('mode', ['closed', 'generic', 'invalid'])
+def test_early_smoke_bridge_emits_only_validated_safe_evidence(monkeypatch, capsys, mode):
+    import sys
+    from tests.integration import source_journey_host as host
+    source = (ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    bridge = source.split("<<'PYJOURNEYSMOKE'\n", 1)[1].split('\nPYJOURNEYSMOKE', 1)[0]
+    def fail(*args):
+        if mode == 'generic': raise RuntimeError('PRIVATE-SMOKE-CANARY')
+        error = host.HostedJourneyFailure('image_bootstrap', 'import')
+        if mode == 'invalid': error.journey_stage = 'PRIVATE-SMOKE-CANARY'
+        raise error
+    monkeypatch.setattr(host, 'run_image_smoke', fail)
+    monkeypatch.setattr(sys, 'argv', ['smoke', 'image', 'label'])
+    with pytest.raises(SystemExit) as caught:
+        exec(compile(bridge, '<smoke-bridge>', 'exec'), {})
+    output = capsys.readouterr()
+    assert 'PRIVATE' not in output.out + output.err + str(caught.value)
+    if mode == 'closed':
+        assert caught.value.code == 1
+        assert output.out == 'GATEWAY_FAILURE_EVIDENCE {"error": "import", "kind": "journey", "stage": "image_bootstrap"}\n'
+    else:
+        assert output.out == output.err == ''
+
+
+@pytest.mark.parametrize('mode', ['closed', 'generic', 'invalid'])
+def test_early_smoke_bridge_child_has_no_traceback_or_raw_failure(mode):
+    import subprocess
+    import sys
+    source = (ROOT/'scripts/verify_cube_runtime.sh').read_text()
+    bridge = source.split("<<'PYJOURNEYSMOKE'\n", 1)[1].split('\nPYJOURNEYSMOKE', 1)[0]
+    setup = '''from tests.integration import source_journey_host as host
+import sys
+def fail(*args):
+    if MODE == 'generic': raise RuntimeError('PRIVATE-SMOKE-CANARY')
+    error = host.HostedJourneyFailure('image_bootstrap', 'import')
+    if MODE == 'invalid': error.journey_stage = 'PRIVATE-SMOKE-CANARY'
+    raise error
+host.run_image_smoke = fail
+sys.argv = ['smoke', 'image', 'label']
+'''
+    result = subprocess.run([sys.executable, '-c', 'MODE='+repr(mode)+'\n'+setup+bridge],
+        cwd=ROOT, capture_output=True, text=True, timeout=5)
+    assert result.returncode == 1
+    assert 'Traceback' not in result.stdout + result.stderr
+    assert 'PRIVATE' not in result.stdout + result.stderr
+    if mode == 'closed':
+        assert result.stderr == ''
+        assert result.stdout == 'GATEWAY_FAILURE_EVIDENCE {"error": "import", "kind": "journey", "stage": "image_bootstrap"}\n'
+    else:
+        assert result.stdout == ''
+        assert result.stderr == 'Exact combined journey image smoke failed\n'

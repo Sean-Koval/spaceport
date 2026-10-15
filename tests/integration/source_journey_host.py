@@ -40,6 +40,42 @@ REGISTRY_FORMAT = ('{"id":{{json .Id}},"name":{{json .Name}},"image_id":{{json .
     '"network_mode":{{json .HostConfig.NetworkMode}}}')
 
 
+# Diagnostics are enums, never exception strings or arbitrary child output.
+IMAGE_STAGES = frozenset(('bootstrap', 'source', 'descriptor', 'database', 'package_bootstrap',
+    'cube_startup', 'fixture_test', 'publish', 'catalog', 'query', 'worker', 'result',
+    'settlement', 'teardown', 'counts'))
+HOST_STAGES = frozenset(('configuration', 'attestation', 'source', 'descriptor', 'execution', 'receipt', 'cleanup'))
+FAILURE_ERRORS = frozenset(('permission', 'missing_file', 'import', 'timeout', 'assertion', 'value',
+    'type', 'unexpected', 'output_limit', 'process_exit', 'io', 'encoding'))
+
+
+def failure_reason(error):
+    for kind, reason in ((PermissionError, 'permission'), (FileNotFoundError, 'missing_file'),
+            (ImportError, 'import'), (TimeoutError, 'timeout'), (AssertionError, 'assertion'),
+            (UnicodeError, 'encoding'), (ValueError, 'value'), (TypeError, 'type'), (OSError, 'io')):
+        if isinstance(error, kind):
+            return reason
+    return 'unexpected'
+
+
+class HostedJourneyFailure(AssertionError):
+    def __init__(self, stage, error):
+        if (type(stage) is not str or stage not in HOST_STAGES | {'image_' + value for value in IMAGE_STAGES}
+                or type(error) is not str or error not in FAILURE_ERRORS):
+            raise ValueError('Invalid journey failure evidence')
+        self.journey_stage, self.journey_error = stage, error
+        super().__init__('Hosted synthetic BigQuery journey failed at ' + stage + ' (' + error + ')')
+
+
+class _CommandFailure(ValueError):
+    def __init__(self, error, image_stage=None):
+        if (type(error) is not str or error not in FAILURE_ERRORS
+                or image_stage is not None and (type(image_stage) is not str or image_stage not in IMAGE_STAGES)):
+            raise ValueError('Invalid journey command evidence')
+        self.journey_error, self.image_stage = error, image_stage
+        super().__init__('Journey command failed (' + error + ')')
+
+
 @dataclass(frozen=True)
 class Configuration:
     image_id: str
@@ -103,6 +139,24 @@ def _json(raw):
         raise ValueError('Invalid journey evidence') from None
 
 
+def failure_receipt(output):
+    # Only a complete, single, bounded child failure is eligible. Chatter,
+    # duplicate keys, extra data and success receipts yield no diagnostics.
+    if type(output) is not str or len(output.encode('utf-8')) > 4096:
+        raise ValueError('Invalid journey failure receipt')
+    lines = output.splitlines()
+    if len(lines) != 1 or not lines[0].startswith(PREFIX):
+        raise ValueError('Invalid journey failure receipt')
+    value = _json(lines[0][len(PREFIX):])
+    if (type(value) is not dict or set(value) != {'schema_version', 'kind', 'status', 'stage', 'error'}
+            or type(value['schema_version']) is not int or value['schema_version'] != 1
+            or value['kind'] != 'bigquery_gateway_journey' or value['status'] != 'failed'
+            or type(value['stage']) is not str or value['stage'] not in IMAGE_STAGES
+            or type(value['error']) is not str or value['error'] not in FAILURE_ERRORS):
+        raise ValueError('Invalid journey failure receipt')
+    return value['stage'], value['error']
+
+
 def receipt(output, source_digest, image_id):
     if type(output) is not str or len(output.encode('utf-8')) > MAXIMUM_OUTPUT:
         raise ValueError('Invalid journey receipt')
@@ -132,7 +186,7 @@ def _docker_environment():
     return {**{key: os.environ[key] for key in allowed if key in os.environ}, 'LANG': 'C.UTF-8'}
 
 
-def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
+def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None, admit_failure=False):
     """One deadline covers nonblocking stdin, bounded output and parent exit.
 
     Always kill the owned process group, even when the direct parent exited:
@@ -150,6 +204,7 @@ def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
             os.set_blocking(process.stdout.fileno(), False)
             selector.register(process.stdout, selectors.EVENT_READ, 'output')
             offset = 0
+            stdin_closed_early = False
             if payload is not None:
                 os.set_blocking(process.stdin.fileno(), False)
                 if payload:
@@ -159,11 +214,18 @@ def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
             while selector.get_map() or process.poll() is None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise ValueError('Journey command exceeded deadline')
+                    raise _CommandFailure('timeout')
                 for key, _ in selector.select(min(.05, remaining)):
                     if key.data == 'input':
-                        offset += os.write(key.fd, payload[offset:])
-                        if offset == len(payload):
+                        try:
+                            offset += os.write(key.fd, payload[offset:])
+                        except BrokenPipeError:
+                            # Bootstrap can reject before reading the descriptor.
+                            # Keep draining bounded output to retain its closed
+                            # failure receipt, but never admit a partial write as
+                            # a successful command.
+                            stdin_closed_early = True
+                        if stdin_closed_early or offset == len(payload):
                             selector.unregister(key.fileobj)
                             key.fileobj.close()
                     else:
@@ -173,12 +235,20 @@ def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
                         else:
                             data.extend(chunk)
                             if len(data) > maximum:
-                                raise ValueError('Journey command output exceeded bound')
+                                raise _CommandFailure('output_limit')
             if process.returncode != 0:
-                raise ValueError('Journey command failed')
+                image_stage, reason = None, 'process_exit'
+                if admit_failure:
+                    try:
+                        image_stage, reason = failure_receipt(data.decode('utf-8'))
+                    except (ValueError, UnicodeError):
+                        pass
+                raise _CommandFailure(reason, image_stage)
+            if stdin_closed_early:
+                raise _CommandFailure('io')
         return data.decode('utf-8')
-    except (OSError, UnicodeError, subprocess.SubprocessError):
-        raise ValueError('Journey command did not complete') from None
+    except (OSError, UnicodeError, subprocess.SubprocessError) as error:
+        raise _CommandFailure(failure_reason(error)) from None
     finally:
         if process is not None:
             try:
@@ -193,15 +263,15 @@ def _bounded(command, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
             try:
                 process.wait(timeout=.5)
             except subprocess.TimeoutExpired:
-                raise ValueError('Journey command cleanup did not complete') from None
+                raise _CommandFailure('timeout') from None
 
 
-def _command(command, deadline, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None):
+def _command(command, deadline, *, timeout=5, maximum=MAXIMUM_OUTPUT, payload=None, admit_failure=False):
     # Reserve the direct-child reap bound inside the caller's absolute budget.
     remaining = deadline - time.monotonic() - .5
     if remaining <= 0:
-        raise ValueError('Journey exceeded overall deadline')
-    return _bounded(command, timeout=min(timeout, remaining), maximum=maximum, payload=payload)
+        raise _CommandFailure('timeout')
+    return _bounded(command, timeout=min(timeout, remaining), maximum=maximum, payload=payload, admit_failure=admit_failure)
 
 
 def _attest(config, db, deadline):
@@ -302,6 +372,30 @@ def _cleanup(cidfile, deadline):
         raise ValueError('Journey container cleanup did not complete')
 
 
+def run_image_smoke(image_id, run_label):
+    """Check exact-image imports without a registry, stdin or any credentials.
+
+    The mandatory outer registered run-label cleanup owns Docker containers if
+    the CLI loses contact after creation. This helper never guesses a CID.
+    """
+    if (not _matches(r'sha256:[a-f0-9]{64}', image_id)
+            or not _matches(r'(?:gateway-cube-[a-f0-9]{16}-local|[1-9][0-9]{0,19}-[1-9][0-9]{0,19})', run_label)
+            or any(char in str(ROOT) for char in (',', '\n', '\r'))):
+        raise ValueError('Exact run-private image smoke identity required')
+    command = ['docker', 'run', '--rm', '--pull', 'never', '--platform', 'linux/amd64',
+        '--network', 'none', '--label', 'gateway.cube.run=' + run_label,
+        '--read-only', '--user', '65532:65532', '--workdir', '/app', '--cap-drop', 'ALL',
+        '--security-opt', 'no-new-privileges:true', '--memory', '256m', '--cpus', '1', '--pids-limit', '64',
+        '--mount', 'type=bind,src=' + str(ROOT) + ',dst=/app,readonly', image_id, '--smoke']
+    try:
+        output = _bounded(command, timeout=15, maximum=4096, admit_failure=True)
+    except _CommandFailure as error:
+        stage = 'execution' if error.image_stage is None else 'image_' + error.image_stage
+        raise HostedJourneyFailure(stage, error.journey_error) from None
+    if output != 'GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":1,"status":"passed"}\n':
+        raise ValueError('Exact image import smoke receipt required')
+
+
 def run_hosted_journey(db):
     """Run once, with a 120-second total subprocess budget, or fail closed."""
     deadline = time.monotonic() + OVERALL_SECONDS
@@ -310,7 +404,9 @@ def run_hosted_journey(db):
         config = configuration()
         stage = 'attestation'
         port = _attest(config, db, deadline - CLEANUP_RESERVE)
+        stage = 'source'
         digest = current_source_digest()
+        stage = 'descriptor'
         payload = descriptor(db, digest, config.image_id, port)
         if any(char in str(ROOT) for char in (',', '\n', '\r')):
             raise ValueError('Unsupported source mount path')
@@ -326,7 +422,7 @@ def run_hosted_journey(db):
                 '--env', 'GATEWAY_SOURCE_TEST_AUTHORIZATION=private-synthetic-source-only', config.image_id]
             stage = 'execution'
             try:
-                output = _command(command, deadline - CLEANUP_RESERVE, timeout=RUN_SECONDS, payload=payload)
+                output = _command(command, deadline - CLEANUP_RESERVE, timeout=RUN_SECONDS, payload=payload, admit_failure=True)
                 stage = 'receipt'
                 receipt(output, digest, config.image_id)
             finally:
@@ -334,7 +430,12 @@ def run_hosted_journey(db):
                 stage = 'cleanup'
                 _cleanup(cidfile, deadline)
                 stage = stage_before_cleanup
-    except Exception:
-        # Pytest gets only a fixed stage; neither child output nor credential-
-        # bearing object representations/exceptions are ever exposed.
-        raise AssertionError('Hosted synthetic BigQuery journey failed at ' + stage) from None
+    except Exception as error:
+        # Pytest gets only allowlisted stage/error attributes. No exception text,
+        # child output or credential-bearing object representation is exposed.
+        reason = failure_reason(error)
+        if isinstance(error, _CommandFailure):
+            reason = error.journey_error
+            if stage == 'execution' and error.image_stage is not None:
+                stage = 'image_' + error.image_stage
+        raise HostedJourneyFailure(stage, reason) from None

@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from tests.integration.source_journey_host import IMAGE_STAGES, failure_reason
+
 CHECKS=['package_bootstrap','fixture_publish','catalog_describe','consumer_result',
     'durable_settlement','provider_guard','teardown']
 MARKER='GATEWAY_BQ_GATEWAY_JOURNEY '
@@ -90,35 +92,59 @@ def validate_counts(counts):
     return counts
 
 
-async def _timed_scenario(database,root):
+async def _timed_scenario(database,root,stage):
     from tests.integration.test_bigquery_gateway import gateway_journey
-    return await asyncio.wait_for(gateway_journey(database,root),60)
+    return await asyncio.wait_for(gateway_journey(database,root,stage=stage),60)
 
 
 def main():
-    stage='descriptor'
+    stage='bootstrap'
+    def report(value):
+        nonlocal stage
+        if type(value) is not str or value not in IMAGE_STAGES:raise ValueError
+        stage=value
     def expired(*args):raise TimeoutError('Synthetic journey deadline elapsed')
     previous=signal.signal(signal.SIGALRM,expired)
     signal.alarm(75)
     try:
-        if len(sys.argv)!=1 or os.environ.get('GATEWAY_SOURCE_TEST_AUTHORIZATION')!='private-synthetic-source-only':
+        smoke=sys.argv[1:]==['--smoke']
+        if not smoke and (len(sys.argv)!=1 or os.environ.get('GATEWAY_SOURCE_TEST_AUTHORIZATION')!='private-synthetic-source-only'):
             raise ValueError
         root=Path(__file__).resolve().parents[2]
         if root!=Path('/app'):raise ValueError
         reject_source_package_shadowing(root)
+        # Import-only smoke uses the exact image's Python/native wheels and the
+        # same readonly source. No descriptor, connection or scenario is used.
+        import psycopg
+        import sqlalchemy
+        import pytest
+        import gateway.source_pilot_bootstrap
+        import gateway.adapters.bigquery_serving
+        import gateway.execution.worker
+        import gateway.api.catalog
+        import tests.integration.source_pilot_bigquery_seed
+        import tests.integration.source_pilot_bigquery_child
+        import tests.integration.test_bigquery_gateway
+        if smoke:
+            print('GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":1,"status":"passed"}',flush=True)
+            return 0
+        stage='source'
         from scripts.demo_runtime import source_inventory,source_digest
-        value=parse_descriptor(sys.stdin.buffer.read(16385),source_digest(source_inventory()))
+        digest=source_digest(source_inventory())
+        stage='descriptor'
+        value=parse_descriptor(sys.stdin.buffer.read(16385),digest)
         stage='database';database=database_from_descriptor(value)
-        stage='scenario'
+        stage='package_bootstrap'
         with TemporaryDirectory(prefix='spaceport-bq-journey-') as directory:
-            counts=asyncio.run(_timed_scenario(database,Path(directory)/'pilot'))
+            counts=asyncio.run(_timed_scenario(database,Path(directory)/'pilot',report))
+        stage='counts'
         validate_counts(counts)
         print(MARKER+json.dumps(dict(schema_version=1,kind='bigquery_gateway_journey',status='passed',
             source_digest=value['source_digest'],image_id=value['image_id'],checks=CHECKS,counts=counts),separators=(',',':')),flush=True)
         return 0
-    except BaseException:
+    except BaseException as error:
         # Never echo exceptions, stdin, SQL, child output, headers or credentials.
-        print(MARKER+json.dumps(dict(schema_version=1,status='failed',stage=stage),separators=(',',':')),flush=True)
+        print(MARKER+json.dumps(dict(schema_version=1,kind='bigquery_gateway_journey',status='failed',stage=stage,error=failure_reason(error)),separators=(',',':')),flush=True)
         return 1
     finally:
         signal.alarm(0)

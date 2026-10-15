@@ -701,3 +701,92 @@ process.stdout.write(JSON.stringify(rows));
         assert evidence == {'reason': 'process_exit', 'details_status': 'available', 'markers': [marker]}
         assert api.validate_phase_failure_evidence(evidence) == evidence
         assert 'PRIVATE_PROVIDER_ERROR' not in json.dumps(evidence)
+
+
+@pytest.mark.parametrize(('stage','error'), [('attestation','value'),('image_fixture_test','assertion'),('image_bootstrap','import'),('cleanup','timeout')])
+def test_journey_failure_only_admits_fixed_stage_and_error(tmp_path,monkeypatch,stage,error):
+    from types import SimpleNamespace
+    api=diagnostics()
+    node='tests/integration/test_bigquery_gateway.py::test_real_bigquery_author_fixture_publish_describe_worker_result'
+    monkeypatch.setattr(api,'_collected_tests',{node})
+    report=SimpleNamespace(nodeid=node,when='call',longrepr=SimpleNamespace(reprcrash=SimpleNamespace(
+        message=f'tests.integration.source_journey_host.HostedJourneyFailure: Hosted synthetic BigQuery journey failed at {stage} ({error})')))
+    marker=api.structured_journey_failure(report)
+    assert marker=={'kind':'journey','stage':stage,'error':error}
+    path=tmp_path/'private.log';path.write_text('PRIVATE_SENTINEL\n'+api.EVIDENCE_PREFIX+json.dumps(marker)+'\n');path.chmod(0o600)
+    evidence=api.phase_failure_evidence(path,{'exit_status':1,'descendant_cleanup':True})
+    assert evidence['markers']==[marker]
+    assert api.validate_phase_failure_evidence(evidence)==evidence
+    assert 'PRIVATE_SENTINEL' not in json.dumps(evidence)
+
+
+@pytest.mark.parametrize('message',[
+    'HostedJourneyFailure: Hosted synthetic BigQuery journey failed at PRIVATE_SENTINEL (value)',
+    'HostedJourneyFailure: Hosted synthetic BigQuery journey failed at receipt (PRIVATE_SENTINEL)',
+    'HostedJourneyFailure: Hosted synthetic BigQuery journey failed at receipt (value) PRIVATE_SENTINEL',
+    'HostedJourneyFailure: Hosted synthetic BigQuery journey failed at receipt (value)\nPRIVATE_SENTINEL',
+    'ValueError: Hosted synthetic BigQuery journey failed at receipt (value)',
+    'HostedJourneyFailure: '+('PRIVATE_SENTINEL'*1000),
+])
+def test_journey_diagnostics_reject_unbounded_or_unrecognized_messages(monkeypatch,message):
+    from types import SimpleNamespace
+    api=diagnostics();node=api.JOURNEY_TEST
+    monkeypatch.setattr(api,'_collected_tests',{node})
+    report=SimpleNamespace(nodeid=node,when='call',longrepr=SimpleNamespace(reprcrash=SimpleNamespace(message=message)))
+    assert api.structured_journey_failure(report) is None
+
+
+def test_journey_diagnostics_are_scoped_to_exact_collected_call(monkeypatch):
+    from types import SimpleNamespace
+    api=diagnostics();node=api.JOURNEY_TEST
+    report=SimpleNamespace(nodeid=node,when='setup',longrepr=SimpleNamespace(reprcrash=SimpleNamespace(message='HostedJourneyFailure: Hosted synthetic BigQuery journey failed at receipt (value)')))
+    monkeypatch.setattr(api,'_collected_tests',{node})
+    assert api.structured_journey_failure(report) is None
+    report.when='call';monkeypatch.setattr(api,'_collected_tests',set())
+    assert api.structured_journey_failure(report) is None
+
+
+@pytest.mark.parametrize('marker',[
+    {'kind':'journey','stage':'receipt','error':'value','raw':'PRIVATE_SENTINEL'},
+    {'kind':'journey','stage':'PRIVATE_SENTINEL','error':'value'},
+    {'kind':'journey','stage':'receipt','error':'PRIVATE_SENTINEL'},
+    {'kind':'journey','stage':False,'error':'value'},
+])
+def test_journey_marker_schema_is_closed(marker):
+    with pytest.raises(ValueError):diagnostics().validate_failure_marker(marker)
+
+
+def test_actual_pytest_journey_failure_survives_closed_phase_summary(tmp_path):
+    root=tmp_path/'source';folder=root/'tests/integration';folder.mkdir(parents=True)
+    (folder/'test_bigquery_gateway.py').write_text('''
+class HostedJourneyFailure(AssertionError): pass
+HostedJourneyFailure.__module__ = 'tests.integration.source_journey_host'
+def test_real_bigquery_author_fixture_publish_describe_worker_result():
+    print('PRIVATE_PROVIDER_SENTINEL')
+    raise HostedJourneyFailure('Hosted synthetic BigQuery journey failed at image_fixture_test (assertion)')
+''')
+    commit_fixture(root)
+    (root/'journey_fixture_plugin.py').write_text('from pathlib import Path\nfrom scripts import pytest_runtime_diagnostics as api\napi.ROOT=Path('+repr(str(root))+')\napi._source_blobs=None\napi._source_commit=None\n')
+    env={**os.environ,'PYTHONPATH':str(ROOT)+os.pathsep+str(root),'PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1'}
+    result=subprocess.run([sys.executable,'-m','pytest','-q','-p','journey_fixture_plugin',
+        '-p','scripts.pytest_runtime_diagnostics','--gateway-failure-evidence','tests/integration/test_bigquery_gateway.py'],
+        cwd=root,env=env,capture_output=True,text=True,timeout=15)
+    assert result.returncode==1
+    api=diagnostics()
+    selected=[line for line in result.stdout.splitlines() if line.startswith(api.EVIDENCE_PREFIX)
+        and json.loads(line[len(api.EVIDENCE_PREFIX):]).get('kind')=='journey']
+    assert len(selected)==1
+    assert json.loads(selected[0][len(api.EVIDENCE_PREFIX):])=={'kind':'journey','stage':'image_fixture_test','error':'assertion'}
+    private=tmp_path/'private.log';private.write_text('PRIVATE_PROVIDER_SENTINEL\n'+selected[0]+'\n');private.chmod(0o600)
+    evidence=api.phase_failure_evidence(private,{'exit_status':1,'descendant_cleanup':True})
+    assert evidence['details_status']=='available'
+    assert evidence['markers']==[{'kind':'journey','stage':'image_fixture_test','error':'assertion'}]
+    assert api.validate_phase_failure_evidence(evidence)==evidence
+    assert 'PRIVATE_PROVIDER_SENTINEL' not in json.dumps(evidence)
+
+
+def test_journey_diagnostic_vocabulary_matches_the_actual_host_bridge():
+    from tests.integration import source_journey_host as host
+    api=diagnostics()
+    assert api.JOURNEY_STAGES==frozenset(host.HOST_STAGES)|frozenset('image_'+stage for stage in host.IMAGE_STAGES)
+    assert api.JOURNEY_ERRORS==frozenset(host.FAILURE_ERRORS)

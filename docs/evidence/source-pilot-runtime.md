@@ -49,3 +49,33 @@ Browser SSO/PKCE, composed browser acceptance, the clean no-acquisition repeat, 
 The failure was reproduced under the workflow's secure `umask 077`: requesting a directory mode of `0755` through `mkdir` actually produced `0700`, so the runtime correctly accepted the supposedly unsafe fixture. The reviewed test-only correction explicitly sets `0755` and asserts the actual mode. No runtime permission check, security control, timeout or test selection was weakened. All 62 CLI tests and the complete 3,213-case unit/contract selection then passed under `umask 077` (137.05 seconds; 433 service-dependent cases deselected). A new exact-source hosted run remains required.
 
 The trusted main workflow still uses its older `domo: NOT IMPLEMENTED` summary label. For this candidate, Domo serving code and synthetic tests exist; live Domo access remains **not run**. The stale workflow label is not evidence about the candidate's implementation or live permissions.
+
+## Hosted attempt 20: image prerequisites passed, complete backend blocked
+
+[Run 20](https://github.com/Sean-Koval/spaceport/actions/runs/38772272838) used trusted workflow main `3fa6b2f698fa406918d82173d4422166c059b84b` and source `5c3b17bd6edb4fbcc348a9a976d8645d70f39c10`, tree `c1abbffd45db4362942cd61e72565983288df9dc`.
+
+- All 3,213 mandatory unit/contract cases passed and their exact selection was admitted.
+- The sequential harness reached full backend execution after the required gateway image build, no-network CLI/import checks, BigQuery image build/smoke and actual source-runtime probe returned success. This is separate evidence from the combined gateway journey, which did not pass.
+- The first reported failure was the combined BigQuery image journey. Its original sanitized assertion did not expose a sufficiently specific safe failure stage; the root cause is unproven. The backend subsequently reached its unchanged 570-second limit with 331 of 406 cases completed. Completed count is not a passing-test count.
+- Exact registered cleanup passed. Actual job duration was 989 seconds (17 rounded standard Ubuntu minutes). No cap, source cost control, authorization check or test identity was relaxed.
+
+A separate local PostgreSQL diagnostic on the same runtime ran all 349 non-Cube PostgreSQL cases successfully in 460.87 seconds, with 257/257 second-upgrade identity checks and verified cluster cleanup. The 57 Cube-tagged backend cases were explicitly outside that diagnostic. Measurements identified about 0.45 seconds of repeated interpreter/import overhead per normal migration pair. The next reviewed candidate preserves every fresh database/role set and both genuine upgrades while investigating one serial, bounded migration process; hosted performance remains a separate gate.
+
+## Reviewed correction candidate after run 20
+
+The closed journey-stage/error receipt is now retained through both the combined image journey and an earlier exact-image import smoke. Only fixed enumerated stages/errors can reach diagnostics; malformed output, extra fields and arbitrary exception text remain a generic failure. The 15-second helper and 20-second outer smoke bounds are unchanged. Real subprocess regression tests cover both valid and hostile failure output. This is improved evidence for the still-unproven hosted journey failure, not a claim that its cause has been fixed. A local genuine PostgreSQL/Cube/compiler/SDK gateway journey plus runtime probe passed again (2 tests, 16.76 seconds); its synthetic provider boundary and different local package versions do not replace the exact-image hosted gate.
+
+The independently reviewed migration optimization retains every fresh database and role set, both real owner upgrades, fresh/disposed connections and independent operator CLI process coverage. A serial session worker amortizes interpreter imports only. Closed request/receipt matching, bounded output, worker deadlines, parent-death/EOF handling, and the existing supervisor's exact descendant cleanup are tested. No schema template, cached migration result, transaction reuse, selection reduction or timeout increase is used.
+
+Fresh verification of that five-file optimization completed with:
+
+- 349 PostgreSQL cases passed in 306.69 seconds (310.724 seconds shell wall), versus the earlier 460.87-second diagnostic. The 154.18-second reduction is about 33.5%; it is local diagnostic evidence, not full hosted backend acceptance.
+- All 349 ordered PostgreSQL identities and all 406 ordered PostgreSQL-or-Cube identities exactly matched the preserved baseline.
+- The integration evidence accumulator reported unchanged table/index identities for 257 second upgrades and the same four permission negatives. The separately imported security fixtures also passed but are not included in that accumulator's count.
+- 3,265 unit/contract cases passed in 142.64 seconds under `umask 077`, inside the unchanged 180-second source cap. This is the optimization-only source tree; combined candidate verification is recorded separately.
+- 96 focused migration tests passed; independent review also exercised real pytest duplicate-module import and single-finalizer behavior.
+- The fresh run verified its PostgreSQL process stopped and its exact generated cluster directory was removed. Logs from the earlier interrupted local run were incomplete; their cleanup is inconclusive and is not covered by the fresh receipt.
+
+The complete 406-case hosted backend and exact-image combined journey still require a new exact-source run within the existing 570-second backend and 20-minute job caps.
+
+Combined correction-tree verification: 3,334 mandatory unit/contract tests passed in 144.20 seconds under `umask 077` (433 service-dependent cases deselected). Its ordered 349/406 backend identities remained identical, and its local genuine PostgreSQL/Cube/compiler/SDK journey plus runtime probe passed 2 tests in 17.61 seconds with fresh-run cleanup verified. Documentation relative links, shell syntax and whitespace checks passed. These receipts qualify the local correction tree only; exact-source hosted acceptance is still pending.

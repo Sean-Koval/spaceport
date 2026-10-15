@@ -167,6 +167,13 @@ if a[:2]==['image','inspect']:
  print(json.dumps(spec['image'] if a[-1].startswith('sha256:') else spec['postgres']))
 elif a[:2]==['container','inspect']:print(json.dumps(spec['registry']))
 elif a[0]=='run':
+ if a[-1]=='--smoke':
+  (base/'child-env.json').write_text(json.dumps(dict(os.environ)))
+  (base/'stdin').write_bytes(sys.stdin.buffer.read())
+  if spec['mode']=='stall':time.sleep(60)
+  if spec['mode']=='overflow':print('s'*70000,flush=True);time.sleep(60)
+  print(spec.get('smoke_receipt','GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":1,"status":"passed"}'),flush=True)
+  sys.exit(1 if spec['mode']=='nonzero' else 0)
  if spec['mode']=='ambiguous_create':
   (base/'created-without-cid').write_text('2'*64)
   sys.exit(1)
@@ -393,3 +400,176 @@ def test_docker_default_bridge_mode_is_admitted_for_existing_registry_command(fa
     f.data.write_text(json.dumps(f.spec))
     f.m.run_hosted_journey(database())
     assert next(call for call in commands(f) if call[0] == 'run')[-1] == IMAGE
+
+
+def failed_evidence(stage='database', error='permission'):
+    return {'schema_version': 1, 'kind': 'bigquery_gateway_journey', 'status': 'failed',
+        'stage': stage, 'error': error}
+
+
+def test_nonzero_image_failure_preserves_only_fixed_stage_and_error(fake_docker, capsys):
+    f = fake_docker
+    f.spec.update(mode='nonzero', receipt=f.m.PREFIX + json.dumps(failed_evidence()))
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(AssertionError) as caught: f.m.run_hosted_journey(database())
+    assert caught.value.journey_stage == 'image_database'
+    assert caught.value.journey_error == 'permission'
+    assert str(caught.value) == 'Hosted synthetic BigQuery journey failed at image_database (permission)'
+    assert capsys.readouterr() == ('', '')
+    assert commands(f)[-1][0] == 'ps'
+
+
+@pytest.mark.parametrize('change', [
+    lambda v: v.update(stage='PRIVATE-CHILD-SECRET'),
+    lambda v: v.update(error='PRIVATE-CHILD-SECRET'), lambda v: v.update(extra='PRIVATE-CHILD-SECRET'),
+    lambda v: v.update(schema_version=True), lambda v: v.update(kind='other'),
+    lambda v: v.update(status='passed'), lambda v: v.update(stage=['database']),
+    lambda v: v.update(error={'private': 'secret'}),
+])
+def test_untrusted_failure_receipt_cannot_become_diagnostics(fake_docker, change):
+    f = fake_docker; value = failed_evidence(); change(value)
+    f.spec.update(mode='nonzero', receipt=f.m.PREFIX + json.dumps(value))
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(AssertionError) as caught: f.m.run_hosted_journey(database())
+    assert caught.value.journey_stage == 'execution'
+    assert caught.value.journey_error == 'process_exit'
+    assert 'PRIVATE' not in str(caught.value)
+
+
+@pytest.mark.parametrize('alter', [
+    lambda line: line + '\n' + line, lambda line: line + '\nPRIVATE-CHILD-SECRET',
+    lambda line: line.replace('"status": "failed"', '"status": "failed", "status": "failed"'),
+    lambda line: line + ' ' * 4096,
+])
+def test_failure_receipt_must_be_single_closed_bounded_record(fake_docker, alter):
+    f = fake_docker
+    f.spec.update(mode='nonzero', receipt=alter(f.m.PREFIX + json.dumps(failed_evidence())))
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(AssertionError) as caught: f.m.run_hosted_journey(database())
+    assert (caught.value.journey_stage, caught.value.journey_error) == ('execution', 'process_exit')
+
+
+def test_failed_receipt_cannot_pass_with_successful_process_status(fake_docker):
+    f = fake_docker; f.spec['receipt'] = f.m.PREFIX + json.dumps(failed_evidence())
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(AssertionError) as caught: f.m.run_hosted_journey(database())
+    assert (caught.value.journey_stage, caught.value.journey_error) == ('receipt', 'value')
+
+
+def test_host_failure_constructor_rejects_dynamic_diagnostic_values():
+    m = module()
+    for stage, error in [('PRIVATE-SECRET', 'value'), ('execution', 'PRIVATE-SECRET'), ([], {})]:
+        with pytest.raises(ValueError): m.HostedJourneyFailure(stage, error)
+
+
+def test_non_journey_command_does_not_accept_image_failure_evidence():
+    m = module()
+    script = 'import sys;print(' + repr(m.PREFIX + json.dumps(failed_evidence())) + ');sys.exit(1)'
+    with pytest.raises(ValueError) as caught: m._bounded([sys.executable, '-c', script])
+    assert caught.value.journey_error == 'process_exit'
+    assert caught.value.image_stage is None
+
+
+def smaller_stdin_pipe(monkeypatch):
+    import fcntl
+    m = module(); original = m.subprocess.Popen
+    def spawn(*args, **kwargs):
+        process = original(*args, **kwargs)
+        fcntl.fcntl(process.stdin, fcntl.F_SETPIPE_SZ, 4096)
+        return process
+    monkeypatch.setattr(m.subprocess, 'Popen', spawn)
+
+
+def test_early_image_import_failure_is_read_even_when_child_closes_stdin(monkeypatch):
+    m = module(); smaller_stdin_pipe(monkeypatch)
+    script = ('import os,sys,time;os.close(0);time.sleep(.02);print(' +
+        repr(m.PREFIX + json.dumps(failed_evidence('bootstrap', 'import'))) + ');sys.exit(1)')
+    with pytest.raises(ValueError) as caught:
+        m._bounded([sys.executable, '-c', script], payload=b'x' * 16384, admit_failure=True)
+    assert (caught.value.image_stage, caught.value.journey_error) == ('bootstrap', 'import')
+
+
+def test_successful_child_cannot_discard_part_of_required_stdin(monkeypatch):
+    m = module(); smaller_stdin_pipe(monkeypatch)
+    script = 'import os,time;os.close(0);time.sleep(.02)'
+    with pytest.raises(ValueError) as caught:
+        m._bounded([sys.executable, '-c', script], payload=b'x' * 16384, admit_failure=True)
+    assert (caught.value.image_stage, caught.value.journey_error) == (None, 'io')
+
+
+def test_image_smoke_is_exact_nonroot_offline_and_receives_no_authority(fake_docker):
+    f = fake_docker
+    assert f.m.run_image_smoke(IMAGE, CUBE + '-local') is None
+    run, = commands(f)
+    assert run[-2:] == [IMAGE, '--smoke']
+    for flag, value in [('--network', 'none'), ('--user', '65532:65532'), ('--memory', '256m'),
+        ('--cpus', '1'), ('--pids-limit', '64'), ('--cap-drop', 'ALL'), ('--workdir', '/app'),
+        ('--security-opt', 'no-new-privileges:true'), ('--pull', 'never'), ('--platform', 'linux/amd64'),
+        ('--label', 'gateway.cube.run=' + CUBE + '-local')]:
+        assert run[run.index(flag) + 1] == value
+    assert '--read-only' in run and '--rm' in run
+    assert run[run.index('--mount') + 1].endswith(',dst=/app,readonly')
+    assert '--interactive' not in run and '--env' not in run
+    assert f.stdin.read_bytes() == b''
+    assert 'GATEWAY_TEST_POSTGRES_ADMIN_URL' not in json.loads(f.env.read_text())
+    assert 'GOOGLE_APPLICATION_CREDENTIALS' not in json.loads(f.env.read_text())
+
+
+@pytest.mark.parametrize(('image', 'label'), [(RUNTIME.replace('sha256:', ''), CUBE + '-local'),
+    ('repo:mutable', CUBE + '-local'), (IMAGE, 'arbitrary'), (IMAGE, CUBE), (IMAGE, '1-0')])
+def test_image_smoke_rejects_unattested_shaped_inputs_before_execution(fake_docker, image, label):
+    with pytest.raises(ValueError): fake_docker.m.run_image_smoke(image, label)
+    assert not fake_docker.log.exists()
+
+
+@pytest.mark.parametrize('value', ['', 'PRIVATE-SMOKE-CANARY',
+    'GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":true,"status":"passed"}',
+    'GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":1,"status":"passed"}\nPRIVATE-SMOKE-CANARY'])
+def test_image_smoke_requires_exact_single_closed_output(fake_docker, value, capsys):
+    f = fake_docker; f.spec['smoke_receipt'] = value; f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(ValueError) as caught: f.m.run_image_smoke(IMAGE, '123-1')
+    assert 'PRIVATE' not in str(caught.value)
+    assert capsys.readouterr() == ('', '')
+
+
+@pytest.mark.parametrize('mode', ['stall', 'overflow', 'nonzero'])
+def test_image_smoke_is_bounded_and_never_admits_failed_process(fake_docker, monkeypatch, mode):
+    f = fake_docker; f.spec['mode'] = mode; f.data.write_text(json.dumps(f.spec))
+    original = f.m._bounded
+    def faster(command, **kwargs):
+        assert kwargs['timeout'] == 15 and kwargs['maximum'] == 4096
+        kwargs['timeout'] = .2
+        return original(command, **kwargs)
+    monkeypatch.setattr(f.m, '_bounded', faster)
+    started = time.monotonic()
+    with pytest.raises(f.m.HostedJourneyFailure): f.m.run_image_smoke(IMAGE, '123-1')
+    assert time.monotonic() - started < 2
+
+
+def test_image_smoke_rejects_unsafe_source_mount_before_execution(fake_docker, monkeypatch):
+    monkeypatch.setattr(fake_docker.m, 'ROOT', Path('/tmp/source,unsafe'))
+    with pytest.raises(ValueError): fake_docker.m.run_image_smoke(IMAGE, '123-1')
+    assert not fake_docker.log.exists()
+
+
+def test_smoke_failure_preserves_only_closed_image_stage(fake_docker, capsys):
+    f = fake_docker
+    f.spec.update(mode='nonzero', smoke_receipt=f.m.PREFIX + json.dumps(failed_evidence('bootstrap', 'import')))
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(f.m.HostedJourneyFailure) as caught:
+        f.m.run_image_smoke(IMAGE, '123-1')
+    assert (caught.value.journey_stage, caught.value.journey_error) == ('image_bootstrap', 'import')
+    assert capsys.readouterr() == ('', '')
+
+
+@pytest.mark.parametrize('change', [lambda v: v.update(extra='PRIVATE-SMOKE-CANARY'),
+    lambda v: v.update(stage='PRIVATE-SMOKE-CANARY'), lambda v: v.update(error='PRIVATE-SMOKE-CANARY')])
+def test_smoke_failure_rejects_untrusted_receipt(fake_docker, change, capsys):
+    f = fake_docker; value = failed_evidence('bootstrap', 'import'); change(value)
+    f.spec.update(mode='nonzero', smoke_receipt=f.m.PREFIX + json.dumps(value))
+    f.data.write_text(json.dumps(f.spec))
+    with pytest.raises(f.m.HostedJourneyFailure) as caught:
+        f.m.run_image_smoke(IMAGE, '123-1')
+    assert (caught.value.journey_stage, caught.value.journey_error) == ('execution', 'process_exit')
+    assert 'PRIVATE' not in str(caught.value)
+    assert capsys.readouterr() == ('', '')

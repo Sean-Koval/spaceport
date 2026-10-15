@@ -78,3 +78,73 @@ def test_image_package_guard_allows_client_dependencies_outside_resolution_ances
     from tests.integration.source_pilot_bigquery_image import reject_source_package_shadowing
     (tmp_path/'clients/node_modules').mkdir(parents=True)
     reject_source_package_shadowing(tmp_path)
+
+
+def test_image_smoke_imports_without_stdin_or_database(monkeypatch, capsys):
+    import sys
+    from tests.integration import source_pilot_bigquery_image as image
+    monkeypatch.setattr(image, '__file__', '/app/tests/integration/source_pilot_bigquery_image.py')
+    monkeypatch.setattr(image, 'reject_source_package_shadowing', lambda root: None)
+    monkeypatch.setattr(sys, 'argv', ['source_pilot_bigquery_image', '--smoke'])
+    monkeypatch.delenv('GATEWAY_SOURCE_TEST_AUTHORIZATION', raising=False)
+    assert image.main() == 0
+    assert capsys.readouterr() == ('GATEWAY_BQ_GATEWAY_JOURNEY_SMOKE {"schema_version":1,"status":"passed"}\n', '')
+
+
+def test_image_import_failure_is_allowlisted_without_exception_text(monkeypatch, capsys):
+    import builtins
+    import sys
+    from tests.integration import source_pilot_bigquery_image as image
+    monkeypatch.setattr(image, '__file__', '/app/tests/integration/source_pilot_bigquery_image.py')
+    monkeypatch.setattr(image, 'reject_source_package_shadowing', lambda root: None)
+    monkeypatch.setattr(sys, 'argv', ['source_pilot_bigquery_image', '--smoke'])
+    original = builtins.__import__
+    def deny(name, *args, **kwargs):
+        if name == 'psycopg': raise ImportError('PRIVATE-IMPORT-CANARY')
+        return original(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, '__import__', deny)
+    assert image.main() == 1
+    assert json.loads(capsys.readouterr().out.removeprefix(image.MARKER)) == {
+        'schema_version': 1, 'kind': 'bigquery_gateway_journey', 'status': 'failed',
+        'stage': 'bootstrap', 'error': 'import'}
+
+
+@pytest.mark.parametrize(('reported', 'expected_stage', 'expected_error'), [
+    ('worker', 'worker', 'assertion'), ('PRIVATE-STAGE-CANARY', 'package_bootstrap', 'value')])
+def test_image_scenario_passes_fixed_stage_callback(monkeypatch, capsys, reported, expected_stage, expected_error):
+    import sys
+    from types import SimpleNamespace
+    from tests.integration import source_pilot_bigquery_image as image
+    from tests.integration import test_bigquery_gateway as scenario
+    from scripts import demo_runtime
+    monkeypatch.setattr(image, '__file__', '/app/tests/integration/source_pilot_bigquery_image.py')
+    monkeypatch.setattr(image, 'reject_source_package_shadowing', lambda root: None)
+    monkeypatch.setattr(sys, 'argv', ['source_pilot_bigquery_image'])
+    monkeypatch.setenv('GATEWAY_SOURCE_TEST_AUTHORIZATION', 'private-synthetic-source-only')
+    monkeypatch.setattr(demo_runtime, 'source_inventory', lambda: {})
+    monkeypatch.setattr(demo_runtime, 'source_digest', lambda inventory: 'b'*64)
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(buffer=__import__('io').BytesIO(json.dumps(descriptor()).encode())))
+    monkeypatch.setattr(image, 'database_from_descriptor', lambda value: object())
+    async def fail(database, root, *, stage):
+        stage(reported)
+        raise AssertionError('PRIVATE-SCENARIO-CANARY')
+    monkeypatch.setattr(scenario, 'gateway_journey', fail)
+    assert image.main() == 1
+    assert json.loads(capsys.readouterr().out.removeprefix(image.MARKER)) == {
+        'schema_version': 1, 'kind': 'bigquery_gateway_journey', 'status': 'failed',
+        'stage': expected_stage, 'error': expected_error}
+
+
+@pytest.mark.parametrize(('arguments', 'authorization'), [
+    ([], None), ([], 'arbitrary'), (['--smoke', 'extra'], None), (['--arbitrary'], None)])
+def test_smoke_mode_does_not_expand_the_normal_journey_authority(monkeypatch, capsys, arguments, authorization):
+    import sys
+    from tests.integration import source_pilot_bigquery_image as image
+    monkeypatch.setattr(image, '__file__', '/app/tests/integration/source_pilot_bigquery_image.py')
+    monkeypatch.setattr(sys, 'argv', ['source_pilot_bigquery_image', *arguments])
+    if authorization is None: monkeypatch.delenv('GATEWAY_SOURCE_TEST_AUTHORIZATION', raising=False)
+    else: monkeypatch.setenv('GATEWAY_SOURCE_TEST_AUTHORIZATION', authorization)
+    assert image.main() == 1
+    assert json.loads(capsys.readouterr().out.removeprefix(image.MARKER)) == {
+        'schema_version': 1, 'kind': 'bigquery_gateway_journey', 'status': 'failed',
+        'stage': 'bootstrap', 'error': 'value'}
