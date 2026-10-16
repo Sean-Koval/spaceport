@@ -1,0 +1,11 @@
+Spaceport
+Copyright 2026 Sean Koval
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository depends on and redistributes notices for third-party software
+under their own licenses, including psycopg / psycopg-binary (LGPL-3.0-only).
+See THIRD_PARTY_NOTICES.md and docs/operations/licensing.md. The Apache-2.0
+license covers original repository code only; it does not relicense
+third-party components or authorize distribution of built images or browser
+bundles, which remain release gates.

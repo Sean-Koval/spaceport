@@ -1,6 +1,8 @@
 [project]
 name = "spaceport"
 version = "0.1.0"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 description = "Strict contracts for the self-hosted Data Product Gateway"
 requires-python = "==3.12.14"
 dependencies = [

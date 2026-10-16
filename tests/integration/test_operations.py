@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 
 import pytest
 
@@ -464,11 +465,19 @@ def test_retained_evidence_requires_hash_identity_and_complete_actual_suites(tmp
 
 
 @pytest.mark.unit
-def test_dependency_inventory_names_both_locks_and_never_selects_original_license():
+def test_dependency_inventory_names_both_locks_and_records_owner_selected_license():
     path=ROOT/'docs/operations/dependency-inventory.json'
     assert path.is_file(),'License inventory is missing'
     value=json.loads(path.read_text())
-    assert value['original_code_license']=='OWNER_DECISION_REQUIRED'
+    # The license is the owner's recorded choice, never inferred from dependencies.
+    project=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']
+    assert value['original_code_license']==project['license']=='Apache-2.0'
+    assert (ROOT/'LICENSE').read_text().lstrip().startswith('Apache License\n')
+    assert set(project['license-files'])=={'LICENSE','NOTICE'} and (ROOT/'NOTICE').is_file()
+    for name in ('publisher/package.json','clients/package.json'):
+        assert json.loads((ROOT/name).read_text())['license']=='Apache-2.0'
+    # Selecting a license does not authorize distribution of images or bundles.
+    assert value['distribution'].startswith('BLOCKED_PENDING')
     assert {'python','publisher'} <= set(value['locks'])
     assert value['packages'] and all(row['name'] and row['version'] for row in value['packages'])
     assert all((ROOT/name).is_file() for row in value['packages'] for name in row['notice_paths'])

@@ -131,7 +131,9 @@ def generate():
             else:row['unavailable_reason']='Conditional/uninstalled package; license field comes from lock only'
             rows.append(row)
     for row in rows:row['notice_sha256']={name:digest(ROOT/name) for name in row['notice_paths']}
-    output={'schema_version':1,'original_code_license':'OWNER_DECISION_REQUIRED',
+    # The original-code license is the owner's choice recorded in pyproject.toml and LICENSE.
+    original=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['license']
+    output={'schema_version':1,'original_code_license':original,
         'distribution':'BLOCKED_PENDING_OWNER_AND_LICENSE_REVIEW',
         'locks':{'python':{'path':'uv.lock','sha256':digest(ROOT/'uv.lock')},
             'publisher':{'path':'publisher/package-lock.json','sha256':digest(ROOT/'publisher/package-lock.json')},

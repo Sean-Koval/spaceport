@@ -8,18 +8,18 @@
   "locks": {
     "clients": {
       "path": "clients/package-lock.json",
-      "sha256": "0ea693189ead2933250236d48e50fcc9f7ca86710e20297586aefcdc96c80767"
+      "sha256": "d8a991ce92ced41a67e51a5ea5755acba0c6952dd2c4c8629d566eadba9c8d6a"
     },
     "publisher": {
       "path": "publisher/package-lock.json",
-      "sha256": "8b13c70ae21f20473f3ae6e7ffd1f358968673aaf9aecb29012c3dc9cb80797b"
+      "sha256": "6a47c8693333ae1ee93265605502465ca3e4cdf69b2c0a01f5e351983df1b539"
     },
     "python": {
       "path": "uv.lock",
       "sha256": "d5dfa659da5032fb4c29ce4632a245cd987a35cfb79966baba7d2d77690d333e"
     }
   },
-  "original_code_license": "OWNER_DECISION_REQUIRED",
+  "original_code_license": "Apache-2.0",
   "packages": [
     {
       "ecosystem": "python",
