@@ -19,6 +19,10 @@ The goal is to publish a trusted metric once and reuse the same approved definit
 
 The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). The uv project is `spaceport` and the publisher package is `spaceport-publisher`; the `gateway/` import package and the `dpg` prefixes in stored identifiers and credential formats are kept for compatibility ([legacy identifiers](docs/compatibility/versions.md#legacy-internal-identifiers)). Original code is licensed under [Apache-2.0](LICENSE) (see [NOTICE](NOTICE)). "Spaceport" is an internal project name; public distribution under that name needs a separate owner decision.
 
+## How it fits
+
+Spaceport is the capability plane in the team's agent tooling. Agents reach governed data products over MCP: they get reviewed, permission-checked answers instead of credentials or SQL. After unfreeze, its MCP tools will also ask the governed workspace's decision point before serving a call ([#14](https://github.com/Sean-Koval/spaceport/issues/14)). Around it, hangar runs the agents, the workspace governs what they may do, and flightdeck judges how well they did. The [documentation index](docs/README.md) lists every design, operations, compatibility, evidence and research document as of the freeze.
+
 ## What is implemented
 
 The source includes:
@@ -155,7 +159,7 @@ The packet observer is not currently available, so full demo acceptance remains 
 - `cube/`, `fixtures/`, `infra/`: reviewed semantic assets, synthetic data and runtime packaging.
 - `clients/`: independent Python and TypeScript MCP acceptance clients.
 - `migrations/`, `scripts/`, `tests/`: schema migrations, operational/verifier tools and test suites.
-- `docs/`: [approved design](docs/superpowers/specs/2026-10-13-spaceport.md), [implementation plan](docs/superpowers/plans/2026-10-13-spaceport.md), compatibility, operations and evidence.
+- `docs/`: [documentation index](docs/README.md), [approved design](docs/superpowers/specs/2026-10-13-spaceport.md), [implementation plan](docs/superpowers/plans/2026-10-13-spaceport.md), compatibility, operations and evidence.
 
 ## Live sources and release boundaries
 
