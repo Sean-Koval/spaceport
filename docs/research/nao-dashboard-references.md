@@ -1,6 +1,6 @@
 # nao and Claude Dashboards: references for the Data Product Gateway
 
-Research date: **13 October 2026**. Research only: no dependency installation, upstream code execution, product changes, deployment, or compatibility-test claims. This note compares official product documentation and inspected upstream source with the approved gateway [design](../superpowers/specs/2026-10-13-data-product-gateway.md), [implementation plan](../superpowers/plans/2026-10-13-data-product-gateway.md), and existing [publisher UI recommendation](publisher-ui.md).
+Research date: **13 October 2026**. Research only: no dependency installation, upstream code execution, product changes, deployment, or compatibility-test claims. This note compares official product documentation and inspected upstream source with the approved gateway [design](../superpowers/specs/2026-10-13-spaceport.md), [implementation plan](../superpowers/plans/2026-10-13-spaceport.md), and existing [publisher UI recommendation](publisher-ui.md).
 
 ## Recommendation
 

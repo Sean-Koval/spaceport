@@ -63,7 +63,7 @@ def test_manual_only_fixed_runner_permissions_pins_and_unchanged_legacy():
     assert re.findall(r'^          - (\w+)$', trigger, re.M) == ['backend', 'demo']
     assert 'default: backend' in trigger
     assert '\npermissions:\n  contents: read\n' in text
-    assert 'group: data-product-gateway-manual-verification\n  cancel-in-progress: false' in text
+    assert 'group: spaceport-manual-verification\n  cancel-in-progress: false' in text
     assert text.count('runs-on: ubuntu-24.04') == text.count('timeout-minutes: 20') == 1
     assert re.findall(r'uses: (\S+)', text) == [
         'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
@@ -77,8 +77,10 @@ def test_manual_only_fixed_runner_permissions_pins_and_unchanged_legacy():
     assert not any(token in text for token in ('continue-on-error', '|| true', 'upload-artifact',
         'actions/cache', 'secrets.', 'registry-url:', 'sudo ', 'apt-get ', 'install-deps',
         '--with-deps', 'npm audit', 'docker system prune', 'docker login', 'npx '))
+    # Reviewed bytes plus one rename: the concurrency group (formerly named after the old project)
+    # became spaceport-manual-verification (#12). Previous pin: 6e0e8b8bb857...ac935e.
     assert hashlib.sha256((ROOT / '.github/workflows/verify-cube.yml').read_bytes()).hexdigest() == (
-        '6e0e8b8bb85788c869a15e5c4b6d885ed2e68517ded79566b13bb70065ac935e')
+        '05b806486e38343667d45f9c9b95db20e60db113ebea370f4c2ec038d8a6a20a')
 
 
 @pytest.mark.parametrize('key,value', [('REVIEWED_SOURCE_SHA', ''), ('REVIEWED_SOURCE_SHA', 'A'*40),

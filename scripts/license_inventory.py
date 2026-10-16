@@ -94,7 +94,7 @@ def generate():
     rows=[]
     lock=tomllib.loads((ROOT/'uv.lock').read_text())
     for package in lock['package']:
-        if package['name']=='data-product-gateway':continue
+        if package['name']=='spaceport':continue
         row={'ecosystem':'python','name':package['name'],'version':package['version'],'license':'UNVERIFIED','notice_paths':[]}
         try:
             installed=importlib.metadata.distribution(package['name'])

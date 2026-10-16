@@ -369,9 +369,9 @@ def main():
             'GATEWAY_E2E_BASE_URL':'http://127.0.0.1:'+str(state['port']),
             'GATEWAY_E2E_TOKEN_FILE':str(args.state_dir/'identities/demo-tokens.json'),
             'GATEWAY_OPERATIONS_EVIDENCE_DIR':str(evidence),
-            'DPG_MCP_URL':'http://127.0.0.1:'+str(state['port'])+'/mcp',
-            'DPG_DEMO_NORTH_TOKEN_FILE':str(args.state_dir/'identities/demo-north.token'),
-            'DPG_DEMO_SOUTH_TOKEN_FILE':str(args.state_dir/'identities/demo-south.token')}
+            'SPACEPORT_MCP_URL':'http://127.0.0.1:'+str(state['port'])+'/mcp',
+            'SPACEPORT_DEMO_NORTH_TOKEN_FILE':str(args.state_dir/'identities/demo-north.token'),
+            'SPACEPORT_DEMO_SOUTH_TOKEN_FILE':str(args.state_dir/'identities/demo-south.token')}
         import httpx
         with httpx.Client(base_url=env['GATEWAY_E2E_BASE_URL'],trust_env=False,timeout=8) as client:
             initial=client.get('/readyz').status_code

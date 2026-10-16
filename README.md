@@ -17,7 +17,7 @@ Spaceport is a self-hosted gateway that turns reviewed team data into reusable p
 
 The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its exact-source backend acceptance passed; live activation remains separately gated. GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
 
-The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). Python project and package identifiers retain `data-product-gateway` / `data-product-publisher`. Public naming clearance and original-code licensing remain unresolved.
+The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). The uv project is `spaceport` and the publisher package is `spaceport-publisher`; the `gateway/` import package and the `dpg` prefixes in stored identifiers and credential formats are kept for compatibility ([legacy identifiers](docs/compatibility/versions.md#legacy-internal-identifiers)). Public naming clearance and original-code licensing remain unresolved.
 
 ## What is implemented
 
@@ -155,7 +155,7 @@ The packet observer is not currently available, so full demo acceptance remains 
 - `cube/`, `fixtures/`, `infra/`: reviewed semantic assets, synthetic data and runtime packaging.
 - `clients/`: independent Python and TypeScript MCP acceptance clients.
 - `migrations/`, `scripts/`, `tests/`: schema migrations, operational/verifier tools and test suites.
-- `docs/`: [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md), [implementation plan](docs/superpowers/plans/2026-10-13-data-product-gateway.md), compatibility, operations and evidence.
+- `docs/`: [approved design](docs/superpowers/specs/2026-10-13-spaceport.md), [implementation plan](docs/superpowers/plans/2026-10-13-spaceport.md), compatibility, operations and evidence.
 
 ## Live sources and release boundaries
 

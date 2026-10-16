@@ -18,7 +18,7 @@ The Python gateway remains the only authority for validation, permissions, test 
 
 ## Repository facts that constrain the choice
 
-Read-only inspection covered the [design](../superpowers/specs/2026-10-13-data-product-gateway.md), [plan](../superpowers/plans/2026-10-13-data-product-gateway.md), `gateway/contracts/{manifest,canonical,errors}.py`, and `gateway/registry/{models,repository}.py`. At inspection, the publisher and Task 10 REST implementation were not yet present.
+Read-only inspection covered the [design](../superpowers/specs/2026-10-13-spaceport.md), [plan](../superpowers/plans/2026-10-13-spaceport.md), `gateway/contracts/{manifest,canonical,errors}.py`, and `gateway/registry/{models,repository}.py`. At inspection, the publisher and Task 10 REST implementation were not yet present.
 
 1. `StrictModel` forbids extra fields and freezes validated values. `Manifest` has Python cross-field validators for decimal precision, typed defaults/enums, date boundaries, allowed operators, redaction coverage, examples, fixtures, secret-like values, and digest consistency. Generated TypeScript or JSON Schema cannot by themselves replace these rules.
 2. `canonical.py` produces RFC 8785 canonical bytes and SHA-256; `Manifest` fills `content_digest` on validation. The editor must omit or clear an old content digest when submitting changed content according to the finalized request DTO, then display the digest returned by the gateway. Do not implement a competing JavaScript digest algorithm.

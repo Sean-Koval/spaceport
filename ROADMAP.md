@@ -8,9 +8,9 @@
 - **Not allowed:** new connectors, live-source activation, deployment.
 - **Unfreeze trigger:** an owner decision, recorded here with its date and scope.
 
-After unfreeze, milestone 6 makes Spaceport's MCP tools ask the team workspace's decision point.
+After unfreeze, milestone 6 makes Spaceport's MCP tools ask the team workspace's decision point. The deprecated `DPG_*` client environment names ([#12](https://github.com/Sean-Koval/spaceport/issues/12)) can then be removed in favour of `SPACEPORT_*`.
 
-Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md) remains the architectural boundary; the [README](README.md) describes the current source.
+Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the current source.
 
 ## Product outcome
 
