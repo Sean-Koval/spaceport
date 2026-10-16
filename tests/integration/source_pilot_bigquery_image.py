@@ -76,10 +76,11 @@ def database_from_descriptor(value):
     admin=URL.create('postgresql+psycopg',username='gateway_test_admin',password=registry['admin_password'],
         host='127.0.0.1',port=5432,database='gateway_test_admin')
     with psycopg.connect(**connection_kwargs(urls['owner'])) as connection:
-        head=connection.execute('SELECT version_num FROM public.alembic_version').fetchone()[0]
+        revision=connection.execute('SELECT version_num FROM public.alembic_version').fetchone()
+        head=revision[0] if revision is not None else None
         identity=connection.execute('SELECT current_database(),current_user').fetchone()
         empty=connection.execute('SELECT count(*) FROM gateway.source_operation_groups').fetchone()[0]
-        if head!='0006_source_preparations' or identity!=(registry['database'],registry['roles']['owner']) or empty!=0:
+        if head!='0007_source_access_approvals' or identity!=(registry['database'],registry['roles']['owner']) or empty!=0:
             raise ValueError('The exact empty migrated synthetic database is required')
     return RegistryDatabase(None,dict(registry['roles']),urls,head,[],[],admin_url=admin)
 

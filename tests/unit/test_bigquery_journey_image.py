@@ -46,6 +46,71 @@ def test_duplicate_and_oversize_stdin_are_rejected_without_raw_values():
         assert 'SYNTHETIC_SECRET_CANARY' not in str(caught.value)
 
 
+@pytest.fixture
+def image_database_connection(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    import psycopg
+
+    def install(head_row, *, identity=None, operation_groups=0):
+        registry=descriptor()['registry']
+        rows={
+            'SELECT version_num FROM public.alembic_version':head_row,
+            'SELECT current_database(),current_user':identity if identity is not None else
+                (registry['database'],registry['roles']['owner']),
+            'SELECT count(*) FROM gateway.source_operation_groups':(operation_groups,),
+        }
+        connection=SimpleNamespace(execute=lambda statement:
+            SimpleNamespace(fetchone=lambda:rows[statement]))
+        monkeypatch.setattr(psycopg,'connect',lambda **kwargs:nullcontext(connection))
+
+    return install
+
+
+def test_image_database_accepts_exact_source_approval_head(image_database_connection):
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    from tests.integration.conftest import RegistryDatabase
+    from tests.integration.source_pilot_bigquery_image import database_from_descriptor
+
+    expected_head='0007_source_access_approvals'
+    assert ScriptDirectory.from_config(Config('alembic.ini')).get_current_head()==expected_head
+    image_database_connection((expected_head,))
+    value=parse(descriptor())
+    database=database_from_descriptor(value)
+    assert isinstance(database,RegistryDatabase)
+    assert database.migration_head==expected_head
+    assert database.roles==value['registry']['roles']
+    for role,url in database.urls.items():
+        assert (url.host,url.port,url.database,url.username)==(
+            '127.0.0.1',5432,value['registry']['database'],value['registry']['roles'][role])
+
+
+@pytest.mark.parametrize('head_row',[
+    ('0006_source_preparations',),None,(None,),('',),('0001_registry',),
+    ('0007_wrong_revision',),('0008_unreviewed_future',),
+],ids=['old','missing','null','empty','historical','wrong','future'])
+def test_image_database_rejects_every_unreviewed_or_missing_head(image_database_connection,head_row):
+    from tests.integration.source_pilot_bigquery_image import database_from_descriptor
+
+    image_database_connection(head_row)
+    with pytest.raises(ValueError,match='^The exact empty migrated synthetic database is required$'):
+        database_from_descriptor(parse(descriptor()))
+
+
+@pytest.mark.parametrize('state',[
+    {'identity':('gateway_test_'+'b'*16,'gwt_'+TOKEN+'_owner')},
+    {'identity':('gateway_test_'+TOKEN,'gwt_'+TOKEN+'_app')},
+    {'operation_groups':1},
+],ids=['wrong_database','wrong_owner','nonempty'])
+def test_image_database_keeps_identity_and_empty_registry_guards(image_database_connection,state):
+    from tests.integration.source_pilot_bigquery_image import database_from_descriptor
+
+    image_database_connection(('0007_source_access_approvals',),**state)
+    with pytest.raises(ValueError,match='^The exact empty migrated synthetic database is required$'):
+        database_from_descriptor(parse(descriptor()))
+
+
 @pytest.mark.parametrize('metadata',[0,9,True])
 def test_completion_counts_require_metadata_proof_for_all_ten_jobs(metadata):
     from tests.integration.source_pilot_bigquery_image import validate_counts

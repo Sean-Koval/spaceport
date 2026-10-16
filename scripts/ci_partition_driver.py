@@ -32,6 +32,7 @@ FINALIZATION_SECONDS = 60
 MAX_LOG_BYTES = 16 * 1024 * 1024
 CONTROLLERS = (
     WORKFLOW, 'scripts/ci_partition_driver.py', 'scripts/ci_partition_contract.py',
+    'scripts/ci_partition_failures.py',
     'scripts/verify_cube_runtime.sh', 'scripts/verify_registry_postgres.sh',
     'scripts/gateway_integration.py', 'scripts/demo_runtime.py', 'scripts/verify_demo.py',
     'scripts/runtime_process.py', 'scripts/pytest_runtime_diagnostics.py',
@@ -417,6 +418,18 @@ def admit_lane(candidate, job):
     return 0
 
 
+def pytest_evidence(candidate, root, identity, *, progress=False):
+    api = trusted_module('pytest_runtime_diagnostics')
+    api.ROOT = Path(candidate)
+    api._source_blobs = api._source_commit = None
+    frozen = api.freeze_source(identity['source_commit'])
+    path = root / 'pytest-source.json'
+    write_private(path, frozen)
+    return ['-p', 'scripts.pytest_runtime_diagnostics', '--gateway-failure-evidence',
+            '--gateway-failure-source=' + str(path),
+            *(['--gateway-progress-evidence'] if progress else [])]
+
+
 def run_work(args):
     candidate, root, ctx = initialize(args)
     rows = []
@@ -433,7 +446,8 @@ def run_work(args):
             nodes = tuple(sorted(item['nodeid'] for item in inventory))
             output = root / 'source.xml'
             rows.append(phase('source_tests', [str(candidate_python(candidate)), '-m','pytest',
-                '-m','unit or contract','-q','--junitxml='+str(output)], root, candidate,
+                '-m','unit or contract','-q','--junitxml='+str(output),
+                *pytest_evidence(candidate,root,ctx['identity'])], root, candidate,
                 SOURCE_SECONDS, ctx['started']))
             summary = contract().junit_summary(private_bytes(output, MAX_LOG_BYTES), nodes)
             summary.update(nodes=[], images_sha256=None, endpoints_sha256=None)
@@ -600,7 +614,7 @@ def record_lane(candidate,root,ctx):
     images=verify.prerequisite_images(None);endpoints=verify.validate_backend_endpoints(images)
     target.mkdir(mode=0o700);output=target/'backends.xml'
     row=phase('backend_tests',[str(candidate_python(candidate)),'-m','pytest','-q',
-        '--junitxml='+str(output),'--',*nodes],target,candidate,BACKEND_SECONDS,ctx['started'])
+        '--junitxml='+str(output),*pytest_evidence(candidate,target,ctx['identity'],progress=True),'--',*nodes],target,candidate,BACKEND_SECONDS,ctx['started'])
     summary=contract().junit_summary(private_bytes(output,MAX_LOG_BYTES),nodes)
     if context(candidate,job_id=ctx['job_id'])!=ctx['identity'] or verify.validate_backend_endpoints(images)!=endpoints:
         raise ValueError('Backend source/endpoint changed')
@@ -629,17 +643,74 @@ def manifest_command(candidate,output):
     print(digest(result));return 0
 
 
+class DiagnosticReported(Exception):
+    pass
+
+
+class FinalizationExpired(BaseException):
+    pass
+
+
+def finalize_command(candidate, root, job):
+    failures = trusted_module('ci_partition_failures')
+    report = failures.empty_report(job)
+    who = None
+    try:
+        # Use the first workflow step, never an untrusted/missing private context
+        # or a newly started timer to extend the finalization budget.
+        epoch = os.environ['GATEWAY_INTEGRATION_FIRST_STEP_EPOCH']
+        if not re.fullmatch(r'[1-9][0-9]{0,10}', epoch):
+            raise ValueError('Bounded first-step epoch required')
+        started = int(epoch)
+        remaining = finalization_remaining(started)
+        def expired(*_): raise FinalizationExpired()
+        signal.signal(signal.SIGALRM, expired)
+        signal.setitimer(signal.ITIMER_REAL, remaining)
+        try:
+            who = failures.cohort(sys.modules[__name__])
+            ctx = load_context(candidate, root)
+            if (ctx['job_id'] != job or type(ctx['started']) is not int or ctx['started'] != started
+                    or ctx['manifest_sha256'] != who['manifest_sha256']):
+                raise ValueError('Fixed finalization context required')
+            return finalize(candidate, root)
+        except failures.ERRORS:
+            report = failures.report(sys.modules[__name__], candidate, root, job, who)
+    except FinalizationExpired:
+        report = failures.empty_report(job, who, 'finalization_budget')
+    except failures.ERRORS:
+        report = failures.empty_report(job, None, 'finalization_unavailable')
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+    return failures.emit(sys.modules[__name__], report)
+
+
 def aggregate_command():
     # The aggregate never imports/executes candidate code or needs candidate deps.
-    check_environment_budget(os.environ)
-    c=contract();manifest=input_transport('SOURCE_MANIFEST','manifest')
+    c=contract(); failures=trusted_module('ci_partition_failures')
+    try: who=failures.cohort(sys.modules[__name__])
+    except failures.ERRORS:
+        return failures.aggregate_failure(sys.modules[__name__],None,'context','context_invalid')
+    def incoming(prefix,kind,label):
+        try: return input_transport(prefix,kind)
+        except failures.ERRORS:
+            reason='transport_invalid' if any(value for key,value in os.environ.items() if key.startswith(prefix+'_')) else 'transport_unavailable'
+            failures.aggregate_failure(sys.modules[__name__],who,label,reason)
+            raise DiagnosticReported()
+    try: check_environment_budget(os.environ)
+    except failures.ERRORS:
+        return failures.aggregate_failure(sys.modules[__name__],who,'source_manifest','transport_invalid')
+    manifest=incoming('SOURCE_MANIFEST','manifest','source_manifest')
     env=os.environ
     controller=controller_digest()
     # The reviewed digest and fixed schema authorize source metadata. A receipt
     # is never the source of expected run identity, even before validation.
-    if type(manifest) is not dict:raise ValueError('Manifest object required')
-    c.validate_manifest(manifest,source=manifest.get('source'),controller_digest=controller,
-        expected_sha256=env['REVIEWED_MANIFEST_SHA256'])
+    try:
+        if type(manifest) is not dict:raise ValueError('Manifest object required')
+        c.validate_manifest(manifest,source=manifest.get('source'),controller_digest=controller,
+            expected_sha256=env['REVIEWED_MANIFEST_SHA256'])
+        if manifest['source']['commit'] != who['source_commit']: raise ValueError('Foreign manifest source')
+    except failures.ERRORS:
+        return failures.aggregate_failure(sys.modules[__name__],who,'source_manifest','manifest_invalid')
     identity={'repository':env['GITHUB_REPOSITORY'],'workflow_file':WORKFLOW,
         'workflow_ref':env['GITHUB_WORKFLOW_REF'],'workflow_sha':env['GITHUB_WORKFLOW_SHA'],
         'controller_digest':controller,'run_id':env['GITHUB_RUN_ID'],
@@ -647,8 +718,8 @@ def aggregate_command():
         'source_tree':manifest['source']['tree'],'source_digest':manifest['source']['digest']}
     if identity['source_commit']!=manifest['source']['commit']:raise ValueError('Foreign manifest source')
     git_identity(TRUSTED_ROOT,identity['workflow_sha'])
-    source=input_transport('SOURCE_RECEIPT','receipt')
-    lanes=[input_transport(lane.upper()+'_RECEIPT','receipt') for lane in c.LANES]
+    source=incoming('SOURCE_RECEIPT','receipt','source_receipt')
+    lanes=[incoming(lane.upper()+'_RECEIPT','receipt',lane) for lane in c.LANES]
     results={job:env.get(job.upper()+'_RESULT','') for job in ('source',*c.LANES)}
     report=c.aggregate(manifest,source,lanes,results,identity=identity,
         expected_manifest_sha256=env['REVIEWED_MANIFEST_SHA256'])
@@ -662,7 +733,7 @@ def parse_args(argv=None):
     for name in ('run','cleanup','cleanup-child','finalize','helper'):
         sub=modes.add_parser(name);sub.add_argument('--candidate',type=Path,required=True)
         sub.add_argument('--root',type=Path,required=True)
-        if name=='run':sub.add_argument('--job',required=True)
+        if name in ('run','finalize'):sub.add_argument('--job',required=True,choices=('source','sql_owners','sql_execution','sql_publishing','sql_registry_results','runtime_process_socket'))
         if name=='helper':sub.add_argument('helper_args',nargs=argparse.REMAINDER)
     sub=modes.add_parser('admit-lane');sub.add_argument('--candidate',type=Path,required=True);sub.add_argument('--job',required=True)
     sub=modes.add_parser('workload-collect');sub.add_argument('--candidate',type=Path,required=True)
@@ -688,19 +759,15 @@ def main(argv=None):
         finally:signal.setitimer(signal.ITIMER_REAL,0)
     if args.mode=='cleanup':return cleanup(args.candidate,args.root)
     if args.mode=='cleanup-child':return cleanup_child(args.candidate,args.root)
-    if args.mode=='finalize':
-        started=read_private(args.root/'context.json')['started']
-        def expired(*_):raise ValueError('Fixed finalization deadline reached')
-        signal.signal(signal.SIGALRM,expired)
-        signal.setitimer(signal.ITIMER_REAL,finalization_remaining(started))
-        try:return finalize(args.candidate,args.root)
-        finally:signal.setitimer(signal.ITIMER_REAL,0)
+    if args.mode=='finalize':return finalize_command(args.candidate,args.root,args.job)
     if args.mode=='helper':
         tail=args.helper_args
         if tail[:1]==['--']:tail=tail[1:]
         return helper(args.candidate,args.root,tail)
     if args.mode=='manifest':return manifest_command(args.candidate,args.output)
-    if args.mode=='aggregate':return aggregate_command()
+    if args.mode=='aggregate':
+        try:return aggregate_command()
+        except DiagnosticReported:return 1
     raise ValueError('Unknown mode')
 
 
