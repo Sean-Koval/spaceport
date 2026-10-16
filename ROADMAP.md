@@ -1,6 +1,16 @@
 # Spaceport roadmap
 
-Updated 15 October 2026. This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md) remains the architectural boundary; the [README](README.md) describes the current source.
+## Frozen
+
+**Frozen 2026-10-16.** Spaceport is the team's capability plane (governed data products over MCP), paused while hangar adoption and flightdeck come first. Milestones 2 to 5 are paused at freeze; their status lines below are unchanged and describe where each stood.
+
+- **Allowed while frozen:** security fixes, dependency patches, and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
+- **Not allowed:** new connectors, live-source activation, deployment.
+- **Unfreeze trigger:** an owner decision, recorded here with its date and scope.
+
+After unfreeze, milestone 6 makes Spaceport's MCP tools ask the team workspace's decision point.
+
+Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-data-product-gateway.md) remains the architectural boundary; the [README](README.md) describes the current source.
 
 ## Product outcome
 
@@ -95,6 +105,8 @@ An independent reviewer checks both feature boundaries and adds focused cross-fl
 
 ## 2. Prove the complete synthetic product journey
 
+**Paused at freeze (2026-10-16).**
+
 **Status: required acceptance work remains open.** This can proceed independently of the feature wave where ownership and source receipts permit.
 
 Tasks:
@@ -115,6 +127,8 @@ Acceptance:
 
 ## 2A. Establish the GKE organization-runtime foundation
 
+**Paused at freeze (2026-10-16).**
+
 **Status: foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3); independent source review, source-level checks and the complete hosted backend gate passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,221 unit/contract tests and all 346 genuine backend cases passing with verified cleanup in [run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566), plus 254 unchanged frontend tests passing locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
 
 Build:
@@ -134,6 +148,8 @@ Next: select the actual identity provider and validate Studio delegation/browser
 
 ## 2B. Deliver reviewed connector software
 
+**Paused at freeze (2026-10-16).**
+
 **Status: foundation merged in PR 4; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). The current pilot wave extends its source-serving slices. No live source or deployment is activated.**
 
 - Complete the internal reviewed PostgreSQL/Cube v2 path: explicit versioned bindings, exact accepted-query replay, current policy checks, isolated fixture bundles and same-query hidden source checkpoints. Existing v1 bundles/public contracts remain unchanged.
@@ -144,6 +160,8 @@ Next: select the actual identity provider and validate Studio delegation/browser
 Acceptance separates source/mock checks, actual disposable PostgreSQL/Cube checks, packaged-driver checks and live evidence. The next real-source step is one operator-reviewed source/model with authoritative answers and approved access, not unrestricted database or bucket discovery. Do not infer immutability, producer atomicity or permission equivalence from configuration labels.
 
 ## 3. Deliver one real BigQuery-backed product
+
+**Paused at freeze (2026-10-16).**
 
 **Status: live activation gated. The current pilot implements reviewed gateway/Cube serving and durable source control, with synthetic-provider evidence and remaining exact-image qualification.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
 
@@ -164,6 +182,8 @@ Acceptance:
 
 ## 4. Reconcile and serve the first Domo product
 
+**Paused at freeze (2026-10-16).**
+
 **Status: live Phase 1b qualification remains gated. The current pilot implements finite approved-statement REST serving and isolated fixture workflows; live authentication/PDP and authoritative business reconciliation remain unverified.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
 
 Tasks:
@@ -179,11 +199,17 @@ Acceptance: the product matches its authoritative definition and enforces equiva
 
 ## 5. Qualify a private production deployment
 
+**Paused at freeze (2026-10-16).**
+
 **Status: not approved.** A successful synthetic or live-source smoke does not complete this milestone.
 
 Tasks and acceptance are tracked by the [production checklist](docs/operations/production-gates.md): verified user-bound OIDC/Studio delegation where required; policy review; TLS and ingress/egress controls; external secret management; encrypted storage/backups; approved retention; restore drills; source-cost and cancellation evidence; operational ownership and load/recovery tests. Retain an independently reviewed release commit and rollback procedure before deployment.
 
 Public release is separate: settle original-code licensing, dependency/image/browser notices, public naming and distribution approval. This roadmap does not authorize publishing packages or opening the repository.
+
+## 6. Govern MCP tools through the workspace (after unfreeze)
+
+**Status: planned; starts only after unfreeze.** Spaceport's four MCP tools ask the team workspace's policy decision point before serving, and accept act-chain tokens, so one rule set and one receipt cover data products too. Tracked in [#14](https://github.com/Sean-Koval/spaceport/issues/14).
 
 ## Later choices, not commitments
 

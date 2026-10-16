@@ -5,6 +5,14 @@
 
 # Spaceport
 
+> **Status: frozen (2026-10-16).** Spaceport is the team's capability plane: governed data products over MCP. It is paused while hangar adoption and flightdeck come first.
+>
+> - **Allowed:** security fixes, dependency patches, and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
+> - **Not allowed:** new connectors, live-source activation, deployment.
+> - **Unfreeze:** an owner decision recorded in [ROADMAP](ROADMAP.md#frozen).
+>
+> The status below is accurate as of the freeze; it describes what exists, not work in progress.
+
 Spaceport is a self-hosted gateway that turns reviewed team data into reusable products that people and agents can discover and query through one governed API. A product defines what an answer means, its typed inputs and outputs, who can use it, how fresh it must be, and the tests required before publication.
 
 The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its exact-source backend acceptance passed; live activation remains separately gated. GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
