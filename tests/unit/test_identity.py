@@ -52,6 +52,11 @@ C1UXWiAYChGd0wTh32hOBpI=
 """
 
 
+# Validate the fixed test-only material once; claims and JWK dictionaries stay fresh.
+_PARSED_TEST_SIGNING_KEY = serialization.load_pem_private_key(
+    TEST_SIGNING_KEY.encode(), password=None)
+
+
 def api():
     try:
         return SimpleNamespace(
@@ -126,8 +131,7 @@ class SubjectStore:
 
 
 def jwk(kid="key-1", **changes):
-    key = serialization.load_pem_private_key(TEST_SIGNING_KEY.encode(), password=None)
-    value = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+    value = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(_PARSED_TEST_SIGNING_KEY.public_key()))
     value.update(kid=kid, use="sig", alg="RS256")
     value.update(changes)
     return value
@@ -140,7 +144,7 @@ def signed_token(clock, *, headers=None, algorithm="RS256", **changes):
     claims.update(changes)
     token_headers = {"kid": "key-1", "typ": "at+jwt"}
     token_headers.update(headers or {})
-    key = TEST_SIGNING_KEY if algorithm.startswith(("RS", "PS")) else secrets.token_urlsafe(32)
+    key = _PARSED_TEST_SIGNING_KEY if algorithm.startswith(("RS", "PS")) else secrets.token_urlsafe(32)
     return jwt.encode(claims, key, algorithm=algorithm, headers=token_headers)
 
 
@@ -595,7 +599,7 @@ def test_duplicate_signed_claims_are_rejected_before_fetch(clock):
             '"sub":"verified-user","exp":' + str(now + 60) + ',"iat":' + str(now) + ',"client_id":"studio-client","jti":"synthetic"}').encode()
         # Sign the actual ambiguous bytes, so rejection cannot be attributed to
         # a bad signature. The generated bearer token is never written to disk.
-        token = jwt.api_jws.encode(payload, TEST_SIGNING_KEY, algorithm="RS256", headers=header)
+        token = jwt.api_jws.encode(payload, _PARSED_TEST_SIGNING_KEY, algorithm="RS256", headers=header)
         auth, requests, client = authenticator(clock)
         try:
             assert await code(auth, "Bearer " + token) == "UNAUTHENTICATED"

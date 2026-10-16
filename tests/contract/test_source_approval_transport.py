@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from tests.contract.test_rest import request, services as rest_services
-from tests.contract.test_mcp import body, post, running, services as mcp_services, PROTOCOL
+from tests.contract.test_mcp import body, post, running_contract as running, services as mcp_services, PROTOCOL
 
 pytestmark = pytest.mark.contract
 HEADERS = [

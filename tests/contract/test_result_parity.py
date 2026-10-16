@@ -9,7 +9,7 @@ from sqlalchemy.sql.elements import TextClause
 
 from gateway.execution.results import ResultService
 from tests.contract.result_parity import assert_result_page_parity
-from tests.contract.test_mcp import body, post, running, services
+from tests.contract.test_mcp import body, post, running_contract as running, services
 from tests.unit.test_stored_results import TransactionProbe
 
 pytestmark = pytest.mark.contract
