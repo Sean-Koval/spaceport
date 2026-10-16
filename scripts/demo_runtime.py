@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Bounded operations on one explicitly selected synthetic private Docker stack."""
+from contextlib import nullcontext
 import argparse
 import hashlib
 import json
@@ -73,10 +74,14 @@ def private_json(path,value):
         json.dump(value,file,indent=2);file.write('\n');file.flush();os.fsync(file.fileno())
 
 
-def require_docker():
-    if shutil.which('docker') is None: raise RuntimeError('BLOCKED: Docker is required for actual demo operations')
-    run(['docker','info','--format','{{.ServerVersion}}'],timeout=15)
-    run(['docker','compose','version'],timeout=15)
+def require_docker(*, observer=None):
+    observe = observer if observer is not None else lambda _: nullcontext()
+    with observe('preflight_docker_binary'):
+        if shutil.which('docker') is None: raise RuntimeError('BLOCKED: Docker is required for actual demo operations')
+    with observe('preflight_docker_info'):
+        run(['docker','info','--format','{{.ServerVersion}}'],timeout=15)
+    with observe('preflight_compose'):
+        run(['docker','compose','version'],timeout=15)
 
 
 def source_inventory():

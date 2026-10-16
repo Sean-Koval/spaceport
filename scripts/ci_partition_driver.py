@@ -6,6 +6,7 @@ Legacy integration commands keep their existing behavior.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 import argparse
 import hashlib
 import importlib
@@ -273,23 +274,34 @@ def source_from(identity):
             'digest': identity['source_digest']}
 
 
-def observed_tools(candidate):
+def observed_tools(candidate, *, observer=None):
+    observe = observer if observer is not None else lambda _: nullcontext()
     def observed(command, pattern):
         value = subprocess.check_output(command, cwd=TRUSTED_ROOT, timeout=2,
             text=True, stderr=subprocess.DEVNULL).strip()
         if not re.fullmatch(pattern, value):
             raise ValueError('Unexpected actual tool identity')
         return value
-    observed([str(TRUSTED_ROOT/'.venv/bin/python'),'--version'], r'Python 3\.12\.14')
-    observed([str(candidate_python(candidate)),'--version'], r'Python 3\.12\.14')
+    with observe('tool_bootstrap_python'):
+        observed([str(TRUSTED_ROOT/'.venv/bin/python'),'--version'], r'Python 3\.12\.14')
+    with observe('tool_workload_python'):
+        observed([str(candidate_python(candidate)),'--version'], r'Python 3\.12\.14')
     version = r'[A-Za-z0-9v.+ _-]{1,128}'
-    runner = os.environ['ImageVersion']
-    if not re.fullmatch(version, runner):raise ValueError('Invalid runner image')
-    return {'python':'3.12.14', 'uv':observed(['uv','self','version','--short'],r'0\.12\.23'),
-        'node':observed(['node','--version'],r'v24\.19\.0')[1:],
-        'npm':observed(['npm','--version'],r'11\.9\.0'),
-        'docker':observed(['docker','version','--format','{{.Client.Version}} {{.Server.Version}}'],version),
-        'compose':observed(['docker','compose','version','--short'],version), 'runner_image':runner}
+    with observe('tool_runner_image'):
+        runner = os.environ['ImageVersion']
+        if not re.fullmatch(version, runner):raise ValueError('Invalid runner image')
+    with observe('tool_uv'):
+        uv = observed(['uv','self','version','--short'],r'0\.12\.23')
+    with observe('tool_node'):
+        node = observed(['node','--version'],r'v24\.19\.0')[1:]
+    with observe('tool_npm'):
+        npm = observed(['npm','--version'],r'11\.9\.0')
+    with observe('tool_docker'):
+        docker = observed(['docker','version','--format','{{.Client.Version}} {{.Server.Version}}'],version)
+    with observe('tool_compose'):
+        compose = observed(['docker','compose','version','--short'],version)
+    return {'python':'3.12.14', 'uv':uv, 'node':node, 'npm':npm,
+        'docker':docker, 'compose':compose, 'runner_image':runner}
 
 
 def candidate_python(candidate):
@@ -300,18 +312,25 @@ def candidate_python(candidate):
     return path
 
 
-def phase(name, command, root, candidate, cap, started):
-    if cap > work_remaining(started):
-        raise ValueError('Insufficient phase budget')
+def phase(name, command, root, candidate, cap, started, *, observer=None):
+    observe = observer if observer is not None else lambda _: nullcontext()
+    with observe('phase_budget'):
+        if cap > work_remaining(started):
+            raise ValueError('Insufficient phase budget')
     began = time.monotonic()
-    supervision = trusted_module('runtime_process').bounded_process(command,
-        root / (name + '.log'), timeout=cap, env=workload_environment(), cwd=candidate,
-        limit_bytes=MAX_LOG_BYTES)
-    _, verify, _ = modules(candidate)
-    row = {'name': name, 'status': 'PASS' if verify.process_passed(supervision) else 'BLOCKED',
-        'cap_seconds': cap, 'elapsed_ms': math.ceil((time.monotonic() - began) * 1000),
-        'supervision': supervision}
-    write_private(root / (name + '.json'), row)
+    with observe('phase_environment'):
+        supervisor = trusted_module('runtime_process').bounded_process
+        environment = workload_environment()
+    with observe('phase_supervision'):
+        supervision = supervisor(command, root / (name + '.log'), timeout=cap,
+            env=environment, cwd=candidate, limit_bytes=MAX_LOG_BYTES)
+    with observe('phase_result_validation'):
+        _, verify, _ = modules(candidate)
+        row = {'name': name, 'status': 'PASS' if verify.process_passed(supervision) else 'BLOCKED',
+            'cap_seconds': cap, 'elapsed_ms': math.ceil((time.monotonic() - began) * 1000),
+            'supervision': supervision}
+    with observe('phase_receipt_write'):
+        write_private(root / (name + '.json'), row)
     if row['status'] != 'PASS':
         raise ValueError('Supervised phase did not pass')
     return row
@@ -433,13 +452,17 @@ def pytest_evidence(candidate, root, identity, *, progress=False):
 def run_work(args):
     candidate, root, ctx = initialize(args)
     rows = []
+    observer = trusted_module('ci_partition_failures').PrephaseJournal(sys.modules[__name__], root, ctx)
     try:
-        runtime, verify, harness = modules(candidate)
-        if args.job != 'source': manifest = admit_source(candidate, ctx)
-        tools = observed_tools(candidate)
-        harness.preflight('backend')
+        with observer('module_binding'):
+            runtime, verify, harness = modules(candidate)
+        if args.job != 'source':
+            with observer('source_admission'):
+                manifest = admit_source(candidate, ctx)
+        tools = observed_tools(candidate, observer=observer)
+        harness.preflight('backend', observer=observer)
         rows.append(phase('client_dependencies', ['npm','--prefix','clients','ci','--ignore-scripts',
-            '--no-audit','--no-fund'], root, candidate, 180, ctx['started']))
+            '--no-audit','--no-fund'], root, candidate, 180, ctx['started'], observer=observer))
         if args.job == 'source':
             inventory, row = collect(candidate, root, 'source_collection', 'source', ctx['started'])
             rows.append(row)
@@ -591,6 +614,11 @@ def helper(candidate, root, argv):
         'scripts/source_runtime_gate.py':'source_runtime_gate',
         'scripts/wait_registry_postgres.py':'wait_registry_postgres'}
     if argv[0] not in mapping:raise ValueError('Unknown trusted helper')
+    if argv[0] == 'scripts/source_runtime_gate.py':
+        # The partition protocol is controller-selected, never child-negotiated.
+        if len(argv) != 5 or argv[1] != '--project' or argv[3] != '--run-label':
+            raise ValueError('Exact source gate arguments required')
+        argv = [*argv, '--protocol', '2']
     module=trusted_module(mapping[argv[0]])
     if hasattr(module,'ROOT'):module.ROOT=candidate
     sys.argv=argv

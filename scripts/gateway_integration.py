@@ -4,6 +4,7 @@ This orchestrates only disposable synthetic resources. It never installs system
 software, elevates privileges, transmits diagnostic files, or claims a blocked
 observer as success. Full/diagnostic legacy harness semantics remain separate.
 """
+from contextlib import nullcontext
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -249,17 +250,25 @@ def required_phase(rows, name, command, root, budget, seconds, *, env=None):
     return row
 
 
-def preflight(mode):
-    verify_demo.pytest_environment()
+def preflight(mode, *, observer=None):
+    observe = observer if observer is not None else lambda _: nullcontext()
+    with observe('preflight_environment'):
+        verify_demo.pytest_environment()
     # An exact reviewed checkout is required. Source modifications need a fresh
     # reviewed build/receipt, never reuse of an earlier immutable identity.
-    if runtime.run(['git', 'status', '--porcelain', '--untracked-files=all'], timeout=10).stdout.strip():
-        raise Blocked('A clean immutable checkout is required')
-    runtime.require_docker()
-    if runtime.run(['node', '--version'], timeout=10).stdout.strip() != 'v24.19.0':
-        raise Blocked('Exact Node 24.19.0 is required before acquisition')
-    if runtime.run(['npm', '--version'], timeout=10).stdout.strip() != '11.9.0':
-        raise Blocked('Exact npm 11.9.0 is required before acquisition')
+    with observe('preflight_checkout'):
+        if runtime.run(['git', 'status', '--porcelain', '--untracked-files=all'], timeout=10).stdout.strip():
+            raise Blocked('A clean immutable checkout is required')
+    if observer is None:
+        runtime.require_docker()
+    else:
+        runtime.require_docker(observer=observer)
+    with observe('preflight_node'):
+        if runtime.run(['node', '--version'], timeout=10).stdout.strip() != 'v24.19.0':
+            raise Blocked('Exact Node 24.19.0 is required before acquisition')
+    with observe('preflight_npm'):
+        if runtime.run(['npm', '--version'], timeout=10).stdout.strip() != '11.9.0':
+            raise Blocked('Exact npm 11.9.0 is required before acquisition')
     if mode == 'demo':
         if os.environ.get('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'):
             raise Blocked('Browser overrides are not admitted for integration')

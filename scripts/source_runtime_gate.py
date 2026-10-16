@@ -1,6 +1,6 @@
 """Bounded host controls for the run-private synthetic source acceptance gate.
 
-Only the four fixed seeded transitions can reach bootstrap credentials. Node
+Only the caller-selected closed protocol can reach bootstrap credentials. Node
 receives readonly acknowledgements, never owner credentials or a control socket.
 Arbitrary child output is bounded and discarded; only closed-schema evidence is
 emitted. This is test tooling, never an organization runtime control plane.
@@ -16,12 +16,16 @@ import signal
 CONTROL='GATEWAY_SOURCE_CONTROL '
 RESULT='GATEWAY_SOURCE_RUNTIME_RESULT '
 OPERATIONS=('revoke_queued','reclaim','close_main','close_zero')
+JIT_OPERATIONS=('begin_main','begin_revocation','revoke_queued','begin_reclaim','reclaim',
+    'close_main','begin_zero','close_zero','begin_unknown')
 CASES=('main','revocation','reclaim','zero_job','unknown')
 CHECKS=('http_jwt_scope','compiler_retained_bytes','continue_wait','main_refresh_budget',
     'same_job_repoll','cache_eviction','cube_restart','current_authority_revocation',
     'late_metadata_observation','generation_reclaim','zero_job_settlement','unknown_submission_hold')
 FAILURES=frozenset(('source-config','source-startup','source-main','source-revocation',
-    'source-reclaim','source-zero','source-unknown','source-cleanup'))
+    'source-reclaim','source-zero','source-unknown','source-cleanup',
+    'source-unknown-authority','source-unknown-load','source-unknown-insert',
+    'source-unknown-held','source-unknown-restart','source-unknown-observe'))
 ROOT=Path(__file__).resolve().parents[1]
 
 
@@ -43,12 +47,18 @@ def _json(value):
     except (ValueError,UnicodeError,RecursionError):raise GateError() from None
 
 
-def _result(value):
+def operations_for(protocol):
+    if type(protocol) is not int or protocol not in (1,2):raise GateError()
+    return OPERATIONS if protocol==1 else JIT_OPERATIONS
+
+
+def _result(value,*,protocol=1):
+    operations=operations_for(protocol)
     if type(value) is not dict or type(value.get('schema_version')) is not int or value['schema_version']!=1:
         raise GateError()
     if set(value)=={'schema_version','status','checkpoint'} and value['status']=='failed' and type(value['checkpoint']) is str and value['checkpoint'] in FAILURES:
         raise GateError(value['checkpoint'])
-    expected={'schema_version':1,'status':'passed','operations':list(OPERATIONS),'cases':list(CASES),
+    expected={'schema_version':1,'status':'passed','operations':list(operations),'cases':list(CASES),
         'checks':list(CHECKS),'provider':'fake','registry':'postgresql'}
     if value!=expected:raise GateError()
     return value
@@ -63,7 +73,8 @@ async def _stop(process):
     except asyncio.TimeoutError:raise GateError('source-cleanup') from None
 
 
-async def execute(command,control,*,timeout=110):
+async def execute(command,control,*,timeout=110,protocol=1):
+    operations=operations_for(protocol)
     if type(timeout) not in (int,float) or not 0<timeout<=110:raise GateError()
     loop=asyncio.get_running_loop();deadline=loop.time()+timeout
     process=None;result=None;seen=[];total=0
@@ -82,15 +93,15 @@ async def execute(command,control,*,timeout=110):
                 if line.startswith(CONTROL):
                     value=_json(line[len(CONTROL):])
                     if (result is not None or type(value) is not dict or set(value)!={'operation'}
-                        or len(seen)>=len(OPERATIONS) or value['operation']!=OPERATIONS[len(seen)]):raise GateError()
+                        or len(seen)>=len(operations) or value['operation']!=operations[len(seen)]):raise GateError()
                     try:await control(value['operation'])
                     except Exception:raise GateError('source-runtime-control') from None
                     seen.append(value['operation'])
                 elif line.startswith(RESULT):
                     if result is not None:raise GateError()
-                    result=_result(_json(line[len(RESULT):]))
+                    result=_result(_json(line[len(RESULT):]),protocol=protocol)
             code=await process.wait()
-            if code!=0 or result is None or seen!=list(OPERATIONS):raise GateError('source-runtime-child')
+            if code!=0 or result is None or seen!=list(operations):raise GateError('source-runtime-child')
             return result
     except GateError:raise
     except (OSError,ValueError,UnicodeError,TimeoutError):raise GateError() from None
@@ -114,7 +125,8 @@ async def _control_command(command):
         if process is not None:await _stop(process)
 
 
-def commands(project,run_label):
+def commands(project,run_label,*,protocol=1):
+    operations=operations_for(protocol)
     if (not re.fullmatch(r'gateway-cube-[a-f0-9]{16}',project)
         or run_label!=os.environ.get('GATEWAY_CUBE_RUN_LABEL')
         or not (run_label==project+'-local' or re.fullmatch(r'[0-9]+-[0-9]+',run_label))):raise GateError()
@@ -126,7 +138,7 @@ def commands(project,run_label):
         '-e','GATEWAY_BIGQUERY_RUNTIME_DIR=/cube/conf/bigquery-runtime','cube-reviewed',
         'node','--test','--test-reporter=spec','tests/runtime/bigquery-serving.test.cjs']
     async def control(operation):
-        if operation not in OPERATIONS:raise GateError()
+        if operation not in operations:raise GateError()
         await _control_command([*compose,'run','--rm','--no-deps','--user',f'{os.getuid()}:{os.getgid()}',
             'source-bootstrap','control','--fixture-file','/evidence/source-runtime-fixture.json','--operation',operation])
     return node,control
@@ -136,10 +148,11 @@ def main():
     parser=argparse.ArgumentParser(description='Required private source runtime acceptance')
     parser.add_argument('--project',required=True)
     parser.add_argument('--run-label',required=True)
+    parser.add_argument('--protocol',type=int,choices=(1,2),default=1)
     args=parser.parse_args()
     try:
-        command,control=commands(args.project,args.run_label)
-        result=asyncio.run(execute(command,control))
+        command,control=commands(args.project,args.run_label,protocol=args.protocol)
+        result=asyncio.run(execute(command,control,protocol=args.protocol))
     except (GateError,OSError,KeyboardInterrupt) as error:
         checkpoint=error.checkpoint if isinstance(error,GateError) else 'source-runtime-wrapper'
         print('GATEWAY_FAILURE_EVIDENCE '+json.dumps({'kind':'checkpoint','checkpoint':checkpoint,'exit_status':1}),flush=True)

@@ -105,3 +105,83 @@ def test_protocol_failure_checkpoints_are_admitted_by_bounded_diagnostics():
     m=module()
     from scripts.pytest_runtime_diagnostics import CHECKPOINTS
     assert m.FAILURES|{'source-runtime-wrapper','source-runtime-control','source-runtime-child'}<=CHECKPOINTS
+
+
+@pytest.mark.parametrize('stage', ['authority','load','insert','held','restart','observe'])
+def test_unknown_subcheckpoints_are_closed_and_preserve_failure(stage):
+    from scripts.pytest_runtime_diagnostics import validate_failure_marker
+    m=module(); checkpoint='source-unknown-'+stage
+    with pytest.raises(m.GateError) as failed:
+        m._result(dict(schema_version=1,status='failed',checkpoint=checkpoint))
+    assert failed.value.checkpoint==checkpoint
+    validate_failure_marker(dict(kind='checkpoint',checkpoint=checkpoint,exit_status=1))
+    with pytest.raises(ValueError):
+        validate_failure_marker(dict(kind='checkpoint',checkpoint=checkpoint,exit_status=1,detail='must-not-forward'))
+    with pytest.raises(m.GateError):
+        m._result(dict(schema_version=1,status='failed',checkpoint=checkpoint+'-arbitrary'))
+
+
+def test_old_four_operation_receipt_cannot_qualify_new_activation_protocol():
+    m=module(); seen=[]
+    async def control(op):seen.append(op)
+    old=('revoke_queued','reclaim','close_main','close_zero')
+    value=receipt();value['operations']=list(old)
+    lines=[m.CONTROL+json.dumps({'operation':op}) for op in old]+[m.RESULT+json.dumps(value)]
+    with pytest.raises(m.GateError):asyncio.run(m.execute(child(lines),control,timeout=5,protocol=2))
+    assert seen==[]
+
+
+@pytest.mark.parametrize('protocol', [1, 2])
+def test_explicit_protocol_selects_one_closed_inventory(protocol):
+    m=module();seen=[]
+    operations=m.operations_for(protocol)
+    async def control(op):seen.append(op)
+    value=receipt();value['operations']=list(operations)
+    lines=[m.CONTROL+json.dumps({'operation':op}) for op in operations]+[m.RESULT+json.dumps(value)]
+    result=asyncio.run(m.execute(child(lines),control,timeout=5,protocol=protocol))
+    assert result==value and seen==list(operations)
+
+
+@pytest.mark.parametrize('expected,offered', [(1,2),(2,1)])
+def test_protocol_cannot_negotiate_or_downgrade_from_child(expected,offered):
+    m=module();seen=[]
+    async def control(op):seen.append(op)
+    value=receipt();value['operations']=list(m.operations_for(offered))
+    lines=[m.CONTROL+json.dumps({'operation':op}) for op in m.operations_for(offered)]+[m.RESULT+json.dumps(value)]
+    with pytest.raises(m.GateError):asyncio.run(m.execute(child(lines),control,timeout=5,protocol=expected))
+    assert seen==[]
+
+
+@pytest.mark.parametrize('protocol',[True,1.0,0,3,'2',None])
+def test_invalid_protocol_rejects_before_child_execution(protocol,monkeypatch):
+    m=module()
+    async def spawn(*args,**kwargs):pytest.fail('Unexpected child creation')
+    async def control(op):pytest.fail('Unexpected credential-bearing callback')
+    monkeypatch.setattr(m.asyncio,'create_subprocess_exec',spawn)
+    with pytest.raises(m.GateError):asyncio.run(m.execute(['unused'],control,protocol=protocol))
+
+
+@pytest.mark.parametrize('expected,offered',[(1,2),(2,1)])
+def test_cross_protocol_result_is_rejected_independently(expected,offered):
+    m=module();value=receipt();value['operations']=list(m.operations_for(offered))
+    with pytest.raises(m.GateError):m._result(value,protocol=expected)
+
+
+@pytest.mark.parametrize('selection,expected',[([],1),(['--protocol','2'],2)])
+def test_cli_selects_protocol_before_commands_and_child(selection,expected,monkeypatch):
+    m=module();seen=[]
+    def commands(project,label,*,protocol):
+        seen.append(('commands',protocol))
+        return ['unused'],None
+    async def execute(command,control,*,protocol):
+        seen.append(('execute',protocol))
+        value=receipt();value['operations']=list(m.operations_for(protocol));return value
+    monkeypatch.setattr(m,'commands',commands);monkeypatch.setattr(m,'execute',execute)
+    monkeypatch.setattr(sys,'argv',['source_runtime_gate','--project','fixed','--run-label','fixed',*selection])
+    assert m.main()==0 and seen==[('commands',expected),('execute',expected)]
+
+
+@pytest.mark.parametrize('protocol',[True,1.0,'2'])
+def test_command_builder_rejects_untyped_protocol_before_commands(protocol):
+    m=module()
+    with pytest.raises(m.GateError):m.commands('unused','unused',protocol=protocol)

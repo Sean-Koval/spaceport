@@ -146,7 +146,9 @@ def test_source_proof_is_checked_before_any_workload_or_backend_preparation(driv
     from types import SimpleNamespace
     root=tmp_path/'run';root.mkdir(mode=0o700)
     candidate=tmp_path/'candidate';candidate.mkdir()
-    ctx={'job_id':'sql_owners','started':1}
+    ctx={'job_id':'sql_owners','started':1,'identity':{},'manifest_sha256':'a'*64}
+    from scripts import ci_partition_failures
+    monkeypatch.setattr(driver,'trusted_module',lambda name:ci_partition_failures)
     events=[]
     monkeypatch.setattr(driver,'initialize',lambda args:(candidate,root,ctx))
     monkeypatch.setattr(driver,'modules',lambda candidate:(None,None,None))

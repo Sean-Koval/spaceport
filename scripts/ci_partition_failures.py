@@ -4,6 +4,9 @@ All file paths, phase names and schema choices belong to the trusted controller.
 Private diagnostics are observations, not authority to select code or repair proof.
 """
 from pathlib import Path
+from contextlib import contextmanager
+import json
+import stat
 import os
 import subprocess
 
@@ -11,6 +14,128 @@ ERRORS = (ValueError, KeyError, TypeError, OSError, RuntimeError, RecursionError
 MAX_BYTES = 16 * 1024
 SUPERVISION = {'exit_status', 'timed_out', 'output_limit_exceeded', 'interrupted',
                'descendant_cleanup', 'orphaned_descendants'}
+
+
+
+# Fixed leaves only: no nested observations or candidate-defined stage names.
+PREPHASE_STAGES = (
+    'module_binding', 'source_admission', 'tool_bootstrap_python', 'tool_workload_python',
+    'tool_runner_image', 'tool_uv', 'tool_node', 'tool_npm', 'tool_docker', 'tool_compose',
+    'preflight_environment', 'preflight_checkout', 'preflight_docker_binary',
+    'preflight_docker_info', 'preflight_compose', 'preflight_node', 'preflight_npm',
+    'phase_budget', 'phase_environment', 'phase_supervision', 'phase_result_validation',
+    'phase_receipt_write',
+)
+PREPHASE_LIMIT = 64 * 1024
+PREPHASE_RECORDS = 64
+PREPHASE_KEYS = {'schema_version', 'identity', 'job_id', 'manifest_sha256', 'sequence',
+                 'stage', 'state', 'category', 'exit_status'}
+
+
+def prephase_unavailable(status='unavailable'):
+    return {'status': status, 'stage': None, 'state': None, 'category': None, 'exit_status': None}
+
+
+def exception_category(error):
+    if isinstance(error, subprocess.TimeoutExpired):
+        return 'timeout', None
+    if isinstance(error, subprocess.CalledProcessError):
+        code = error.returncode
+        if type(code) is int and code != 0 and -255 <= code <= 255:
+            return 'nonzero_exit', code
+    elif isinstance(error, OSError):
+        return 'io_error', None
+    return 'rejected', None
+
+
+class PrephaseJournal:
+    """Best-effort private observations; never changes workload outcome."""
+    def __init__(self, driver, root, ctx):
+        self.driver = driver
+        self.path = root / 'prephase.jsonl'
+        self.binding = {key: ctx[key] for key in ('identity', 'job_id', 'manifest_sha256')}
+        self.sequence = 0
+        self.inode = None
+        self.disabled = False
+
+    def write(self, stage, state, category=None, exit_status=None):
+        if self.disabled:
+            return
+        try:
+            self.sequence += 1
+            require(self.sequence <= PREPHASE_RECORDS)
+            row = {'schema_version': 1, **self.binding, 'sequence': self.sequence,
+                   'stage': stage, 'state': state, 'category': category, 'exit_status': exit_status}
+            raw = self.driver.canonical(row) + b'\n'
+            self.driver.checked_directory(self.path.parent)
+            flags = os.O_WRONLY | os.O_NOFOLLOW | (os.O_CREAT | os.O_EXCL if self.inode is None else os.O_APPEND)
+            fd = os.open(self.path, flags, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                info = os.fstat(stream.fileno())
+                inode = (info.st_dev, info.st_ino)
+                require(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600
+                        and info.st_uid == os.getuid() and info.st_size + len(raw) <= PREPHASE_LIMIT)
+                require(self.inode is None or self.inode == inode)
+                self.inode = inode
+                stream.write(raw)
+        except ERRORS:
+            self.disabled = True
+
+    @contextmanager
+    def __call__(self, stage):
+        self.write(stage, 'entered')
+        try:
+            yield
+        except Exception as error:
+            # Deliberately do not catch BaseException alarms/cancellation.
+            self.write(stage, 'blocked', *exception_category(error))
+            self.disabled = True
+            raise
+        else:
+            self.write(stage, 'complete')
+
+
+def prephase_status(driver, root, identity, job, pin):
+    try:
+        raw = driver.private_bytes(root / 'prephase.jsonl', PREPHASE_LIMIT)
+        # A partial write is unavailable, never interpreted as a successful prefix.
+        if not raw or not raw.endswith(b'\n'):
+            return prephase_unavailable()
+        lines = raw.splitlines()
+        require(1 <= len(lines) <= PREPHASE_RECORDS)
+        stages = tuple(stage for stage in PREPHASE_STAGES if job != 'source' or stage != 'source_admission')
+        index = 0
+        entered = False
+        for sequence, line in enumerate(lines, 1):
+            row = json.loads(line, object_pairs_hook=driver._unique,
+                parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Nonfinite JSON')))
+            require(type(row) is dict and set(row) == PREPHASE_KEYS)
+            require(type(row['schema_version']) is int and row['schema_version'] == 1)
+            require(row['identity'] == identity and row['job_id'] == job and row['manifest_sha256'] == pin)
+            require(type(row['sequence']) is int and row['sequence'] == sequence)
+            require(index < len(stages) and row['stage'] == stages[index])
+            state, category, code = row['state'], row['category'], row['exit_status']
+            if not entered:
+                require(state == 'entered' and category is None and code is None)
+                entered = True
+            else:
+                require(state in ('complete', 'blocked'))
+                if state == 'complete':
+                    require(category is None and code is None)
+                    index += 1
+                    entered = False
+                else:
+                    require(sequence == len(lines))
+                    require(category in ('timeout', 'nonzero_exit', 'io_error', 'rejected'))
+                    require((type(code) is int and code != 0 and -255 <= code <= 255)
+                            if category == 'nonzero_exit' else code is None)
+        return {'status': 'available', 'stage': row['stage'], 'state': row['state'],
+                'category': 'unfinished' if row['state'] == 'entered' else row['category'],
+                'exit_status': row['exit_status']}
+    except FileNotFoundError:
+        return prephase_unavailable()
+    except ERRORS:
+        return prephase_unavailable('invalid')
 
 
 def require(value):
@@ -37,7 +162,8 @@ def cohort(driver):
 def empty_report(job, who=None, reason='evidence_unavailable'):
     return {'schema_version': 1, 'kind': 'partition_failure', 'status': 'BLOCKED',
         'job_id': job, 'cohort': who, 'context_status': 'unavailable', 'source': None,
-        'cleanup_status': 'unavailable', 'reason': reason, 'phases': []}
+        'cleanup_status': 'unavailable', 'reason': reason, 'phases': [],
+        'prephase': prephase_unavailable()}
 
 
 def emit(driver, report):
@@ -151,6 +277,7 @@ def report(driver, candidate, root, job, who):
     except ERRORS:
         result['context_status'] = 'invalid'
         return result
+    result['prephase'] = prephase_status(driver, root, identity, job, who['manifest_sha256'])
     # The source manifest is not yet available before source tests. Its digest
     # above is a validated dispatch pin, not a claim about unavailable content.
     try:

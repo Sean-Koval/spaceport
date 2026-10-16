@@ -88,11 +88,13 @@ def test_fixed_chunks_never_interpolate_data_into_shell():
 
 def test_legacy_manual_workflow_and_entrypoint_bytes_are_unchanged():
     # Exact files from reviewed remote main tree953f742293590e00a3f12545f87a62a6a72baa45.
+    # gateway_integration.py has one reviewed inert-observer revision; its original
+    # bytes are also pinned by the prephase reconstruction/parity regression.
     # Hashes avoid requiring unavailable local-only commits in shallow CI checkouts.
     expected={
         '.github/workflows/verify-gateway.yml': '823ea58ae0aad3330bf88ddcde8293ae76c37bb4380bf922a257c8abb6649b92',
         'scripts/verify_gateway_integration.sh': 'b342989e5fce7686534d36e276c6be8a26ab1f893e0e7e73a355286a9b081c97',
-        'scripts/gateway_integration.py': 'cf5e87cbc84e63c49f55b1080bf8c8ce2a2cfbbde412714181acda1eedc362e4',
+        'scripts/gateway_integration.py': '32b68b6315ad2f2c255ec3f8af684113151e83ed56452155065c84b82f1f43cb',
         'scripts/runtime_process.py': 'c59b0e492db066ed4fe047b2f64d877f4640adb752122e077f51ad9835ca32d5',
     }
     for name,sha256 in expected.items():

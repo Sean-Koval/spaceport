@@ -90,3 +90,33 @@ nested backend-phase markers are allowed only for the backend stack. Client and
 collection phases expose supervision metadata only. Raw logs, exception text,
 result bodies, environment values and credentials stay private. Invalid details
 are unavailable rather than copied into public output.
+
+### Failures before a phase receipt
+
+Failure-only finalization also validates a private, bounded pre-phase journal.
+It reports one fixed checkpoint, its entered/complete/blocked state, and a closed
+reason such as timeout, nonzero exit, I/O error, or rejection. An entered checkpoint
+without a completed observation is unfinished. A completed checkpoint is not a
+claim about where the later failure occurred. Helpers that already collapse an
+error into a generic rejection retain that classification.
+
+The journal covers trusted module binding, same-attempt source admission, fixed
+tool probes, existing preflight checks, and preparation of the first dependency
+phase. Its maximum valid path is 44 records for a backend job or 42 for source;
+the reader admits no more than 64 records or 64 KiB. Missing, truncated, malformed,
+or foreign-cohort data contributes no supplied values. Journal I/O is best effort
+and cannot change the workload outcome or create successful acceptance evidence.
+The final diagnostic remains bounded to 16 KiB. Existing tool and phase deadlines,
+cleanup controls, and successful receipt transport remain unchanged.
+
+### Source serving protocol selection
+
+The source gate retains protocol 1 as its default for the bootstrap's existing
+ordinary/manual fixture. Partition execution requires the original exact host
+argument shape and injects protocol 2 before launching the child. Caller-supplied
+protocol selectors, duplicates, abbreviations, and extra arguments are rejected.
+The just-in-time candidate's ordinary/manual and local callers explicitly select
+protocol 2; its partition caller leaves selection to the trusted controller.
+Neither path negotiates with child output or falls back after a failure. This
+protocol update changes the required operation inventory and is reviewed separately
+from the diagnostic-only pre-phase journal.
