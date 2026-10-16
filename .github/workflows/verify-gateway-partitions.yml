@@ -152,7 +152,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job source
 
   sql_owners:
     needs: [source]
@@ -322,7 +322,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job sql_owners
 
   sql_execution:
     needs: [source, sql_owners]
@@ -492,7 +492,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job sql_execution
 
   sql_publishing:
     needs: [source, sql_execution]
@@ -662,7 +662,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job sql_publishing
 
   sql_registry_results:
     needs: [source, sql_publishing]
@@ -832,7 +832,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job sql_registry_results
 
   runtime_process_socket:
     needs: [source, sql_registry_results]
@@ -1002,7 +1002,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${GATEWAY_INTEGRATION_ROOT:-}" ]]
-          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT"
+          "$GITHUB_WORKSPACE/trusted/.venv/bin/python" -I -S "$GITHUB_WORKSPACE/trusted/scripts/ci_partition_driver.py" finalize --candidate "$GITHUB_WORKSPACE/candidate" --root "$GATEWAY_INTEGRATION_ROOT" --job runtime_process_socket
 
   aggregate:
     needs: [source, sql_owners, sql_execution, sql_publishing, sql_registry_results, runtime_process_socket]

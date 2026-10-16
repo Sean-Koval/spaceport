@@ -65,3 +65,28 @@ exact test identities and digests. Suppressed, missing, reordered, oversized or
 truncated chunks block acceptance. Private diagnostics remain local to each
 runner. Platform cancellation or runner loss can prevent cleanup/finalization;
 such runs never qualify as successful acceptance.
+
+### Failure-only diagnostics
+
+The always-finalize step emits a bounded diagnostic JSON line when successful
+acceptance evidence is unavailable. It exits nonzero and writes no acceptance
+receipt or output chunks. The aggregate likewise reports a fixed failure when
+manifest or receipt transport is missing or invalid. These reports cannot repair
+missing proof or make a failed, cancelled, or skipped job pass.
+
+Diagnostic attribution comes from the executing workflow context and clean
+trusted checkout. Private context and cleanup records must match that exact job,
+source, run, and attempt. Missing or invalid context exposes fixed status fields
+only. Finalization uses the original first-step deadline; absent context or an
+exhausted budget does not create another 60-second allowance.
+
+Phase observations expose only closed supervision fields and bounded timing.
+Test failures expose source-validated test identities without parameter payloads,
+fixed stages and exception categories, and validated source coordinates. Source
+tests require a completed, valid source collection; their manifest digest is the
+dispatch pin because backend collection has not run yet. Backend test/progress
+markers require the fully validated manifest and exact lane. Checkpoint and
+nested backend-phase markers are allowed only for the backend stack. Client and
+collection phases expose supervision metadata only. Raw logs, exception text,
+result bodies, environment values and credentials stay private. Invalid details
+are unavailable rather than copied into public output.

@@ -5,6 +5,7 @@ Known run credentials come only from explicit private files. URL/JWT/token
 patterns add defense in depth; they are not proof of universal secret removal.
 """
 import argparse
+from collections import OrderedDict
 import ast
 import hashlib
 import json
@@ -27,6 +28,11 @@ _progress_collected = 0
 _progress_completed = 0
 _source_blobs = None
 _source_commit = None
+# Parsed names only. Every lookup still validates the current file and Git blob.
+DECLARATION_CACHE_ENTRIES = 128
+DECLARATION_CACHE_BYTES = 4 * 1024 * 1024
+_declaration_cache = OrderedDict()
+_declaration_bytes = 0
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_PREFIX = 'GATEWAY_FAILURE_EVIDENCE '
 PHASE_PREFIX = 'GATEWAY_PHASE_FAILURE '
@@ -125,17 +131,51 @@ def source_file(name):
     return raw.decode('utf-8')
 
 
+def source_declarations(name, verified_source):
+    """Cache bounded declaration names only, after source_file verified these bytes."""
+    global _declaration_bytes
+    encoded = verified_source.encode('utf-8')
+    key = (str(ROOT), _source_commit, name, hashlib.sha256(encoded).hexdigest())
+    if key in _declaration_cache:
+        declarations, _ = _declaration_cache[key]
+        _declaration_cache.move_to_end(key)
+        return declarations
+    declarations = set()
+    scopes = [((), ast.parse(verified_source).body)]
+    while scopes:
+        prefix, scope = scopes.pop()
+        seen_classes = set()
+        for item in scope:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name.startswith('test_'):
+                declarations.add((*prefix, item.name))
+            elif isinstance(item, ast.ClassDef) and item.name not in seen_classes:
+                # Match the old resolver's first direct class declaration,
+                # including duplicate-name source, rather than unioning scopes.
+                seen_classes.add(item.name)
+                scopes.append(((*prefix, item.name), item.body))
+    declarations = frozenset(declarations)
+    # Conservative retained-content accounting plus an independent entry bound.
+    # AST bodies/source text are discarded and never retained in this cache.
+    cost = len(encoded) + sum(128 + sum(64 + len(part.encode('utf-8')) for part in path)
+                              for path in declarations) + sum(len((part or '').encode('utf-8')) for part in key) + 256
+    if cost <= DECLARATION_CACHE_BYTES:
+        while _declaration_cache and (len(_declaration_cache) >= DECLARATION_CACHE_ENTRIES
+                or _declaration_bytes + cost > DECLARATION_CACHE_BYTES):
+            _, (_, previous_cost) = _declaration_cache.popitem(last=False)
+            _declaration_bytes -= previous_cost
+        _declaration_cache[key] = (declarations, cost)
+        _declaration_bytes += cost
+    return declarations
+
+
 def source_test_identity(node):
     try:
         address = node.partition('[')[0]
         parts = address.split('::')
         if not parts[0].startswith('tests/') or len(parts) < 2 or not parts[-1].startswith('test_'):
             raise ValueError()
-        scope = ast.parse(source_file(parts[0])).body
-        for index, name in enumerate(parts[1:]):
-            expected = (ast.FunctionDef, ast.AsyncFunctionDef) if index == len(parts)-2 else (ast.ClassDef,)
-            declaration = next(item for item in scope if isinstance(item, expected) and item.name == name)
-            scope = declaration.body
+        verified = source_file(parts[0])
+        if tuple(parts[1:]) not in source_declarations(parts[0], verified): raise ValueError()
         return address
     except (OSError, ValueError, TypeError, AttributeError, StopIteration, SyntaxError, subprocess.SubprocessError):
         return None
