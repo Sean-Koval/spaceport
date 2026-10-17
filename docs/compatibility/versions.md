@@ -14,6 +14,27 @@ Selected and verified on 13 October 2026. This is the Task 1 contract baseline, 
 
 The project requires Python 3.12.14 exactly. Runtime and test dependencies are exact pins; `uv.lock` also pins all transitive versions and artifact SHA-256 hashes using the official PyPI registry. The project is currently a source-only uv project (`package = false`), with no build/distribution backend. No original-code license has been selected; distribution remains blocked pending the owner's decision and the complete dependency/notice inventory.
 
+## Legacy internal identifiers
+
+The project was renamed from Data Product Gateway to Spaceport. Project and package names now use `spaceport` (uv project), `spaceport-publisher` (publisher npm package) and `spaceport-mcp-client-acceptance` (client harness npm package). The Compose project and the manual-workflow concurrency group are also `spaceport`/`spaceport-manual-verification`. These names were previously `data-product-gateway` / `data-product-publisher`; historical evidence (for example `docs/evidence/acceptance.md`) keeps them as recorded.
+
+The following identifiers keep the old `dpg` prefix on purpose. They are legacy internal identifiers, kept for compatibility: changing them would invalidate stored principal keys, idempotency records, cursors, audit digests or already-issued credentials and Cube tokens.
+
+| Identifier | Kind | Location |
+| --- | --- | --- |
+| `dpg-oidc-subject-v1` | Domain separator for stored principal keys | `gateway/auth/principals.py` |
+| `dpg-idempotency-v1` | Domain separator | `gateway/execution/queue.py` |
+| `dpg-result-cursor-v1` | Domain separator | `gateway/execution/cursors.py` |
+| `dpg-page-cursor-v1` | Domain separator | `gateway/api/cursors.py` |
+| `dpg-audit-parameters-v1` | Domain separator | `gateway/policy/audit.py` |
+| `dpg_svc_`, `dpg_demo_` | Bearer token formats and their redaction patterns | `gateway/auth/tokens.py`, `scripts/demo_accounts.py`, `gateway/policy/audit.py`, `migrations/versions/0004_publishing_fixtures.py` |
+| `iss: dpg-gateway`, `aud: dpg-cube`, `aud: dpg-cube-source-v1` | Cube JWT claims | `cube/**/*.js`, `cube/bigquery-runtime/*.cjs`, `gateway/adapters/` |
+| `dpg_bundle_`, `dpg_v2_` | Cube app ids | `cube/cube.js`, `cube/reviewed-postgres/*.js`, `gateway/adapters/cube.py` |
+| `dpg_bq_v1_`, `dpg_bq_compiler_` | BigQuery Cube runtime app/compiler ids | `cube/bigquery-runtime/security.cjs` |
+| `dpg-synthetic-egress-probe` | Synthetic egress probe payload | `scripts/check_egress.py` |
+
+The `gateway/` Python import package and the `gateway/` / `publisher/` directories are also unchanged. Client harness environment variables moved to `SPACEPORT_*`; the `DPG_*` names remain a deprecated fallback ([MCP compatibility](mcp.md)). Historical evidence documents keep the names that were current when they were recorded.
+
 ### Transitive lock inventory
 
 | Package | Exact version |

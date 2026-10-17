@@ -26,7 +26,7 @@ def test_fixed_manual_serial_graph_and_unchanged_permissions():
     assert tuple(sections)==('source',*LANES,'aggregate')
     assert 'workflow_dispatch:' in text and 'push:' not in text and 'pull_request:' not in text
     assert 'permissions:\n  contents: read' in text
-    assert 'group: data-product-gateway-manual-verification\n  cancel-in-progress: false' in text
+    assert 'group: spaceport-manual-verification\n  cancel-in-progress: false' in text
     assert 'strategy:' not in text and 'matrix:' not in text
     for i,lane in enumerate(LANES):
         needs='[source]' if not i else '[source, '+LANES[i-1]+']'
@@ -91,8 +91,11 @@ def test_legacy_manual_workflow_and_entrypoint_bytes_are_unchanged():
     # gateway_integration.py has one reviewed inert-observer revision; its original
     # bytes are also pinned by the prephase reconstruction/parity regression.
     # Hashes avoid requiring unavailable local-only commits in shallow CI checkouts.
+    # verify-gateway.yml differs from the reviewed bytes only by the concurrency group rename
+    # from the former project-name group to spaceport-manual-verification (#12);
+    # previous pin 823ea58ae0aa...6649b92.
     expected={
-        '.github/workflows/verify-gateway.yml': '823ea58ae0aad3330bf88ddcde8293ae76c37bb4380bf922a257c8abb6649b92',
+        '.github/workflows/verify-gateway.yml': 'bc3b56e605456f47a0c07a43569c0de01ff32236b47119f2c1deafa3c97e6590',
         'scripts/verify_gateway_integration.sh': 'b342989e5fce7686534d36e276c6be8a26ab1f893e0e7e73a355286a9b081c97',
         'scripts/gateway_integration.py': '32b68b6315ad2f2c255ec3f8af684113151e83ed56452155065c84b82f1f43cb',
         'scripts/runtime_process.py': 'c59b0e492db066ed4fe047b2f64d877f4640adb752122e077f51ad9835ca32d5',

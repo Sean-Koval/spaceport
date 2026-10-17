@@ -61,7 +61,7 @@ npm --prefix clients ci --ignore-scripts --no-audit --no-fund
 uv run --locked pytest tests/contract/test_mcp.py -q -W error
 ```
 
-Each independent client expects `DPG_MCP_URL` and `DPG_TOKEN_FILE`, an operator-selected local bearer file. Optional `DPG_QUERY_START` / `DPG_QUERY_END` select a valid half-open interval. They independently search, pin the described current version, submit once with an intentional idempotency key, poll terminal state, fetch every page and emit machine-readable normalized answers. The only omitted comparison fields are execution ID, accepted/started/completed timestamps, next cursor, and freshness assessment time/derived age. Product/version/digest, complete rows/types/units/grain/range/timezone, provenance, source watermark, cache status, freshness status/threshold, row count, truncation and warnings stay in the comparison.
+Each independent client expects `SPACEPORT_MCP_URL` and `SPACEPORT_TOKEN_FILE`, an operator-selected local bearer file. Optional `SPACEPORT_QUERY_START` / `SPACEPORT_QUERY_END` select a valid half-open interval. The legacy `DPG_*` names (`DPG_MCP_URL`, `DPG_TOKEN_FILE`, `DPG_QUERY_START`, `DPG_QUERY_END`, and `DPG_DEMO_NORTH_TOKEN_FILE` / `DPG_DEMO_SOUTH_TOKEN_FILE` for the full-stack suite) are deprecated but still accepted; when both are set, the `SPACEPORT_*` value wins. The fallback is scheduled for removal after unfreeze. They independently search, pin the described current version, submit once with an intentional idempotency key, poll terminal state, fetch every page and emit machine-readable normalized answers. The only omitted comparison fields are execution ID, accepted/started/completed timestamps, next cursor, and freshness assessment time/derived age. Product/version/digest, complete rows/types/units/grain/range/timezone, provenance, source watermark, cache status, freshness status/threshold, row count, truncation and warnings stay in the comparison.
 
 Actual PostgreSQL/app-role parity and pagination (requires the existing explicitly authorized disposable fixture):
 
@@ -73,9 +73,9 @@ Actual full-stack independent acceptance, after the Task14 private synthetic sta
 
 ```sh
 GATEWAY_DEMO_TEST_AUTHORIZATION=private-synthetic-gateway-demo \
-DPG_MCP_URL=http://127.0.0.1:8080/mcp \
-DPG_DEMO_NORTH_TOKEN_FILE=/operator/selected/demo-north.token \
-DPG_DEMO_SOUTH_TOKEN_FILE=/operator/selected/demo-south.token \
+SPACEPORT_MCP_URL=http://127.0.0.1:8080/mcp \
+SPACEPORT_DEMO_NORTH_TOKEN_FILE=/operator/selected/demo-north.token \
+SPACEPORT_DEMO_SOUTH_TOKEN_FILE=/operator/selected/demo-south.token \
 uv run --locked pytest tests/e2e/test_two_clients.py -q
 ```
 

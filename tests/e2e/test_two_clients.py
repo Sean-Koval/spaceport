@@ -20,15 +20,20 @@ PROTOCOL='2026-07-28'
 MAX_OUTPUT=8*1024*1024
 
 
+def setting(name,default=''):
+    # SPACEPORT_* wins; the legacy DPG_* names remain a deprecated fallback.
+    return os.environ.get('SPACEPORT_'+name) or os.environ.get('DPG_'+name) or default
+
+
 @pytest.fixture(scope='module')
 def stack():
     if os.environ.get('GATEWAY_DEMO_TEST_AUTHORIZATION')!='private-synthetic-gateway-demo':
         pytest.fail('Actual MCP acceptance requires explicit private-synthetic-gateway-demo authorization',pytrace=False)
-    url=os.environ.get('DPG_MCP_URL','')
+    url=setting('MCP_URL')
     parsed=urlsplit(url)
     if parsed.scheme!='http' or parsed.hostname not in {'127.0.0.1','localhost'} or not parsed.port or parsed.path!='/mcp' or parsed.query or parsed.fragment or parsed.username:
         pytest.fail('Actual MCP acceptance requires the explicitly selected loopback demo /mcp URL',pytrace=False)
-    files={profile:Path(os.environ.get('DPG_DEMO_'+profile.upper()+'_TOKEN_FILE','/nonexistent')) for profile in ('north','south')}
+    files={profile:Path(setting('DEMO_'+profile.upper()+'_TOKEN_FILE','/nonexistent')) for profile in ('north','south')}
     if not all(path.is_file() for path in files.values()):
         pytest.fail('Actual MCP acceptance requires the two provisioned local credential files',pytrace=False)
     return url,files
@@ -37,7 +42,7 @@ def stack():
 async def run_client(language,url,token_file,*,start='2024-03-09',end='2024-03-12'):
     command=[sys.executable,str(ROOT/'clients/python_agent.py')] if language=='python' else ['node',str(ROOT/'clients/typescript_agent.ts')]
     process=await asyncio.create_subprocess_exec(*command,cwd=ROOT,
-        env={**os.environ,'DPG_MCP_URL':url,'DPG_TOKEN_FILE':str(token_file),'DPG_QUERY_START':start,'DPG_QUERY_END':end},
+        env={**os.environ,'SPACEPORT_MCP_URL':url,'SPACEPORT_TOKEN_FILE':str(token_file),'SPACEPORT_QUERY_START':start,'SPACEPORT_QUERY_END':end},
         stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
     async def read(stream,limit):
         output=bytearray()

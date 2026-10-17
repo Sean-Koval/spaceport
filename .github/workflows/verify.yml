@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: data-product-gateway-manual-verification
+  group: spaceport-manual-verification
   cancel-in-progress: false
 
 jobs:

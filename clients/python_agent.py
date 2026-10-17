@@ -41,6 +41,15 @@ class BoundedTransport(httpx2.AsyncBaseTransport):
     async def aclose(self): await self.transport.aclose()
 
 
+def setting(name,default=None):
+    """Read SPACEPORT_<name>; the legacy DPG_<name> is a deprecated fallback."""
+    for prefix in ('SPACEPORT_','DPG_'):
+        value=os.environ.get(prefix+name)
+        if value:return value
+    if default is None:raise KeyError('SPACEPORT_'+name)
+    return default
+
+
 def normalize(value):
     value=json.loads(json.dumps(value,allow_nan=False))
     for name in ('execution_id','accepted_at','started_at','completed_at','next_cursor'): value.pop(name,None)
@@ -51,11 +60,11 @@ def normalize(value):
 
 
 async def run():
-    url=os.environ['DPG_MCP_URL']
+    url=setting('MCP_URL')
     target=urlsplit(url)
     if target.scheme not in {'http','https'} or not target.hostname or target.username or target.password or target.path!='/mcp' or target.query or target.fragment:
         raise ValueError('Explicit /mcp URL required')
-    with Path(os.environ['DPG_TOKEN_FILE']).open('rb') as file:token=file.read(16385)
+    with Path(setting('TOKEN_FILE')).open('rb') as file:token=file.read(16385)
     if not 1<=len(token)<=16384:raise ValueError('Invalid credential file')
     token=token.decode('ascii').strip()
     if not token or any(char.isspace() for char in token):raise ValueError('Invalid credential file')
@@ -88,8 +97,8 @@ async def run():
             if selected is None:raise ValueError('Authorized product not found')
             description=await call('describe_product',{'product_id':'revenue','version':selected['version']})
             request={'product_id':'revenue','version':description['version'],
-                'inputs':{'start':os.environ.get('DPG_QUERY_START','2024-03-09'),
-                          'end':os.environ.get('DPG_QUERY_END','2024-03-12')},
+                'inputs':{'start':setting('QUERY_START','2024-03-09'),
+                          'end':setting('QUERY_END','2024-03-12')},
                 'sort':[{'field':'day','direction':'asc'},{'field':'segment','direction':'asc'}],
                 'idempotency_key':str(uuid4())}
             execution=await call('query_product',{'request':request})

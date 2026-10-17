@@ -44,10 +44,20 @@ function sorted(value: any): any {
 }
 const equal = (a: any, b: any) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
 
+/** Read SPACEPORT_<name>; the legacy DPG_<name> is a deprecated fallback. */
+function setting(name: string, fallback?: string): string {
+  for (const prefix of ['SPACEPORT_', 'DPG_']) {
+    const value = process.env[prefix + name];
+    if (value) return value;
+  }
+  if (fallback === undefined) throw new Error(`SPACEPORT_${name} is required`);
+  return fallback;
+}
+
 async function run() {
-  const url = new URL(process.env.DPG_MCP_URL!);
+  const url = new URL(setting('MCP_URL'));
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/mcp' || url.search || url.hash) throw new Error('Explicit /mcp URL required');
-  const bytes = await readFile(process.env.DPG_TOKEN_FILE!);
+  const bytes = await readFile(setting('TOKEN_FILE'));
   if (!bytes.length || bytes.length > 16384 || bytes.some(value => value > 127)) throw new Error('Invalid credential file');
   const token = bytes.toString('ascii').trim();
   if (!token || /\s/.test(token)) throw new Error('Invalid credential file');
@@ -83,7 +93,7 @@ async function run() {
     const description = await call('describe_product', { product_id: 'revenue', version: selected.version });
     const execution = await call('query_product', { request: {
       product_id: 'revenue', version: description.version,
-      inputs: { start: process.env.DPG_QUERY_START ?? '2024-03-09', end: process.env.DPG_QUERY_END ?? '2024-03-12' },
+      inputs: { start: setting('QUERY_START', '2024-03-09'), end: setting('QUERY_END', '2024-03-12') },
       sort: [{ field: 'day', direction: 'asc' }, { field: 'segment', direction: 'asc' }],
       idempotency_key: randomUUID(),
     } });

@@ -1,5 +1,5 @@
 [project]
-name = "data-product-gateway"
+name = "spaceport"
 version = "0.1.0"
 description = "Strict contracts for the self-hosted Data Product Gateway"
 requires-python = "==3.12.14"
