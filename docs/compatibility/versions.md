@@ -12,7 +12,7 @@ Selected and verified on 13 October 2026. This is the Task 1 contract baseline, 
 | rfc8785 | 0.1.4 | [Official PyPI metadata](https://pypi.org/pypi/rfc8785/0.1.4/json), requires Python >=3.8 |
 | pytest | 9.1.1 | [Official PyPI metadata](https://pypi.org/pypi/pytest/9.1.1/json), requires Python >=3.10 |
 
-The project requires Python 3.12.14 exactly. Runtime and test dependencies are exact pins; `uv.lock` also pins all transitive versions and artifact SHA-256 hashes using the official PyPI registry. The project is currently a source-only uv project (`package = false`), with no build/distribution backend. No original-code license has been selected; distribution remains blocked pending the owner's decision and the complete dependency/notice inventory.
+The project requires Python 3.12.14 exactly. Runtime and test dependencies are exact pins; `uv.lock` also pins all transitive versions and artifact SHA-256 hashes using the official PyPI registry. The project is currently a source-only uv project (`package = false`), with no build/distribution backend. Original code is licensed under Apache-2.0 (`license` in `pyproject.toml`, root [LICENSE](../../LICENSE)); distribution remains blocked pending the owner's distribution approval and the complete dependency/notice inventory.
 
 ## Legacy internal identifiers
 
