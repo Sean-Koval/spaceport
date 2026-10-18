@@ -18,7 +18,7 @@ The project requires Python 3.12.14 exactly. Runtime and test dependencies are e
 
 The project was renamed from Data Product Gateway to Spaceport. Project and package names now use `spaceport` (uv project), `spaceport-publisher` (publisher npm package) and `spaceport-mcp-client-acceptance` (client harness npm package). The Compose project and the manual-workflow concurrency group are also `spaceport`/`spaceport-manual-verification`. These names were previously `data-product-gateway` / `data-product-publisher`; historical evidence (for example `docs/evidence/acceptance.md`) keeps them as recorded.
 
-The following identifiers keep the old `dpg` prefix on purpose. They are legacy internal identifiers, kept for compatibility: changing them would invalidate stored principal keys, idempotency records, cursors, audit digests or already-issued credentials and Cube tokens.
+The following identifiers keep the old `dpg` prefix on purpose. They are legacy internal identifiers, kept for compatibility: changing them would invalidate stored principal keys, idempotency records, cursors, audit digests or already-issued credentials and Cube tokens. The last four rows are the known remaining uses of the old display name; they are explained below the table.
 
 | Identifier | Kind | Location |
 | --- | --- | --- |
@@ -32,8 +32,12 @@ The following identifiers keep the old `dpg` prefix on purpose. They are legacy 
 | `dpg_bundle_`, `dpg_v2_` | Cube app ids | `cube/cube.js`, `cube/reviewed-postgres/*.js`, `gateway/adapters/cube.py` |
 | `dpg_bq_v1_`, `dpg_bq_compiler_` | BigQuery Cube runtime app/compiler ids | `cube/bigquery-runtime/security.cjs` |
 | `dpg-synthetic-egress-probe` | Synthetic egress probe payload | `scripts/check_egress.py` |
+| `Data Product Gateway` | MCP server name, sent to clients as `serverInfo.name` (known remaining legacy name) | `gateway/mcp/server.py` |
+| `Data Product Gateway` | REST app OpenAPI `info.title` (known remaining legacy name) | `gateway/api/app.py` |
+| `Data Product Gateway` | OpenAPI snapshot `info.title`, asserted by `tests/contract/test_rest.py` (known remaining legacy name) | `docs/compatibility/openapi.json` |
+| `Strict contracts for the self-hosted Data Product Gateway` | uv project description; package metadata, not sent to clients (known remaining legacy name) | `pyproject.toml` |
 
-The `gateway/` Python import package and the `gateway/` / `publisher/` directories are also unchanged. Client harness environment variables moved to `SPACEPORT_*`; the `DPG_*` names remain a deprecated fallback ([MCP compatibility](mcp.md)). Historical evidence documents keep the names that were current when they were recorded.
+The four "Data Product Gateway" rows are not compatibility keys: they are display names that #12's rename did not reach. Renaming the first three changes what clients receive and the asserted contract snapshot, so they stay unchanged while Spaceport is frozen and are listed here to complete [#12](https://github.com/Sean-Koval/spaceport/issues/12)'s cleanup record; changing them is a post-unfreeze owner decision. The `gateway/` Python import package and the `gateway/` / `publisher/` directories are also unchanged. Client harness environment variables moved to `SPACEPORT_*`; the `DPG_*` names remain a deprecated fallback ([MCP compatibility](mcp.md)). Historical evidence documents keep the names that were current when they were recorded.
 
 ### Transitive lock inventory
 
