@@ -2,7 +2,7 @@
 
 **As of the freeze (2026-10-16).** Spaceport is frozen; see the [README status block](../README.md#spaceport) and [ROADMAP](../ROADMAP.md#frozen). Every document below describes the repository as it stood at the freeze. Nothing here is a plan of record for new work until the owner unfreezes the project. Evidence documents record what was verified at a specific source identity; they are not refreshed and do not cover later commits.
 
-The [README](../README.md) is the entry point for what Spaceport is and how to run the synthetic demo. This page lists every documentation directory so the material is easy to find.
+The [README](../README.md) is the entry point for what Spaceport is and how to run the synthetic demo. [Architecture at the freeze](architecture.md) holds the longer overview that used to be on the README: what is implemented, how the parts fit, and a repository guide. This page lists every documentation directory so the material is easy to find.
 
 ## Design records and specifications
 
@@ -23,6 +23,8 @@ How to run, configure and gate the system. Freshness: as of freeze; no deploymen
 
 - `operations/`:
   - [Synthetic demo runbook](operations/runbook.md): prepare, run, back up and restore the private synthetic stack.
+  - [Development and verification](operations/verification.md): source-level checks and the two final acceptance wrapper modes.
+  - [BigQuery and Domo pilot, and release boundaries](operations/release-gates.md): why organization activation is blocked, and what live sources and release still require.
   - [Reviewed-source pilot](operations/source-pilot.md): operator setup and the author/test/publish workflow for BigQuery and Domo products.
   - [Organization pilot (GCP/GKE)](operations/organization-pilot.md): deployment-readiness assessment, not approval.
   - [Identity and deployment modes](operations/identity.md).
