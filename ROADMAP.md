@@ -14,7 +14,7 @@
 
 After unfreeze, milestone 6 makes Spaceport's MCP tools ask Tower's decision point. The deprecated `DPG_*` client environment names ([#12](https://github.com/Sean-Koval/spaceport/issues/12)) can then be removed in favour of `SPACEPORT_*`.
 
-Updated 16 October 2026 (frozen; see above). The milestones below record the order of work as it stood at the freeze. They are not a delivery sequence in progress, a record of completed acceptance, or permission to use live accounts, incur spend or deploy. The [approved design](docs/design-records/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the source at the freeze.
+Updated 16 October 2026 (frozen; see above). The milestones below record the order of work as it stood at the freeze. They are not active work, a record of completed acceptance, or permission to use live accounts, incur spend or deploy. The [approved design](docs/design-records/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the source at the freeze.
 
 ## Product outcome
 
