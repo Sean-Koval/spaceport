@@ -7,7 +7,7 @@ Spaceport has been frozen since 2026-10-16 ([epic #10](https://github.com/Sean-K
 - Documentation fixes: wording, links, stale claims and the docs index.
 - Security fixes the owner asks for, including dependency patches for a known vulnerability. Update the pinned versions in [docs/compatibility/versions.md](docs/compatibility/versions.md) and the dependency inventory with them.
 - CI repair: keeping the existing manual workflows able to run. No new workflows, triggers or acceptance gates.
-- The open cleanup issues in epic #10.
+- The cleanup issues listed in epic #10 (#11, #12, #13, #15, all closed). #14 (MCP tools asking Tower) is post-unfreeze work and is not allowed.
 
 Anything else waits for an unfreeze, which is an owner decision recorded on #10.
 

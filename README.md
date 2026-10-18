@@ -7,7 +7,7 @@
 
 > **Status: frozen (2026-10-16).** Spaceport is the team's capability plane: governed data products over MCP. It is paused while hangar adoption and flightdeck come first.
 >
-> - **Allowed:** security fixes, dependency patches, CI repair, docs fixes and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
+> - **Allowed:** security fixes, dependency patches, CI repair, docs fixes and the cleanup issues listed in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)) (#11, #12, #13, #15, all closed). #14 is post-unfreeze work and is not allowed.
 > - **Not allowed:** new connectors, live-source activation, deployment.
 > - **Still works:** the local synthetic demo and the REST/MCP contract.
 > - **Won't change:** the four MCP tools, their schemas and the connectors.
