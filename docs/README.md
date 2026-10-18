@@ -1,5 +1,10 @@
 # Spaceport documentation index
 
+**18 October scoped restart:** the [workplace readiness plan](specs/workplace-readiness.md)
+and [roadmap decision](../ROADMAP.md#scoped-development-resumed-18-october-2026)
+define resumed development and unchanged live-access/release gates. Earlier
+freeze language below is historical context; evidence retains its original scope.
+
 **As of the freeze (2026-10-16).** Spaceport is frozen; see the [README status block](../README.md#spaceport) and [ROADMAP](../ROADMAP.md#frozen). Every document below describes the repository as it stood at the freeze. Nothing here is a plan of record for new work until the owner unfreezes the project. Evidence documents record what was verified at a specific source identity; they are not refreshed and do not cover later commits.
 
 The [README](../README.md) is the entry point for what Spaceport is and how to run the synthetic demo. This page lists every documentation directory so the material is easy to find.

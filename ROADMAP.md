@@ -2,6 +2,23 @@
 
 ## Frozen
 
+### Scoped development resumed: 18 October 2026
+
+The owner requested resumed development focused on workplace security, controls,
+audit, authentication, access, performance, usability and Agent Factory branding.
+The first bounded wave recovers and verifies the existing owner-approval candidate,
+aligns the UI with Airframe, and defines the remaining adoption gates. See the
+[workplace readiness plan](docs/specs/workplace-readiness.md).
+
+This supersedes the development pause only for that scope. Browser PKCE,
+delegated source authorization, PII field policy and operational qualification
+are subsequent reviewed waves, not capabilities already delivered. New connectors,
+live-source activation, credentials/access grants, provider spending, deployment
+and main merges remain separately gated. Historical evidence is unchanged.
+
+The freeze record below is retained as history; its paused milestone labels are
+not acceptance claims or instructions to discard reviewed work.
+
 **Frozen 2026-10-16.** Spaceport is the team's capability plane (governed data products over MCP), paused while hangar adoption and flightdeck come first. Milestones 2 to 5 are paused at freeze; their status lines below are unchanged and describe where each stood.
 
 - **Allowed while frozen:** security fixes, dependency patches, and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
