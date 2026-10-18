@@ -1,6 +1,6 @@
 # Organization runtime foundation implementation plan
 
-Scope: [approved implementation boundary](../specs/2026-10-14-organization-runtime-foundation.md). Source baseline is the tree of private main `08330568c575b04f29cabf36d926e709e0da623a`; local worktree ancestry may differ and publication must preserve remote main ancestry.
+Scope: [approved implementation boundary](../../design-records/2026-10-14-organization-runtime-foundation.md). Source baseline is the tree of private main `08330568c575b04f29cabf36d926e709e0da623a`; local worktree ancestry may differ and publication must preserve remote main ancestry.
 
 ## 1. Strict operator configuration
 

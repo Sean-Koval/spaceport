@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python, FastAPI, Pydantic, SQLAlchemy, Alembic, psycopg, HTTPX, PyJWT, official MCP SDKs, PostgreSQL, Cube Core, React, TypeScript, Vite, Vitest, Playwright, pytest and Docker Compose. Exact compatible versions, image digests and protocol revision are selected and locked in Tasks 1, 5 and 11, not guessed here.
 
-**Spec:** [Approved design](../specs/2026-10-13-spaceport.md), approved 13 October 2026. Original Library attachment: `libfile_00f39001b7448191bc72de9e7a7e60d8`. The adjacent spec is byte-identical to the source, SHA-256 `670156876b59c82c262b6f98b1d12905bec6d41f32a1db0d92c94935517d4895`; distribute both attachments together. Executors must read both documents.
+**Spec:** [Approved design](../../design-records/2026-10-13-spaceport.md), approved 13 October 2026. Original Library attachment: `libfile_00f39001b7448191bc72de9e7a7e60d8`. The adjacent spec is byte-identical to the source, SHA-256 `670156876b59c82c262b6f98b1d12905bec6d41f32a1db0d92c94935517d4895`; distribute both attachments together. Executors must read both documents.
 
 ## Global Constraints
 

@@ -1,6 +1,6 @@
 # Reviewed connectors: evidence boundary
 
-15 October 2026. Scope: [reviewed connector design](../superpowers/specs/2026-10-15-reviewed-connectors.md). This is a private implementation candidate, not live source or deployment approval.
+15 October 2026. Scope: [reviewed connector design](../design-records/2026-10-15-reviewed-connectors.md). This is a private implementation candidate, not live source or deployment approval.
 
 ## Candidate slices
 

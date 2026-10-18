@@ -35,7 +35,7 @@ Graphite and off-white surfaces, warm orange actions, restrained blue contract m
 After installing the publisher's existing development dependencies, run from the repository root:
 
 ```sh
-node docs/design/spaceport-preview/test-preview.cjs
+node docs/archive/spaceport-preview/test-preview.cjs
 ```
 
 18 DOM checks cover search, empty state, domain filters, selected-product data, synthetic runs, date validation, themes, review simulation, navigation/focus, skip-link route preservation, accessible names, unique IDs, SVG accessibility, direct task headings, and the absence of external assets or network calls. JavaScript syntax was also checked.
