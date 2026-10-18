@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock
 import httpx
 import httpx2
 import uvicorn
+from tests.loopback_server import LoopbackServer
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from gateway.api.app import create_app
@@ -50,7 +51,7 @@ def services(principal, clock):
 
 
 @asynccontextmanager
-async def running(svc, *, production=False):
+async def running(svc, *, production=False, _wake_idle=False):
     module = mcp_module()
     sock=socket.socket(); sock.bind(('127.0.0.1',0)); sock.listen(128)
     port=sock.getsockname()[1]
@@ -64,7 +65,8 @@ async def running(svc, *, production=False):
     app=create_app(svc,settings=TransportSettings(allowed_hosts=('127.0.0.1',),
         allowed_origins=('http://approved.example',),authenticated_prefixes=('/v1','/mcp')),lifespan=lifespan)
     module.mount_mcp(app,server)
-    runner=uvicorn.Server(uvicorn.Config(app,log_level='critical',access_log=False,host='127.0.0.1',lifespan='on'))
+    runner_type = LoopbackServer if _wake_idle else uvicorn.Server
+    runner=runner_type(uvicorn.Config(app,log_level='critical',access_log=False,host='127.0.0.1',lifespan='on'))
     task=asyncio.create_task(runner.serve(sockets=[sock]))
     try:
         for _ in range(200):
@@ -74,9 +76,18 @@ async def running(svc, *, production=False):
         assert runner.started
         yield f'http://127.0.0.1:{port}',server
     finally:
-        runner.should_exit=True
-        await asyncio.wait_for(task,10)
-        sock.close()
+        if _wake_idle:
+            runner.request_exit()
+        else:
+            runner.should_exit=True
+        try:
+            await asyncio.wait_for(task,10)
+        finally:
+            sock.close()
+
+
+def running_contract(svc, *, production=False):
+    return running(svc, production=production, _wake_idle=True)
 
 
 @asynccontextmanager
@@ -106,7 +117,7 @@ async def post(base, payload, **kwargs):
 def test_official_python_http_discovery_strict_schema_and_dispatch(north_principal,clock):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,server),sdk(base) as client:
+        async with running_contract(svc) as (base,server),sdk(base) as client:
             assert client.protocol_version == PROTOCOL
             listing=await client.list_tools()
             assert {tool.name for tool in listing.tools}=={'search_products','describe_product','query_product','get_result'}
@@ -141,7 +152,7 @@ def test_official_python_http_discovery_strict_schema_and_dispatch(north_princip
 def test_forged_or_coerced_arguments_fail_before_services(north_principal,clock,name,arguments,caplog):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             response=await post(base,body(name=name,arguments=arguments))
             assert response.status_code==200,response.text
             result=response.json()['result']
@@ -158,7 +169,7 @@ def test_forged_or_coerced_arguments_fail_before_services(north_principal,clock,
 def test_fresh_auth_missing_origin_session_and_notification_guards(north_principal,clock):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             async with httpx.AsyncClient(trust_env=False) as http:
                 for method in ('GET','POST','DELETE'):
                     r=await http.request(method,base+'/mcp',headers={'Mcp-Session-Id':'forged'})
@@ -181,7 +192,7 @@ def test_fresh_auth_missing_origin_session_and_notification_guards(north_princip
 def test_safe_domain_and_unexpected_errors(north_principal,clock,caplog):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             for error,code in [(GatewayError('NOT_FOUND_OR_FORBIDDEN','secret','SQL SECRET_SENTINEL'),'NOT_FOUND_OR_FORBIDDEN'),
                                (RuntimeError('SQL SECRET_SENTINEL'),'UPSTREAM_UNAVAILABLE')]:
                 svc.catalog.search.side_effect=error
@@ -215,7 +226,7 @@ def test_independent_sdk_client_harnesses_over_real_http(north_principal,clock,t
         svc.results.get.return_value=envelope
         token=tmp_path/'token';token.write_text('synthetic');token.chmod(0o600)
         answers=[]
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             for language,command in [('python',['.venv/bin/python','clients/python_agent.py']),
                                      ('typescript',['node','clients/typescript_agent.ts'])]:
                 assert Path(command[-1]).is_file(),f'{language} client harness missing'
@@ -247,7 +258,7 @@ def test_independent_sdk_client_harnesses_over_real_http(north_principal,clock,t
 def test_protocol_negotiation_and_fixed_surface(north_principal,clock):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,server):
+        async with running_contract(svc) as (base,server):
             discover=await post(base,body(method='server/discover'))
             assert discover.status_code==200,discover.text
             assert set(discover.json()['result']['capabilities'])=={'tools'}
@@ -286,7 +297,7 @@ def test_same_connection_and_concurrent_requests_never_reuse_identity(north_prin
             if principal.id!='north-user':raise GatewayError('NOT_FOUND_OR_FORBIDDEN','id','secret')
             return ExecutionView(execution_id=execution_id,state='accepted',accepted_at=clock.now())
         svc.results.get.side_effect=get
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             payload=body(name='get_result',arguments={'execution_id':'execution-1','cursor':'north-cursor'})
             headers={'Authorization':'Bearer synthetic','MCP-Protocol-Version':PROTOCOL,'MCP-Method':'tools/call',
                      'MCP-Name':'get_result','Accept':'application/json, text/event-stream'}
@@ -314,7 +325,7 @@ def test_same_connection_and_concurrent_requests_never_reuse_identity(north_prin
 def test_malformed_envelopes_are_bounded_and_safe(north_principal,clock,raw,caplog):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False) as http:
+        async with running_contract(svc) as (base,_),httpx.AsyncClient(trust_env=False) as http:
             response=await http.post(base+'/mcp',content=raw,headers={'Authorization':'Bearer synthetic','Content-Type':'application/json'})
             assert response.status_code in (400,422)
             assert 'SECRET_SENTINEL' not in response.text
@@ -326,7 +337,7 @@ def test_malformed_envelopes_are_bounded_and_safe(north_principal,clock,raw,capl
 def test_body_chunking_full_limit_and_duplicate_headers(north_principal,clock):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False) as http:
+        async with running_contract(svc) as (base,_),httpx.AsyncClient(trust_env=False) as http:
             content=json.dumps(body()).encode()
             headers={'Authorization':'Bearer synthetic','MCP-Protocol-Version':PROTOCOL,'MCP-Method':'tools/call',
                      'MCP-Name':'search_products','Accept':'application/json, text/event-stream','Content-Type':'application/json'}
@@ -359,7 +370,7 @@ def test_body_chunking_full_limit_and_duplicate_headers(north_principal,clock):
 def test_output_validation_redacts_input_and_terminal_views_remain_results(north_principal,clock,caplog):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             svc.catalog.search.return_value={'items':'SECRET_SENTINEL'}
             response=await post(base,body())
             assert response.json()['result']['structuredContent']['code']=='UPSTREAM_UNAVAILABLE'
@@ -379,7 +390,7 @@ def test_output_validation_redacts_input_and_terminal_views_remain_results(north
 def test_no_implicit_redirect_or_unauthenticated_mcp_preflight(north_principal,clock):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False,follow_redirects=False) as http:
+        async with running_contract(svc) as (base,_),httpx.AsyncClient(trust_env=False,follow_redirects=False) as http:
             headers={'Origin':'http://approved.example','Access-Control-Request-Method':'POST'}
             response=await http.options(base+'/mcp',headers=headers)
             assert response.status_code==401
@@ -427,7 +438,7 @@ def test_both_clients_receive_large_lossless_and_paged_results(north_principal,c
         svc.catalog.describe.return_value=description;svc.execution.submit_and_wait.return_value=view
         token=tmp_path/'token';token.write_text('synthetic');token.chmod(0o600)
         answers=[]
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             raw=await post(base,body(name='get_result',arguments={'execution_id':'execution-1'}))
             assert raw.status_code==200 and len(raw.content)<8*1024*1024
             assert len(raw.json()['result']['content'][0]['text'])<100
@@ -452,7 +463,7 @@ def test_production_uses_actual_issuer_resource_and_verifier_without_fabricated_
             verified=await AuthenticatorTokenVerifier(auth).verify_token(signed_token(clock))
             assert verified.subject=='verified-user' and verified.client_id=='studio-client'
             assert verified.claims=={'iss':'https://issuer.example.test'} and verified.resource is None
-            async with running(svc,production=True) as (base,server),httpx.AsyncClient(trust_env=False) as client:
+            async with running_contract(svc,production=True) as (base,server),httpx.AsyncClient(trust_env=False) as client:
                 metadata=await client.get(base+'/.well-known/oauth-protected-resource/mcp')
                 assert metadata.status_code==200
                 assert metadata.json()['resource']=='https://gateway.example/mcp'
@@ -477,7 +488,7 @@ def test_production_verifier_rejects_profile_changes_without_service_call(north_
         auth,requests,http=authenticator(clock)
         svc=services(north_principal,clock);svc.authenticator=auth
         try:
-            async with running(svc,production=True) as (base,_):
+            async with running_contract(svc,production=True) as (base,_):
                 response=await post(base,body(),headers={'Authorization':'Bearer '+signed_token(clock,**changes)})
                 assert response.status_code==401
                 svc.catalog.search.assert_not_awaited()
@@ -489,7 +500,7 @@ def test_frozen_tool_schema_snapshot(north_principal,clock):
     from pathlib import Path
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             response=await post(base,body(method='tools/list'))
             actual=response.json()['result']['tools']
             assert actual==json.loads(Path('docs/compatibility/mcp-tools.json').read_text())
@@ -502,7 +513,7 @@ def test_python_harness_verifies_live_discovery(north_principal,clock,tmp_path):
     async def check():
         svc=services(north_principal,clock)
         token=tmp_path/'token';token.write_text('synthetic');token.chmod(0o600)
-        async with running(svc) as (base,server):
+        async with running_contract(svc) as (base,server):
             async def reject_discovery(context,call_next):
                 if context.method=='server/discover':raise MCPError(code=-32601,message='Unavailable')
                 return await call_next(context)
@@ -545,7 +556,7 @@ def test_notification_admission_precedes_sdk_routing_without_request_value_logs(
         if profile!='headerless':
             headers['MCP-Protocol-Version']={'legacy':'2025-11-25',
                 'unsupported':'SECRET_PROTOCOL_SENTINEL','modern':PROTOCOL}[profile]
-        async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False) as client:
+        async with running_contract(svc) as (base,_),httpx.AsyncClient(trust_env=False) as client:
             response=await client.post(base+'/mcp',json=payload,headers=headers)
             # Logs are checked first so the original legacy error/traceback leak
             # is the observed red, rather than only a newly expected status code.
@@ -574,7 +585,7 @@ def test_malformed_modern_notification_metadata_is_rejected_before_dispatch(
 ):
     async def check():
         svc=services(north_principal,clock)
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             payload={'jsonrpc':'2.0','method':'SECRET_METHOD_SENTINEL','params':{'_meta':meta}}
             response=await post(base,payload)
             assert response.status_code==422
@@ -589,7 +600,7 @@ def test_notification_still_requires_fresh_authentication(north_principal,clock,
     async def check():
         svc=services(north_principal,clock)
         payload={'jsonrpc':'2.0','method':'SECRET_METHOD_SENTINEL','params':{'secret':'SECRET_ARG_SENTINEL'}}
-        async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False) as client:
+        async with running_contract(svc) as (base,_),httpx.AsyncClient(trust_env=False) as client:
             headers={'MCP-Protocol-Version':PROTOCOL}
             if authorization is not None:headers['Authorization']=authorization
             response=await client.post(base+'/mcp',json=payload,headers=headers)
@@ -611,7 +622,7 @@ def test_modern_notification_drops_cancellation_without_touching_another_request
                 raise
             return {'items':[],'next_cursor':None}
         svc.catalog.search.side_effect=search
-        async with running(svc) as (base,_):
+        async with running_contract(svc) as (base,_):
             active=asyncio.create_task(post(base,body(request_id=73)))
             try:
                 await asyncio.wait_for(started.wait(),5)

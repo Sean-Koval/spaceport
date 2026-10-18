@@ -13,7 +13,7 @@ from sqlalchemy import column, func, select, table, update, text
 
 from gateway.adapters.base import authorization_scope_digest, check_binding
 from gateway.adapters.normalize import NormalizationContext, normalize
-from gateway.contracts.canonical import canonical_digest
+from gateway.contracts.canonical import canonical_bytes, canonical_digest
 from gateway.contracts.clock import SystemClock
 from gateway.contracts.errors import ErrorCode, GatewayError
 from gateway.contracts.execution import ExecutionSpec, ExecutionView, PinnedProduct, PreparedQuery
@@ -75,6 +75,8 @@ class Claim:
     deadline: datetime
     accepted_at: datetime
     started_at: datetime
+    claimed_at: datetime | None = None
+    monotonic_issued_at: float | None = None
 
 
 @dataclass(frozen=True)
@@ -147,7 +149,8 @@ class ExecutionQueue:
                 or authority.scope_digest!=authorization_scope_digest(executed)
                 or authority.full_decision_digest!=canonical_digest(executed)
                 or manifest.content_digest!=version.content_digest
-                or execution.product_id!=manifest.product_id or execution.policy_id!=manifest.policy_id): raise ValueError
+                or execution.product_id!=manifest.product_id or execution.policy_id!=manifest.policy_id
+                or execution.query_canonical is not None and execution.query_canonical!=canonical_bytes(spec.canonical_query).decode()): raise ValueError
             binding=await self.bindings.resolve(manifest.binding_id,manifest.binding_revision)
             check_binding(binding,manifest,digest=product.binding_digest)
             if binding.context!=execution.context or execution.context!='consumer': raise ValueError
@@ -162,10 +165,104 @@ class ExecutionQueue:
                 product=product,policy_revision=decision.policy_revision,decision='deny',
                 parameters=parameters,correlation_id=request_id))
 
-    async def _authorize(self,uow,loaded,*,action='execute',initial=False):
+    async def maintain(self):
+        """Capacity-only expiry phase, committed before product/policy locking."""
+        async with self.registry.transaction() as uow:
+            await self.lock_capacity(uow)
+            await self._expire(uow)
+
+    @staticmethod
+    def _key(idempotency_key):
+        return hashlib.sha256(b'dpg-idempotency-v1\0'+idempotency_key.encode()).hexdigest() if idempotency_key else None
+
+    async def _deny_requester(self,uow,principal,*,action='execute'):
+        # Never inspect or hash a retry's values before complete identity matches.
+        request_id=str(uuid4())
+        await self.policy._deny(uow,principal,action,product=None,policy_revision=None,correlation_id=request_id)
+        raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,request_id)
+
+    async def find_existing(self,uow,principal,product,idempotency_key):
+        """Identity-only key lookup. It confers no status or execution authority."""
+        key=self._key(idempotency_key)
+        if key is None: return None
+        record=await uow.session.get(IdempotencyRecord,(principal.id,product.manifest.product_id,product.version_id,key))
+        if record is None: return None
+        authority=await uow.session.get(ExecutionAuthorization,record.execution_id)
+        try:
+            requester=Principal.model_validate(principal.model_dump(mode='python'))
+            accepted=Principal.model_validate(authority.principal_snapshot) if authority is not None else None
+            if requester!=accepted: raise ValueError
+        except (ValueError,TypeError,AttributeError):
+            await self._deny_requester(uow,principal)
+        return record.execution_id
+
+    async def _prelock(self,uow,product):
+        if self.policy.requires_source_approval(product):
+            if self.policy.source_access is None:
+                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,'execution-source')
+            await self.policy.source_access.prelock(uow,(product,),version_ids=(product.version_id,))
+            return True
+        return False
+
+    async def _deadline(self,uow,loaded,current=None):
+        execution,spec,principal,executed,_=loaded
+        deadline=execution.deadline_at
+        if self.policy.requires_source_approval(spec.pinned_product):
+            from gateway.source_access import load_execution_access
+            accepted=await load_execution_access(uow,execution.id)
+            if accepted.principal!=principal or accepted.effective_deadline_at>deadline:
+                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id)
+            deadline=min(deadline,accepted.effective_deadline_at)
+        return authority_deadline(execution.created_at,deadline,spec,executed,current)
+
+    @staticmethod
+    def _check_claim(claim,loaded,deadline):
+        """A frozen worker value is not provenance; compare immutable owner data."""
         execution,spec,principal,executed,binding=loaded
-        decision=await self.policy.authorize(principal,action,spec.pinned_product,uow,
-            parameters=dict(QueryRequest.model_validate(spec.canonical_query).inputs),correlation_id=spec.request_id)
+        try:
+            if (type(claim) is not Claim or type(claim.spec) is not ExecutionSpec
+                or type(claim.principal) is not Principal or type(claim.executed_decision) is not Decision
+                or type(claim.binding) is not type(binding) or type(claim.deadline) is not datetime
+                or claim.execution_id!=execution.id or claim.accepted_at!=execution.created_at
+                or canonical_digest(claim.spec)!=canonical_digest(spec)
+                or canonical_digest(claim.principal)!=canonical_digest(principal)
+                or canonical_digest(claim.executed_decision)!=canonical_digest(executed)
+                or canonical_digest(claim.binding)!=canonical_digest(binding)
+                or not execution.created_at<claim.deadline<=deadline):
+                raise ValueError
+        except (ValueError,TypeError,AttributeError,GatewayError):
+            raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id) from None
+
+    async def _finalize(self,uow,access_request):
+        if access_request is not None:
+            await self.policy.source_access.finalize(uow,(access_request,))
+
+    async def _check_tail(self,uow,deadline,lease_expires_at,request_id):
+        # The final audit can consume the remaining execution/lease budget.
+        # Clock-only suffix: all mutable locks and writes already precede A.
+        now=await self._now(uow)
+        if now>=deadline: raise failure(ErrorCode.EXECUTION_TIMEOUT,request_id)
+        if now>=lease_expires_at: raise failure(ErrorCode.CONFLICT,request_id)
+        return now
+
+    async def _evaluate(self,uow,loaded,*,action='execute',initial=False,request_id=None):
+        execution,spec,principal,executed,binding=loaded
+        request_id=request_id or spec.request_id
+        reviewed=await self._prelock(uow,spec.pinned_product)
+        request=QueryRequest.model_validate(spec.canonical_query)
+        access_request=None
+        if reviewed:
+            from gateway.source_access_contracts import validate_reviewed_values
+            decision=await self.policy.evaluate(principal,action,spec.pinned_product,uow,correlation_id=request_id)
+            access_request=await self.policy.source_access.resolve_owner(uow,
+                {'kind':'execution','id':execution.id},principal,decision,action=action,request_id=request_id)
+            try:
+                validate_reviewed_values(access_request.pins,spec.pinned_product.manifest,request)
+            except ValueError:
+                await self.policy.source_access._deny(uow,principal,action,request_id,'INVALID_INPUT')
+        else:
+            decision=await self.policy.authorize(principal,action,spec.pinned_product,uow,
+                parameters=dict(request.inputs),correlation_id=request_id)
         try:
             check_current_scope(spec.pinned_product,QueryRequest.model_validate(spec.canonical_query),binding,
                 decision,executed,spec.request_id)
@@ -175,37 +272,49 @@ class ExecutionQueue:
             # Scope mismatch can occur despite current general authorization.
             # Abort all caller mutations, then durably record this specific deny.
             await self.deny_scope(uow,principal,spec.pinned_product,decision,spec.request_id,
-                dict(QueryRequest.model_validate(spec.canonical_query).inputs),action=action)
+                None if reviewed else dict(request.inputs),action=action)
             raise
-        return decision
+        return decision,access_request
 
-    async def admit(self,uow,principal,spec,decision,idempotency_key):
-        # Admission has already locked this product's current policy. Expiry
-        # needs no further policy locks and also makes idempotent views current.
-        await self._expire(uow)
-        key_digest=hashlib.sha256(b'dpg-idempotency-v1\0'+idempotency_key.encode()).hexdigest() if idempotency_key else None
-        if key_digest:
-            record=await uow.session.get(IdempotencyRecord,(principal.id,spec.pinned_product.manifest.product_id,spec.pinned_product.version_id,key_digest))
-            if record:
-                if record.canonical_hash!=spec.canonical_hash:
-                    raise failure(ErrorCode.CONFLICT,spec.request_id)
-                loaded=await self._load(uow,record.execution_id)
-                current=await self._authorize(uow,loaded)
-                state=await uow.session.get(ExecutionState,record.execution_id)
-                now=await self._now(uow)
-                if state.state in _PENDING and now>=authority_deadline(
-                    loaded[0].created_at,loaded[0].deadline_at,loaded[1],loaded[3],current):
-                    state.state='timed_out';state.completed_at=now;state.error_code=ErrorCode.EXECUTION_TIMEOUT.value
-                return self._authorized(execution_view(loaded[0],state),loaded[1],loaded[2],loaded[3],current)
-        # Timed-out accepted work no longer fills the pending queue; source
-        # reservations remain independently counted during worker claims.
+    async def admit(self,uow,principal,spec,decision,idempotency_key,*,access_request=None):
+        # The service's capacity-only maintenance precedes its product locks.
+        # Never expire unrelated executions from this authorization transaction.
+        reviewed=await self._prelock(uow,spec.pinned_product)
+        existing=await self.find_existing(uow,principal,spec.pinned_product,idempotency_key)
+        if reviewed:
+            if access_request is None:
+                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id)
+            self.policy.source_access.precheck(access_request)
+            if (access_request.product!=spec.pinned_product or access_request.principal!=principal
+                or access_request.decision!=decision or access_request.action!='execute'
+                or access_request.request_id!=spec.request_id
+                or access_request.request_kind!=('owner' if existing else 'admission')
+                or existing is not None and access_request.owner.id!=existing):
+                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id)
+        elif access_request is not None:
+            raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id)
+        key_digest=self._key(idempotency_key)
+        if existing is not None:
+            record=await uow.session.get(IdempotencyRecord,(principal.id,spec.pinned_product.manifest.product_id,
+                spec.pinned_product.version_id,key_digest))
+            if record.canonical_hash!=spec.canonical_hash:
+                raise failure(ErrorCode.CONFLICT,spec.request_id)
+            loaded=await self._load(uow,existing)
+            current,retained=await self._evaluate(uow,loaded,request_id=spec.request_id)
+            state=await uow.session.scalar(select(ExecutionState).where(
+                ExecutionState.execution_id==existing).with_for_update())
+            now=await self._now(uow)
+            if state.state in _PENDING and now>=await self._deadline(uow,loaded,current):
+                state.state='timed_out';state.completed_at=now;state.error_code=ErrorCode.EXECUTION_TIMEOUT.value
+            await uow.session.flush()
+            await self._finalize(uow,retained)
+            return self._authorized(execution_view(loaded[0],state),loaded[1],loaded[2],loaded[3],current)
         own,total=await pending_capacity_counts(uow,principal.id)
         if total>=100 or own>=10: raise failure(ErrorCode.RESOURCE_LIMIT,spec.request_id)
-        # The INSERT trigger supplies both instants from one DB clock. This
-        # placeholder is overwritten; no app-created_at privilege is granted.
         execution=Execution(id=str(uuid4()),principal_id=principal.id,product_id=spec.pinned_product.manifest.product_id,
             version_id=spec.pinned_product.version_id,policy_id=spec.pinned_product.manifest.policy_id,
             policy_revision=spec.policy_revision,canonical_query=spec.model_dump(mode='json')['canonical_query'],
+            query_canonical=canonical_bytes(spec.canonical_query).decode(),
             canonical_hash=spec.canonical_hash,context=spec.context,request_id=spec.request_id,deadline_at=func.clock_timestamp(),
             execution_timeout_seconds=decision.limits.execution_timeout_seconds)
         uow.session.add(execution)
@@ -219,6 +328,13 @@ class ExecutionQueue:
             uow.session.add(IdempotencyRecord(principal_id=principal.id,product_id=execution.product_id,
                 version_id=execution.version_id,key_digest=key_digest,canonical_hash=spec.canonical_hash,execution_id=execution.id))
         await uow.session.flush()
+        if reviewed:
+            retained=await self.policy.source_access.resolve_owner(uow,{'kind':'execution','id':execution.id},
+                principal,decision,action='execute',request_id=spec.request_id)
+            if (retained.projection!=access_request.projection or retained.pins!=access_request.pins
+                or retained.audience_entry_id!=access_request.audience_entry_id):
+                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,spec.request_id)
+            await self._finalize(uow,retained)
         return self._authorized(execution_view(execution,state),spec,principal,decision,decision)
 
     def _authorized(self,view,spec,principal,executed,current):
@@ -227,22 +343,26 @@ class ExecutionQueue:
         return AuthorizedExecution(view,spec,principal,executed,current,
             self.clock.now(),asyncio.get_running_loop().time())
 
-    async def wait_authorized(self,execution_id):
-        """Fresh result/status permission and audit; no output bytes or lease release."""
-        async with self.registry.transaction() as maintenance:
-            await self.lock_capacity(maintenance)
-            await self._expire(maintenance)
+    async def wait_authorized(self,execution_id,*,requester):
+        """Fresh status permission for the complete original authenticated actor."""
+        await self.maintain()
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,execution_id)
-            current=await self._authorize(uow,loaded,action='result')
+            try:
+                requester=Principal.model_validate(requester.model_dump(mode='python'))
+                if requester!=loaded[2]: raise ValueError
+            except (ValueError,TypeError,AttributeError):
+                await self._deny_requester(uow,requester,action='result')
+            current,access_request=await self._evaluate(uow,loaded,action='result')
             execution,spec,principal,executed,_=loaded
             state=await uow.session.scalar(select(ExecutionState).where(
                 ExecutionState.execution_id==execution_id).with_for_update())
             now=await self._now(uow)
-            if state.state in _PENDING and now>=authority_deadline(
-                execution.created_at,execution.deadline_at,spec,executed,current):
+            if state.state in _PENDING and now>=await self._deadline(uow,loaded,current):
                 state.state='timed_out';state.completed_at=now;state.error_code=ErrorCode.EXECUTION_TIMEOUT.value
+            await uow.session.flush()
+            await self._finalize(uow,access_request)
             return self._authorized(execution_view(execution,state),spec,principal,executed,current)
 
     async def _expire(self,uow):
@@ -268,9 +388,7 @@ class ExecutionQueue:
             raise ValueError('A bounded worker identity is required')
         # Expiry may lock states of multiple policies. Commit that maintenance
         # before taking any policy lock, preserving policy-before-state ordering.
-        async with self.registry.transaction() as maintenance:
-            await self.lock_capacity(maintenance)
-            await self._expire(maintenance)
+        await self.maintain()
         # At most the bounded queue plus existing running jobs can be rejected
         # during one pass. Each denial completes its own rollback/audit boundary.
         for _ in range(110):
@@ -305,7 +423,7 @@ class ExecutionQueue:
                             existing_group=(await uow.session.execute(text("SELECT id,closed,settled_at FROM gateway.source_operation_groups WHERE owner_kind='consumer' AND owner_id=:owner"),{'owner':target})).mappings().one_or_none()
                             if existing_group and (existing_group['closed'] or existing_group['settled_at'] is not None):
                                 raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,execution.request_id)
-                        current=await self._authorize(uow,loaded,initial=prepared is None)
+                        current,access_request=await self._evaluate(uow,loaded,initial=prepared is None)
                         own,total=await source_capacity_counts(uow,execution.principal_id)
                         running=await uow.session.scalar(select(func.count()).select_from(ExecutionState).where(
                             ExecutionState.state=='running',ExecutionState.execution_id!=target))
@@ -320,21 +438,18 @@ class ExecutionQueue:
                             or running>=current.limits.deployment_concurrency or own_running>=current.limits.per_principal_concurrency):
                             target=None
                             continue
-                        source_group=None
-                        if source_mode:
-                            try:
-                                source_group=await self.source_lifecycle.reserve_consumer(uow,loaded,current,
-                                    authority_deadline(execution.created_at,execution.deadline_at,loaded[1],loaded[3],current))
-                            except (ValueError,TypeError):
-                                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,execution.request_id) from None
-                        state=await uow.session.scalar(select(ExecutionState).where(ExecutionState.execution_id==target).with_for_update())
-                        token=str(uuid4());generation=lease.generation+1 if lease else 1
+                        state=await uow.session.scalar(select(ExecutionState).where(
+                            ExecutionState.execution_id==target).with_for_update().execution_options(populate_existing=True))
+                        lease=await uow.session.scalar(select(ExecutionLease).where(
+                            ExecutionLease.execution_id==target).with_for_update().execution_options(populate_existing=True))
                         now=await self._now(uow)
-                        deadline=authority_deadline(execution.created_at,execution.deadline_at,loaded[1],loaded[3],current)
+                        if state.state not in _PENDING or lease is not None and lease.expires_at>now:
+                            return None
+                        deadline=await self._deadline(uow,loaded,current)
                         if now>=deadline:
                             state.state='timed_out';state.completed_at=now;state.error_code=ErrorCode.EXECUTION_TIMEOUT.value
-                            target=None
-                            continue
+                            return None
+                        token=str(uuid4());generation=lease.generation+1 if lease else 1
                         expiry=min(now+timedelta(seconds=self.LEASE_SECONDS),deadline)
                         if lease is None:
                             lease=ExecutionLease(execution_id=target,worker_id=worker_id,lease_token=token,generation=generation,
@@ -344,17 +459,27 @@ class ExecutionQueue:
                             lease.worker_id=worker_id;lease.lease_token=token;lease.generation=generation
                             lease.expires_at=expiry;lease.source_reserved_until=execution.deadline_at
                         state.state='running';state.started_at=state.started_at or now
+                        # E/L are held and their mutation is flushed before any
+                        # source pool/group/session work. Approval is last.
+                        await uow.session.flush()
                         if source_mode:
+                            try:
+                                source_group=await self.source_lifecycle.reserve_consumer(uow,loaded,current,deadline)
+                            except (ValueError,TypeError):
+                                raise failure(ErrorCode.NOT_FOUND_OR_FORBIDDEN,execution.request_id) from None
                             reservation_id=source_group.group_id
+                            deadline=min(deadline,source_group.deadline)
                         else:
                             reservation=SourceReservation(id=str(uuid4()),execution_id=target,principal_id=execution.principal_id,
                                 lease_token=token,generation=generation)
                             uow.session.add(reservation)
                             reservation_id=reservation.id
                         await uow.session.flush()
+                        await self._finalize(uow,access_request)
+                        issued_at=await self._check_tail(uow,deadline,lease.expires_at,loaded[1].request_id)
                         return Claim(target,token,generation,reservation_id,loaded[1],loaded[2],loaded[3],loaded[4],
-                            prepared,
-                            execution.deadline_at,execution.created_at,state.started_at)
+                            prepared,deadline,execution.created_at,state.started_at,
+                            issued_at,asyncio.get_running_loop().time())
                     return None
             except GatewayError as error:
                 if target is None: raise
@@ -434,14 +559,18 @@ class ExecutionQueue:
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,claim.execution_id)
-            if self._source_mode(claim.binding):
-                await self.source_lifecycle._lock_authority(uow,claim.spec.pinned_product)
+            if self._source_mode(loaded[4]):
+                await self.source_lifecycle._lock_authority(uow,loaded[1].pinned_product)
             prepared=await uow.session.get(ExecutionPreparation,claim.execution_id)
-            current=await self._authorize(uow,loaded,initial=prepared is None)
+            current,access_request=await self._evaluate(uow,loaded,initial=prepared is None)
+            self._check_claim(claim,loaded,await self._deadline(uow,loaded))
             state,lease,now=await self._fence(uow,claim)
-            deadline=effective_deadline(claim,current)
+            deadline=min(claim.deadline,await self._deadline(uow,loaded,current))
             if now>=deadline: raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
             lease.expires_at=min(now+timedelta(seconds=self.LEASE_SECONDS),deadline)
+            await uow.session.flush()
+            await self._finalize(uow,access_request)
+            await self._check_tail(uow,deadline,lease.expires_at,loaded[1].request_id)
             return current
 
     async def save_prepared(self,claim,prepared):
@@ -449,15 +578,24 @@ class ExecutionQueue:
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,claim.execution_id)
-            await self._authorize(uow,loaded)
-            await self._fence(uow,claim)
+            if self._source_mode(loaded[4]):
+                await self.source_lifecycle._lock_authority(uow,loaded[1].pinned_product)
+            current,access_request=await self._evaluate(uow,loaded)
+            self._check_claim(claim,loaded,await self._deadline(uow,loaded))
+            _,lease,now=await self._fence(uow,claim)
+            deadline=min(claim.deadline,await self._deadline(uow,loaded,current))
+            if now>=deadline:
+                raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
             existing=await uow.session.get(ExecutionPreparation,claim.execution_id)
             if existing:
                 if canonical_digest(existing.prepared_query)!=canonical_digest(prepared): raise failure(ErrorCode.CONFLICT,claim.spec.request_id)
             else:
-                if prepared.model_bundle_digest!=claim.spec.pinned_product.manifest.model_bundle_digest:
+                if prepared.model_bundle_digest!=loaded[1].pinned_product.manifest.model_bundle_digest:
                     raise failure(ErrorCode.BINDING_DRIFT,claim.spec.request_id)
                 uow.session.add(ExecutionPreparation(execution_id=claim.execution_id,prepared_query=prepared.model_dump(mode='json')))
+            await uow.session.flush()
+            await self._finalize(uow,access_request)
+            await self._check_tail(uow,deadline,lease.expires_at,loaded[1].request_id)
 
     async def renew(self,claim):
         async with self.registry.transaction() as uow:
@@ -499,30 +637,49 @@ class ExecutionQueue:
             raise
 
     async def complete(self,claim,completed):
+        """Data completion and metadata-only cleanup have independent commits."""
+        try:
+            return await self._complete(claim,completed)
+        except Exception as error:
+            # A denied/failed result transaction rolls its source closure back.
+            # Close the exact fenced group independently. Only protected source
+            # terminal evidence may settle it; an error type proves nothing.
+            if self._source_mode(claim.binding):
+                code=error.code if isinstance(error,GatewayError) else ErrorCode.UPSTREAM_UNAVAILABLE
+                await self.fail(claim,code,source_completed=True)
+            raise
+
+    async def _complete(self,claim,completed):
         from .results import prepare_stored_result
         async with self.registry.transaction() as uow:
             await self.lock_capacity(uow)
             loaded=await self._load(uow,claim.execution_id)
-            if self._source_mode(claim.binding):
-                await self.source_lifecycle._lock_authority(uow,claim.spec.pinned_product)
-            current=await self._authorize(uow,loaded,action='result')
+            if self._source_mode(loaded[4]):
+                await self.source_lifecycle._lock_authority(uow,loaded[1].pinned_product)
+            current,access_request=await self._evaluate(uow,loaded,action='result')
+            self._check_claim(claim,loaded,await self._deadline(uow,loaded))
             state,lease,now=await self._fence(uow,claim)
-            if now>=effective_deadline(claim,current): raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
-            if self._source_mode(claim.binding):
+            deadline=min(claim.deadline,await self._deadline(uow,loaded,current))
+            if now>=deadline:
+                raise failure(ErrorCode.EXECUTION_TIMEOUT,claim.spec.request_id)
+            source_mode=self._source_mode(loaded[4])
+            if source_mode:
                 await self._validate_source_candidate(uow,claim,completed)
                 await self._close_source(uow,claim,'completed',require_terminal=True)
-            execution=loaded[0]
+            execution,spec,_,executed,binding=loaded
             view=ExecutionView(execution_id=execution.id,state='succeeded',accepted_at=execution.created_at,
                 started_at=state.started_at,completed_at=now)
-            # Clock now cannot precede authoritative completion. Normalization
-            # freshness uses this same one DB instant, not a manufactured watermark.
             class CompletionClock:
                 def now(self): return now
-            envelope=normalize(claim.spec.pinned_product,completed,view,context=NormalizationContext(
-                spec=claim.spec,decision=current,executed_decision=claim.executed_decision,binding=claim.binding,clock=CompletionClock()))
-            result=prepare_stored_result(execution,envelope,claim.executed_decision,now)
+            envelope=normalize(spec.pinned_product,completed,view,context=NormalizationContext(
+                spec=spec,decision=current,executed_decision=executed,binding=binding,clock=CompletionClock()))
+            result=prepare_stored_result(execution,envelope,executed,now)
+            # Legacy reservation release is also an earlier lifecycle operation.
+            # Reviewed source closure above must never run a second time after A.
+            if not source_mode: await self._release(uow,claim)
             uow.session.add(result)
             state.state='succeeded';state.completed_at=now;state.error_code=None
-            await self._release(uow,claim)
             await uow.session.flush()
+            await self._finalize(uow,access_request)
+            await self._check_tail(uow,deadline,lease.expires_at,spec.request_id)
             return view

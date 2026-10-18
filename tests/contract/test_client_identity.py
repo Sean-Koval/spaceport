@@ -7,7 +7,7 @@ import pytest
 
 from gateway.api.catalog import project_product
 from gateway.contracts.execution import ExecutionView, ResultEnvelope
-from tests.contract.test_mcp import PROTOCOL, running, services
+from tests.contract.test_mcp import PROTOCOL, running_contract as running, services
 from tests.unit.test_stored_results import TransactionProbe
 
 pytestmark = pytest.mark.contract

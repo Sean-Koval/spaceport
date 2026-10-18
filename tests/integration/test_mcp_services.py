@@ -25,16 +25,19 @@ def test_real_mcp_rest_catalog_result_pagination_revocation_and_identity(registr
     async def scenario():
         ctx=await seeded_result(registry_database,valid_manifest,count=451)
         registry=registry_database.registry;bindings=StaticBindingResolver([ctx.binding])
-        token='dpg_demo_'+secrets.token_urlsafe(32)
+        token='dpg_svc_'+secrets.token_urlsafe(32)
         credential=tmp_path/'hashes.json'
         credential.write_text(json.dumps({'version':1,'credentials':[{'digest':credential_digest(token),
-            'principal_id':'north-user','kind':'demo','active':True}]}));credential.chmod(0o600)
-        authenticator=Authenticator(Settings(credential_hash_file=str(credential)),PrincipalStore(registry.sessions),clock=ctx.clock)
+            'principal_id':ctx.actor.id,'kind':ctx.actor.kind,'active':True}]}));credential.chmod(0o600)
+        authenticator=Authenticator(Settings(credential_hash_file=str(credential),mode='production',source='reviewed_sources',
+            oidc_issuer='https://issuer.example.test',oidc_jwks_url='https://issuer.example.test/keys',
+            oidc_audience='synthetic-gateway',oidc_access_token_profile='rfc9068',oidc_client_ids=('synthetic-client',)),
+            PrincipalStore(registry.sessions),clock=ctx.clock)
         svc=SimpleNamespace(authenticator=authenticator,clock=ctx.clock,
             catalog=CatalogService(registry=registry,policy=ctx.policy,bindings=bindings,cursors=PageCursorCodec(b'k'*32,ctx.clock)),
             execution=ExecutionService(registry=registry,policy=ctx.policy,bindings=bindings,clock=ctx.clock),results=ctx.service)
         try:
-            async with running(svc) as (base,_),httpx.AsyncClient(trust_env=False,headers={'Authorization':'Bearer '+token}) as client:
+            async with running(svc,production=True) as (base,_),httpx.AsyncClient(trust_env=False,headers={'Authorization':'Bearer '+token}) as client:
                 async def tool(name,args):
                     response=await post(base,body(name=name,arguments=args),headers={'Authorization':'Bearer '+token})
                     assert response.status_code==200
@@ -55,11 +58,11 @@ def test_real_mcp_rest_catalog_result_pagination_revocation_and_identity(registr
                     cursor=page['next_cursor']
                     if cursor is None:break
                 assert len(pages)==451 and pages==ctx.envelope.model_dump(mode='json')['rows']
-                registry_database.execute_owner("UPDATE gateway.principal_grants SET active=false WHERE principal_id='north-user'")
+                registry_database.execute_owner("UPDATE gateway.principal_grants SET active=false WHERE principal_id=%s",(ctx.actor.id,))
                 denied=await tool('get_result',{'execution_id':'execution-1'})
                 assert denied['structuredContent']['code']=='NOT_FOUND_OR_FORBIDDEN'
                 assert (await tool('search_products',{}))['structuredContent']=={'items':[],'next_cursor':None}
-                registry_database.execute_owner("UPDATE gateway.principals SET active=false WHERE id='north-user'")
+                registry_database.execute_owner("UPDATE gateway.principals SET active=false WHERE id=%s",(ctx.actor.id,))
                 response=await post(base,body(),headers={'Authorization':'Bearer '+token})
                 assert response.status_code==401
         finally:await authenticator.close()

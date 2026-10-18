@@ -1,13 +1,14 @@
 """Separate immutable draft fixtures; consumer execution/result FKs stay strict."""
 from datetime import datetime
-from sqlalchemy import Boolean, CheckConstraint, DateTime, FetchedValue, ForeignKey, ForeignKeyConstraint, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, CheckConstraint, DateTime, FetchedValue, ForeignKey, ForeignKeyConstraint, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from gateway.registry.models import Base, Record
 
 
 class FixtureAttempt(Record, Base):
     __tablename__ = 'fixture_attempts'
+    source_invocation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     product_id: Mapped[str] = mapped_column(String(128))
     draft_id: Mapped[str] = mapped_column(String(128))
     draft_digest: Mapped[str] = mapped_column(String(64))
@@ -16,6 +17,7 @@ class FixtureAttempt(Record, Base):
     fixture_binding_id: Mapped[str] = mapped_column(String(128))
     fixture_binding_digest: Mapped[str] = mapped_column(String(64))
     fixture_manifest: Mapped[dict] = mapped_column(JSONB)
+    fixture_manifest_canonical: Mapped[str | None] = mapped_column(Text, nullable=True)
     fixture_manifest_digest: Mapped[str] = mapped_column(String(64))
     execution_contract_digest: Mapped[str] = mapped_column(String(64))
     policy_id: Mapped[str] = mapped_column(String(128))
@@ -27,7 +29,9 @@ class FixtureAttempt(Record, Base):
     fixed_principal_id: Mapped[str] = mapped_column(ForeignKey('gateway.principals.id'))
     principal_snapshot: Mapped[dict] = mapped_column(JSONB)
     decision: Mapped[dict] = mapped_column(JSONB)
+    decision_canonical: Mapped[str | None] = mapped_column(Text, nullable=True)
     canonical_query: Mapped[dict] = mapped_column(JSONB)
+    query_canonical: Mapped[str | None] = mapped_column(Text, nullable=True)
     canonical_hash: Mapped[str] = mapped_column(String(64))
     runner_token: Mapped[str] = mapped_column(String(128), unique=True)
     request_id: Mapped[str] = mapped_column(String(128))
@@ -69,6 +73,7 @@ class FixtureSourceReservation(Record, Base):
 
 class PublicationEvent(Record, Base):
     __tablename__ = 'publication_events'
+    source_operation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     product_id: Mapped[str] = mapped_column(String(128))
     version_id: Mapped[str] = mapped_column(String(128))
     action: Mapped[str] = mapped_column(String(16))

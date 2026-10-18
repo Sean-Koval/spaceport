@@ -7,7 +7,7 @@ from sqlalchemy import text
 from gateway.contracts.errors import GatewayError
 from gateway.contracts.identity import Principal
 from tests.integration.conftest import registry_database
-from tests.integration.test_audit import principal
+from tests.integration.source_result_seed import result_principal as principal
 from tests.integration.test_results import seeded_result
 from tests.unit.test_policy import rules
 
@@ -41,7 +41,7 @@ def test_every_replay_or_cursor_rechecks_live_authorization(registry_database,va
         cursor=first.next_cursor if use_cursor else None
         if revocation=="grant": registry_database.execute_owner("UPDATE gateway.principal_grants SET active=false")
         elif revocation=="principal": registry_database.execute_owner("UPDATE gateway.principals SET active=false")
-        elif revocation=="withdrawal": registry_database.execute_owner("UPDATE gateway.version_states SET status='withdrawn'")
+        elif revocation=="withdrawal": await ctx.publisher.transition(ctx.publisher_actor,'revenue',ctx.product.manifest.version,'withdraw','Synthetic withdrawal')
         elif revocation=="same_revision_entitlement": registry_database.execute_owner("UPDATE gateway.principal_grants SET entitlements='{\"groups\":[\"south\"]}'")
         elif revocation=="same_revision_tenant": registry_database.execute_owner("UPDATE gateway.principal_grants SET tenant_id='south'")
         else: await ctx.policy.change_policy(principal(),"revenue-access",rules(),"New revision requires a new query")
@@ -65,7 +65,7 @@ def test_tampered_expired_and_foreign_cursors_are_uniformly_unavailable(registry
             from gateway.execution.cursors import CursorStore
             from datetime import timedelta
             async with registry_database.registry.transaction() as uow:
-                cursor=await CursorStore(uow,ctx.clock.now()).issue("north-user",ctx.execution.id,1,200,ctx.clock.now()+timedelta(seconds=1))
+                cursor=await CursorStore(uow,ctx.clock.now()).issue(ctx.actor.id,ctx.execution.id,1,200,ctx.clock.now()+timedelta(seconds=1))
             ctx.clock.instant+=timedelta(seconds=2)
         await unavailable(ctx.service.get(principal(),execution_id,cursor))
     asyncio.run(scenario())
@@ -137,7 +137,7 @@ def test_stale_owned_result_does_not_change_invalid_cursor_error(registry_databa
             token=(await ctx.service.get(principal(),other.id)).next_cursor
         elif invalid=="expired":
             async with registry_database.registry.transaction() as uow:
-                token=await CursorStore(uow,ctx.clock.now()).issue("north-user",ctx.execution.id,1,200,ctx.clock.now()+timedelta(seconds=1))
+                token=await CursorStore(uow,ctx.clock.now()).issue(ctx.actor.id,ctx.execution.id,1,200,ctx.clock.now()+timedelta(seconds=1))
         ctx.clock.instant=ctx.envelope.source_watermark+timedelta(seconds=86400,microseconds=1)
         await unavailable(ctx.service.get(principal(),ctx.execution.id,token))
         with pytest.raises(GatewayError) as caught: await ctx.service.get(principal(),ctx.execution.id,first.next_cursor)

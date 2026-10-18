@@ -108,23 +108,33 @@ def test_actual_postgres_operator_and_service_authority_over_same_socket(registr
     async def scenario():
         ctx = await seeded_result(registry_database, valid_manifest, count=201)
         registry = registry_database.registry
-        kind = 'service' if profile == 'service' else 'demo'
+        kind = 'service'
         actor = 'matrix-' + profile
         token = ('dpg_svc_' if kind == 'service' else 'dpg_demo_') + secrets.token_urlsafe(32)
-        owner_token = 'dpg_demo_' + secrets.token_urlsafe(32)
+        owner_token = 'dpg_svc_' + secrets.token_urlsafe(32)
+        invalid_demo_token = 'dpg_demo_' + secrets.token_urlsafe(32)
         registry_database.execute_owner(
             'INSERT INTO gateway.principals (id,subject,kind,service_client_id,active) VALUES (%s,%s,%s,%s,true)',
             (actor, 'synthetic-' + actor, kind, 'matrix-client' if kind == 'service' else None))
         registry_database.execute_owner(
             "INSERT INTO gateway.principal_grants (principal_id,policy_id,tenant_id,roles,entitlements) VALUES (%s,'revenue-access','north',%s,'{\"groups\":[\"north\"]}')",
-            (actor, Jsonb(['consumer'] if kind == 'service' else ['operator'])))
+            (actor, Jsonb(['consumer'] if profile == 'service' else ['operator'])))
+        if profile == 'service':
+            from copy import deepcopy
+            from tests.integration.test_source_approval_registry import install
+            from tests.unit.test_source_approval_contracts import audience
+            reviewed=deepcopy(ctx.document)
+            reviewed['review']['review_id']='matrix-service-review'
+            reviewed['audiences']=[audience(id='matrix-service-only',principal_id=actor,principal_kind='service',
+                client_ids=['matrix-client'],actions=['discover','describe','execute','result'])]
+            install(registry_database,reviewed)
         hashes = tmp_path / 'credential-hashes.json'
         hashes.write_text(json.dumps({'version': 1, 'credentials': [
             {'digest': credential_digest(token), 'principal_id': actor, 'kind': kind, 'active': True},
-            {'digest': credential_digest(owner_token), 'principal_id': 'north-user', 'kind': 'demo', 'active': True}]}))
+            {'digest': credential_digest(owner_token), 'principal_id': ctx.actor.id, 'kind': ctx.actor.kind, 'active': True}]}))
         hashes.chmod(0o600)
         settings = {'credential_hash_file': str(hashes)}
-        if profile == 'service':
+        if kind == 'service':
             # Real opaque service-key verification requires production identity
             # mode. These reserved synthetic issuer URLs are never contacted.
             settings.update(mode='production', oidc_issuer='https://issuer.example.test',
@@ -139,22 +149,15 @@ def test_actual_postgres_operator_and_service_authority_over_same_socket(registr
             results=ctx.service,
             audit_reader=AuditReadService(registry=registry, policy=ctx.policy, cursors=cursors, clock=ctx.clock))
         try:
-            async with running(svc, production=profile == 'service') as (base, _), httpx.AsyncClient(base_url=base, trust_env=False,
+            async with running(svc, production=True) as (base, _), httpx.AsyncClient(base_url=base, trust_env=False,
                 limits=httpx.Limits(max_connections=1), timeout=10) as client:
                 async def call(name, args, bearer):
                     return await client.post('/mcp', headers={'Authorization': 'Bearer ' + bearer,
                         'MCP-Protocol-Version': PROTOCOL, 'MCP-Method': 'tools/call', 'MCP-Name': name,
                         'Accept': 'application/json, text/event-stream', 'MCP-Session-ID': 'same-connection',
                         'X-User-ID': 'north-user', 'X-Roles': 'consumer,audit_view'}, json=body(name=name, arguments=args))
-                if profile == 'service':
-                    # Demo owner tokens are intentionally invalid in production
-                    # mode. Obtain this seeded owner's cursor through the real
-                    # result service before testing the foreign service key.
-                    from tests.integration.test_audit import principal
-                    owned = (await ctx.service.get(principal(), 'execution-1')).model_dump(mode='json')
-                    safe_error(await call('search_products', {}, owner_token), 'UNAUTHENTICATED')
-                else:
-                    owned = mcp_value(await call('get_result', {'execution_id': 'execution-1'}, owner_token))
+                owned = mcp_value(await call('get_result', {'execution_id': 'execution-1'}, owner_token))
+                safe_error(await call('search_products', {}, invalid_demo_token), 'UNAUTHENTICATED')
                 assert len(owned['rows']) == 200 and owned['next_cursor']
                 for cursor in (None, owned['next_cursor']):
                     response = await call('get_result', {'execution_id': 'execution-1', 'cursor': cursor}, token)
@@ -177,7 +180,7 @@ def test_actual_postgres_operator_and_service_authority_over_same_socket(registr
                 else:
                     # Invalid demo auth on this connection cannot replace the
                     # scoped service identity or prevent its subsequent use.
-                    safe_error(await call('search_products', {}, owner_token), 'UNAUTHENTICATED')
+                    safe_error(await call('search_products', {}, invalid_demo_token), 'UNAUTHENTICATED')
                     assert mcp_value(await call('get_result', {'execution_id': query['execution_id']}, token))['state'] == 'accepted'
                 registry_database.execute_owner('UPDATE gateway.principal_grants SET active=false WHERE principal_id=%s', (actor,))
                 assert mcp_value(await call('search_products', {}, token))['items'] == []

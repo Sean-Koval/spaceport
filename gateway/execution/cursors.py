@@ -52,6 +52,13 @@ class CursorStore:
     """
     def __init__(self, uow: UnitOfWork, now: datetime):
         self.uow, self.now = uow, timestamp(now)
+        self.release_expires_at: datetime | None = None
+
+    def _retain_expiry(self, expires_at: datetime) -> None:
+        """Keep immutable input/output cursor deadlines for the release suffix."""
+        expiry = timestamp(expires_at)
+        self.release_expires_at = (expiry if self.release_expires_at is None
+            else min(self.release_expires_at, expiry))
 
     async def issue(self, principal_id: str, execution_id: str, policy_revision: int,
                     offset: int, expires_at: datetime) -> str:
@@ -74,6 +81,7 @@ class CursorStore:
             principal_id=result.principal_id, version_id=result.version_id, policy_revision=result.policy_revision,
             position=offset, expires_at=expiry))
         await self.uow.session.flush()
+        self._retain_expiry(expiry)
         return token
 
     async def resolve(self, token: str, result: Result) -> int:
@@ -84,4 +92,5 @@ class CursorStore:
         if (row is None or row.expires_at <= self.now or result.expires_at <= self.now
             or row.expires_at > result.expires_at or not 0 < row.position < result.envelope["row_count"]):
             raise not_found()
+        self._retain_expiry(row.expires_at)
         return row.position

@@ -9,7 +9,7 @@ from sqlalchemy.sql.elements import TextClause
 
 from gateway.execution.results import ResultService
 from tests.contract.result_parity import assert_result_page_parity
-from tests.contract.test_mcp import body, post, running, services
+from tests.contract.test_mcp import body, post, running_contract as running, services
 from tests.unit.test_stored_results import TransactionProbe
 
 pytestmark = pytest.mark.contract
@@ -70,7 +70,9 @@ def test_result_parity_reassesses_advancing_database_time_on_all_pages(clock, no
                     break
         assert sizes == [200, 200, 51]
         assert rows == expected['rows']
-        assert observations == 6
+        # Six page fetches each assess freshness and then recheck the final
+        # retention/cursor deadline after authorization and audit work.
+        assert observations == 12
         assert expected == original == probe.envelope.model_dump(mode='json')
         assert clock.now() == probe.clock.now() == probe.envelope.freshness.assessed_at
     asyncio.run(scenario())

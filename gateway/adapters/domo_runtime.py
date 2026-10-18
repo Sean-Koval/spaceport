@@ -15,6 +15,7 @@ from gateway.contracts.query import QueryRequest, validate_query
 DatasetId = Annotated[str, Field(pattern=r'^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$')]
 
 SecretRef = Annotated[str, Field(pattern=r'^/run/secrets/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$')]
+SecretVersion = Annotated[str, Field(max_length=512, pattern=r'^projects/(?:[a-z][a-z0-9-]{4,28}[a-z0-9]|[1-9][0-9]{0,19})/secrets/[A-Za-z0-9_-]{1,255}/versions/[1-9][0-9]{0,18}$')]
 
 
 class DomoOAuthConfig(StrictModel):
@@ -25,6 +26,15 @@ class DomoOAuthConfig(StrictModel):
     expected_customer: Annotated[str, Field(pattern=r'^[a-z0-9][a-z0-9-]{0,127}$')]
     expected_user_id: int = Field(ge=1, le=2**53-1)
     expected_role: str | None = Field(default=None, min_length=1, max_length=256)
+    # Old observation descriptors remain byte-identical when versions are absent.
+    client_id_version: SecretVersion | None = Field(default=None, exclude_if=lambda value: value is None)
+    client_secret_version: SecretVersion | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode='after')
+    def complete_version_mapping(self):
+        if (self.client_id_version is None) != (self.client_secret_version is None):
+            raise ValueError('Both immutable credential versions are required')
+        return self
 
 
 class DomoSource(StrictModel):

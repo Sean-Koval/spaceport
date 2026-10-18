@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "adapter_revision": "cube-bigquery-v1",
+  "data_cube": "Usage",
+  "members": {
+    "Usage.day": {"kind": "time", "type": "time"},
+    "Usage.account": {"kind": "dimension", "type": "string"},
+    "Usage.events": {"kind": "measure", "type": "number"},
+    "Usage.tenant": {"kind": "dimension", "type": "string"},
+    "Usage.group": {"kind": "dimension", "type": "string"}
+  },
+  "tenant_member": "Usage.tenant",
+  "access_group_member": "Usage.group",
+  "time_member": "Usage.day",
+  "checkpoint_member": null
+}

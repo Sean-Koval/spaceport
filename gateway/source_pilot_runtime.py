@@ -34,6 +34,7 @@ from gateway.registry.repository import Registry
 from gateway.runtime_config import read_secret,secret_key
 from gateway.source_pilot_assets import load_source_assets
 from gateway.source_pilot_config import load_source_pilot_config
+from gateway.source_access_operator import validate_configured_approvals, validate_active_approvals, load_registry_approvals
 
 _CONFIG_ERROR='Reviewed-source runtime configuration is unavailable.'
 _STARTUP_ERROR='Reviewed-source startup failed.'
@@ -66,8 +67,9 @@ def source_secret_resolver(sources,context):
 
 class SourceReadiness:
     """Migration/binding/epoch checks only. Ready never means source-qualified."""
-    def __init__(self,registry,assets,config):
+    def __init__(self,registry,assets,config,approval_packages=()):
         self.registry,self.assets,self.config=registry,assets,config
+        self.approval_packages=approval_packages
         self.lock=asyncio.Lock()
 
     async def check(self):
@@ -76,6 +78,7 @@ class SourceReadiness:
         try:
             async with asyncio.timeout(3):
                 async with self.lock:
+                    await validate_active_approvals(self.registry,self.approval_packages)
                     async with self.registry.transaction() as uow:
                         heads=(await uow.session.execute(text('SELECT version_num FROM public.alembic_version'))).scalars().all()
                         if heads!=ReadinessService.expected_heads():return ReadinessView(ready=False)
@@ -117,6 +120,7 @@ async def build_runtime(config=None,*,root=None,role='api'):
         config,root=_configuration(config,root)
         settings=_identity(config)
         assets=load_source_assets(config,root)  # Entire composition before credentials or DB engines.
+        configured_approvals=validate_configured_approvals(config,assets,root)
         if role=='api':
             from gateway.source_pilot_bootstrap import validate_service_credentials
             validate_service_credentials(assets.identities,config)
@@ -124,8 +128,12 @@ async def build_runtime(config=None,*,root=None,role='api'):
         from gateway.adapters.dispatch import SourceDispatchAdapter
         config.validate_files(role='app')
         clock=SystemClock();registry=Registry(config.database_url('app'));owned.append(registry)
+        # Registry authentication is necessary; provider credentials/clients are not.
+        approval_packages=await load_registry_approvals(registry,configured_approvals)
         principals=PrincipalStore(registry.sessions)
-        policy=PolicyService(registry,principals,AuditWriter(secret_key('audit_hmac')))
+        from gateway.source_access import SourceAccessService
+        audit=AuditWriter(secret_key('audit_hmac'))
+        policy=PolicyService(registry,principals,audit,source_access=SourceAccessService(registry,audit))
         context='fixture_test' if role=='api' else 'consumer'
         provider_registries={}
         if any(s.provider=='domo' for s in assets.sources.sources):
@@ -170,7 +178,7 @@ async def build_runtime(config=None,*,root=None,role='api'):
             choices=ChoiceService(registry=registry,policy=policy,bindings=bindings,bundles=assets.bundles,cursors=cursors,
                 templates=tuple(p.package.manifest for p in assets.packages.packages)),
             audit_reader=AuditReadService(registry=registry,policy=policy,cursors=cursors,clock=clock),
-            readiness=SourceReadiness(registry,assets,config))
+            readiness=SourceReadiness(registry,assets,config,approval_packages))
         return SourceRuntime(services,adapter,adapter_factory,lifecycle,owned)
     except BaseException as error:
         try:await _close_resources(*reversed(owned))

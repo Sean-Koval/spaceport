@@ -30,19 +30,34 @@ def bounded_rows(rows):
     return rows
 
 
-async def scope_fingerprint(policy,principal,uow):
+async def scope_policy_ids(policy,principal,uow):
+    """Nonlocking dependency discovery before the page's ordered lock prefix."""
+    principal=Principal.model_validate(principal.model_dump(mode='python'))
+    await policy._identity(principal,uow)
+    grants=await policy.principals.get_current(principal.id,session=uow.session)
+    return tuple(sorted({grant.policy_id for grant in grants.grants}))
+
+
+async def scope_fingerprint(policy,principal,uow,*,policy_ids=None):
     """Read fresh verified identity, grants and all relevant digest-valid policy heads."""
     principal=Principal.model_validate(principal.model_dump(mode='python'))
     await policy._identity(principal,uow)
     grants=await policy.principals.get_current(principal.id,session=uow.session)
+    current_ids={grant.policy_id for grant in grants.grants}
+    # Grants can change between dependency discovery and the final page read.
+    # Refuse any new Q rather than acquire it after V/E/A in that transaction.
+    if policy_ids is not None and not current_ids<=set(policy_ids):
+        raise not_found()
     current=[]
-    for policy_id in sorted({grant.policy_id for grant in grants.grants}):
+    for policy_id in sorted(current_ids):
         head=await uow.session.get(PolicyRow,policy_id,populate_existing=True)
         if head is None:
             current.append([policy_id,None]);continue
         revision,_=await policy._current(policy_id,uow)
         current.append([policy_id,revision.revision,revision.content_digest])
-    return canonical_digest({'principal':principal,'grants':grants,'policies':current})
+    source_scope=(await policy.source_access.scope_fingerprint(uow)
+        if policy.source_access is not None else None)
+    return canonical_digest({'principal':principal,'grants':grants,'policies':current,'source_approvals':source_scope})
 
 
 def visible_examples(manifest,decision,binding):
@@ -100,13 +115,41 @@ class CatalogService:
     def __init__(self,*,registry,policy,bindings,cursors):
         self.registry,self.policy,self.bindings,self.cursors=registry,policy,bindings,cursors
 
-    async def _projection(self,principal,target,uow,*,discovery=False):
-        if discovery:await self.policy.authorize(principal,'discover',target,uow)
-        decision=await self.policy.authorize(principal,'describe',target,uow)
+    async def _prelock(self,targets,uow,*,policy_ids=()):
+        if not targets:
+            return
+        if any(self.policy.requires_source_approval(target) for target in targets):
+            if self.policy.source_access is None:
+                raise not_found()
+            # One earlier-lock phase for the whole page, never finalize one
+            # target and then acquire another target's product/policy locks.
+            await self.policy.source_access.prelock(uow,tuple(targets),
+                version_ids=tuple(sorted({target.version_id for target in targets})),policy_ids=policy_ids)
+
+    async def _prepare_projection(self,principal,target,uow,*,discovery=False):
+        requests=[]
+        reviewed=self.policy.requires_source_approval(target)
+        for action in (('discover','describe') if discovery else ('describe',)):
+            if reviewed:
+                if self.policy.source_access is None:
+                    raise not_found()
+                request_id=str(uuid4())
+                decision=await self.policy.evaluate(principal,action,target,uow,correlation_id=request_id)
+                requests.append(await self.policy.source_access.resolve_transient(uow,target,principal,decision,
+                    action=action,request_id=request_id))
+            else:
+                decision=await self.policy.authorize(principal,action,target,uow)
         state=await uow.session.scalar(select(VersionState.status).where(VersionState.version_id==target.version_id))
         if state not in {'published','deprecated'}:raise not_found()
         binding=await self.bindings.resolve(target.manifest.binding_id,target.manifest.binding_revision)
-        return project_product(target,decision,binding,state)
+        return project_product(target,decision,binding,state),tuple(requests)
+
+    async def _projection(self,principal,target,uow,*,discovery=False):
+        await self._prelock((target,),uow)
+        projection,requests=await self._prepare_projection(principal,target,uow,discovery=discovery)
+        if requests:
+            await self.policy.source_access.finalize(uow,requests)
+        return projection
 
     async def describe(self,principal,product_id,version=None):
         try:
@@ -147,9 +190,17 @@ class CatalogService:
                 if error.code!=ErrorCode.NOT_FOUND_OR_FORBIDDEN:raise
                 # Denial aborted its own transaction, never reuse that UoW.
         async with read_transaction(self.registry) as uow:
-            final=await scope_fingerprint(self.policy,principal,uow)
+            policy_ids=await scope_policy_ids(self.policy,principal,uow)
+            await self._prelock(tuple(matches),uow,policy_ids=policy_ids)
+            final=await scope_fingerprint(self.policy,principal,uow,policy_ids=policy_ids)
             if final!=initial:raise not_found()
-            checked=[await self._projection(principal,target,uow,discovery=True) for target in matches]
+            checked,requests=[],[]
+            for target in matches:
+                projection,pending=await self._prepare_projection(principal,target,uow,discovery=True)
+                checked.append(projection)
+                requests.extend(pending)
+            if requests:
+                await self.policy.source_access.finalize(uow,tuple(requests))
         items=checked[:limit]
         token=self.cursors.issue(purpose='catalog',identity=identity,scope=final,query=query_hash,last=items[-1].product_id) if len(checked)>limit else None
         return CatalogPage(items=items,next_cursor=token)

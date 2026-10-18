@@ -5,6 +5,7 @@ import importlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from psycopg.types.json import Jsonb
@@ -12,7 +13,7 @@ from sqlalchemy import select, text
 
 from gateway.adapters.base import CubeBinding, StaticBindingResolver, authorization_scope_digest
 from gateway.adapters.normalize import NormalizationContext, normalize
-from gateway.contracts.canonical import canonical_digest
+from gateway.contracts.canonical import canonical_bytes, canonical_digest
 from gateway.contracts.errors import GatewayError
 from gateway.contracts.execution import Completed, ExecutionSpec, ExecutionView
 from gateway.contracts.manifest import validate_manifest
@@ -20,7 +21,8 @@ from gateway.contracts.query import QueryRequest, validate_query
 from gateway.registry.models import BindingRevision, Execution, ExecutionState, Result, TestRun as RegistryTestRun
 from gateway.registry.repository import Registry
 from tests.conftest import FakeClock
-from tests.integration.test_audit import seed, service as policy_service, principal
+from tests.integration.test_audit import service as policy_service, principal as legacy_principal
+from tests.integration.source_result_seed import result_principal as principal, result_approval_assets, settle_result_execution
 from tests.integration.test_registry import publish
 
 pytestmark=pytest.mark.postgres
@@ -33,44 +35,53 @@ def api(name="results"):
 
 
 async def seeded_result(database, valid_manifest, *, count=451, state="succeeded", expired=False, retention_seconds=None):
-    seed(database,roles=("consumer","policy_admin"))
-    manifest=validate_manifest(valid_manifest)
-    raw=json.loads((ROOT/"fixtures/bindings/revenue.json").read_text())
-    raw["model_bundle_digest"]=manifest.model_bundle_digest
-    binding=CubeBinding.model_validate(raw)
-    async with database.registry.transaction() as uow:
-        uow.session.add(BindingRevision(id="binding-1",binding_id=manifest.binding_id,revision=1,
-            content=binding.model_dump(mode="json"),content_digest=binding.digest,
-            model_bundle_digest=manifest.model_bundle_digest,adapter_revision=manifest.adapter_revision,actor_id="operator"))
-    draft=await database.registry.save_draft("revenue",manifest,0,"editor")
-    async with database.registry.transaction() as uow:
-        uow.session.add(RegistryTestRun(id="test-1",product_id="revenue",draft_id=draft.id,draft_digest=manifest.content_digest,
-            binding_id="binding-1",binding_digest=binding.digest,policy_id=manifest.policy_id,policy_revision=1,
-            fixture_version="1",evidence={"synthetic":"passed"},status="passed",actor_id="tester"))
-    await publish(database.registry,draft)
-    pinned=await database.registry.resolve("revenue")
+    from gateway.adapters.bigquery_runtime import BigQueryBinding
+    from gateway.source_access import SourceAccessService
+    from tests.integration.test_source_approval_transactions import consumer_setup
+    # Exact independently owner-installed package and real protected publication.
+    document,manifest,approval,pinned=await asyncio.to_thread(consumer_setup,database,valid_manifest,
+        assets_factory=result_approval_assets)
+    binding=BigQueryBinding.model_validate(database.scalar(
+        "SELECT content FROM gateway.binding_revisions WHERE id='consumer-binding-row'"))
     policy=policy_service(database)
+    policy.source_access=SourceAccessService(database.registry,policy.audit)
     async with database.registry.transaction() as uow:
+        await policy.source_access.prelock(uow,(pinned,),version_ids=(pinned.version_id,))
         now=await uow.session.scalar(text("SELECT clock_timestamp()"))
-        decision=await policy.authorize(principal(),"execute",pinned,uow)
+        decision=await policy.evaluate(principal(),"execute",pinned,uow)
     clock=FakeClock(now)
     query=validate_query(manifest,QueryRequest(product_id="revenue",version=manifest.version,inputs={"start":"2024-03-09","end":"2024-03-12"}))
     canonical=query.model_dump(mode="json",exclude={"idempotency_key"})
-    execution=Execution(id="execution-1",principal_id="north-user",product_id="revenue",version_id=pinned.version_id,
-        policy_id=manifest.policy_id,policy_revision=1,canonical_query=canonical,canonical_hash=canonical_digest(canonical),
+    execution=Execution(id="execution-1",principal_id=principal().id,product_id="revenue",version_id=pinned.version_id,
+        policy_id=manifest.policy_id,policy_revision=1,canonical_query=canonical,query_canonical=canonical_bytes(canonical).decode(),canonical_hash=canonical_digest(canonical),
         context="consumer",request_id="request-1",deadline_at=now+timedelta(seconds=120))
     async with database.registry.transaction() as uow:
+        await policy.source_access.prelock(uow,(pinned,),version_ids=(pinned.version_id,))
+        assert await policy.evaluate(principal(),'execute',pinned,uow)==decision
         uow.session.add(execution)
         await uow.session.flush()
+        await uow.session.refresh(execution)
         now=await uow.session.scalar(text("SELECT clock_timestamp()"))
         clock.instant=now
         from gateway.registry.models import ExecutionAuthorization
         uow.session.add(ExecutionAuthorization(execution_id=execution.id,
             principal_snapshot=principal().model_dump(mode="json"),decision=decision.model_dump(mode="json"),
             scope_digest=authorization_scope_digest(decision),full_decision_digest=canonical_digest(decision)))
-        uow.session.add(ExecutionState(execution_id=execution.id,state=state,
-            started_at=None if state=="accepted" else now,
-            completed_at=now if state=="succeeded" else None))
+        uow.session.add(ExecutionState(execution_id=execution.id,state='accepted'))
+        await uow.session.flush()
+        request=await policy.source_access.resolve_owner(uow,{'kind':'execution','id':execution.id},principal(),decision,
+            action='execute',request_id=str(uuid4()))
+        await policy.source_access.finalize(uow,(request,))
+    if state=='succeeded':
+        await settle_result_execution(database,execution=execution,product=pinned,actor=principal(),
+            decision=decision,binding=binding,policy=policy)
+    async with database.registry.transaction() as uow:
+        state_row=await uow.session.get(ExecutionState,execution.id,with_for_update=True)
+        now=await uow.session.scalar(text("SELECT clock_timestamp()"))
+        clock.instant=now
+        state_row.state=state
+        state_row.started_at=None if state=='accepted' else now
+        state_row.completed_at=now if state=='succeeded' else None
         if state=="succeeded":
             spec=ExecutionSpec(principal_id=execution.principal_id,pinned_product=pinned,canonical_query=canonical,
                 canonical_hash=execution.canonical_hash,policy_revision=1,context="consumer",request_id="request-1")
@@ -88,8 +99,13 @@ async def seeded_result(database, valid_manifest, *, count=451, state="succeeded
             (execution.id,execution.principal_id,execution.version_id,execution.policy_revision,execution.canonical_hash,
              Jsonb(stored.envelope),now-timedelta(hours=25),now-timedelta(hours=1)))
     result_service=api().ResultService(database.registry,policy,StaticBindingResolver([binding]),clock)
+    from gateway.publishing.service import PublishingService
+    from tests.unit.test_source_approval_contracts import principal as original_author
+    publisher=PublishingService(registry=database.registry,policy=policy,bindings=StaticBindingResolver([binding]),bundles=None)
     return SimpleNamespace(service=result_service,clock=clock,execution=execution,product=pinned,decision=decision,
-        binding=binding,policy=policy,envelope=envelope if state=="succeeded" else None)
+        binding=binding,policy=policy,actor=principal(),publisher=publisher,publisher_actor=original_author(),
+        document=document,approval=approval,
+        envelope=envelope if state=="succeeded" else None)
 
 
 def test_complete_result_paginates_200_rows_and_preserves_total(registry_database,valid_manifest):
@@ -104,9 +120,9 @@ def test_complete_result_paginates_200_rows_and_preserves_total(registry_databas
         assert [len(page.rows) for page in pages]==[200,200,51]
         assert all(page.row_count==451 and not page.truncated for page in pages)
         assert tuple(row for page in pages for row in page.rows)==ctx.envelope.rows
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND decision='allow'")==6
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count=451 AND duration_ms>=0")==3
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count IS NULL AND duration_ms IS NULL")==3
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND decision='allow'")==6
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count=451 AND duration_ms>=0")==3
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count IS NULL AND duration_ms IS NULL")==3
         assert registry_database.scalar("SELECT count(*) FROM gateway.result_cursors")==2
         assert registry_database.scalar("SELECT bool_and(expires_at <= (SELECT expires_at FROM gateway.results)) FROM gateway.result_cursors")
         assert registry_database.scalar("SELECT bool_and(length(token_digest)=64) FROM gateway.result_cursors")
@@ -119,8 +135,8 @@ def test_cursor_replay_is_stable_and_requires_a_fresh_committed_audit(registry_d
         first=await ctx.service.get(principal(),ctx.execution.id)
         pages=await asyncio.gather(*(ctx.service.get(principal(),ctx.execution.id,first.next_cursor) for _ in range(4)))
         assert all(page.rows==ctx.envelope.rows[200:] for page in pages)
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND decision='allow'")==10
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count=201 AND duration_ms>=0")==5
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND decision='allow'")==10
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count=201 AND duration_ms>=0")==5
     asyncio.run(scenario())
 
 
@@ -130,8 +146,8 @@ def test_pending_execution_has_no_result_bytes_but_is_audited(registry_database,
         ctx=await seeded_result(registry_database,valid_manifest,state=state)
         view=await ctx.service.get(principal(),ctx.execution.id)
         assert type(view) is ExecutionView and view.state==state
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result'")==2
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count IS NULL AND duration_ms>=0")==1
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service'")==2
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count IS NULL AND duration_ms>=0")==1
     asyncio.run(scenario())
 
 
@@ -204,7 +220,7 @@ def test_required_audit_commit_failure_prevents_bytes_and_cursor_release(registr
         assert caught.value.code=="UPSTREAM_UNAVAILABLE"
         assert "synthetic" not in str(caught.value)
         assert registry_database.scalar("SELECT count(*) FROM gateway.result_cursors")==0
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result'")==0
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service'")==0
     asyncio.run(scenario())
 
 
@@ -213,16 +229,29 @@ async def add_owned_result(database, ctx):
     from gateway.registry.models import ExecutionAuthorization
     canonical={**ctx.execution.canonical_query,"inputs":{**ctx.execution.canonical_query["inputs"],"end":"2024-03-11"}}
     async with database.registry.transaction() as uow:
+        await ctx.policy.source_access.prelock(uow,(ctx.product,),version_ids=(ctx.product.version_id,))
+        assert await ctx.policy.evaluate(ctx.actor,'execute',ctx.product,uow)==ctx.decision
         now=await uow.session.scalar(text("SELECT clock_timestamp()"))
-        execution=Execution(id="execution-2",principal_id="north-user",product_id="revenue",version_id=ctx.product.version_id,
-            policy_id="revenue-access",policy_revision=1,canonical_query=canonical,canonical_hash=canonical_digest(canonical),
+        execution=Execution(id="execution-2",principal_id=ctx.actor.id,product_id="revenue",version_id=ctx.product.version_id,
+            policy_id="revenue-access",policy_revision=1,canonical_query=canonical,query_canonical=canonical_bytes(canonical).decode(),canonical_hash=canonical_digest(canonical),
             context="consumer",request_id="request-2",deadline_at=now+timedelta(seconds=120))
         uow.session.add(execution)
         await uow.session.flush()
+        await uow.session.refresh(execution)
         now=await uow.session.scalar(text("SELECT clock_timestamp()"))
         uow.session.add(ExecutionAuthorization(execution_id=execution.id,principal_snapshot=principal().model_dump(mode="json"),
             decision=ctx.decision.model_dump(mode="json"),scope_digest=authorization_scope_digest(ctx.decision),full_decision_digest=canonical_digest(ctx.decision)))
-        uow.session.add(ExecutionState(execution_id=execution.id,state="succeeded",started_at=now,completed_at=now))
+        uow.session.add(ExecutionState(execution_id=execution.id,state='accepted'))
+        await uow.session.flush()
+        request=await ctx.policy.source_access.resolve_owner(uow,{'kind':'execution','id':execution.id},ctx.actor,ctx.decision,
+            action='execute',request_id=str(uuid4()))
+        await ctx.policy.source_access.finalize(uow,(request,))
+    await settle_result_execution(database,execution=execution,product=ctx.product,actor=ctx.actor,
+        decision=ctx.decision,binding=ctx.binding,policy=ctx.policy)
+    async with database.registry.transaction() as uow:
+        now=await uow.session.scalar(text("SELECT clock_timestamp()"))
+        state=await uow.session.get(ExecutionState,execution.id,with_for_update=True)
+        state.state='succeeded';state.started_at=now;state.completed_at=now
         data=ctx.envelope.model_dump(mode="python")
         data.update(execution_id=execution.id,accepted_at=execution.created_at,started_at=now,completed_at=now)
         data["effective_range"]["end"]="2024-03-11"
@@ -257,16 +286,16 @@ def test_worker_completion_is_readable_only_through_reauthorized_result_service(
         from tests.integration.test_execution_queue import setup,RecordingAdapter
         execution_service,request=await setup(registry_database)
         request=request.model_copy(update={"idempotency_key":"result-replay"})
-        accepted=await execution_service.submit(principal(),request)
+        accepted=await execution_service.submit(legacy_principal(),request)
         adapter=RecordingAdapter()
         assert await Worker(execution_service.queue,adapter_factory=lambda:adapter,worker_id="result-worker").run_once()
         results=api().ResultService(registry_database.registry,execution_service.policy,execution_service.bindings,SystemClock())
-        result=await results.get(principal(),accepted.execution_id)
+        result=await results.get(legacy_principal(),accepted.execution_id)
         assert result.state=="succeeded" and result.rows==() and result.row_count==0
-        assert (await execution_service.submit(principal(),request)).execution_id==accepted.execution_id
+        assert (await execution_service.submit(legacy_principal(),request)).execution_id==accepted.execution_id
         # The owner commits revocation before each subsequent authorization read.
         registry_database.execute_owner("UPDATE gateway.principal_grants SET active=false")
-        for operation in (results.get(principal(),accepted.execution_id),execution_service.submit(principal(),request)):
+        for operation in (results.get(legacy_principal(),accepted.execution_id),execution_service.submit(legacy_principal(),request)):
             with pytest.raises(GatewayError) as caught: await operation
             assert caught.value.code=="NOT_FOUND_OR_FORBIDDEN"
     asyncio.run(scenario())
@@ -330,9 +359,9 @@ def test_empty_result_outcome_audit_records_zero_and_timing_without_update_privi
         ctx=await seeded_result(registry_database,valid_manifest,count=0)
         page=await ctx.service.get(principal(),ctx.execution.id)
         assert page.rows==() and page.row_count==0
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count=0 AND duration_ms>=0")==1
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND row_count IS NULL AND duration_ms IS NULL")==1
-        assert registry_database.scalar("SELECT count(DISTINCT correlation_id) FROM gateway.audit_events WHERE action='result'")==1
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count=0 AND duration_ms>=0")==1
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service' AND row_count IS NULL AND duration_ms IS NULL")==1
+        assert registry_database.scalar("SELECT count(DISTINCT correlation_id) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service'")==1
         assert registry_database.denied_as_app("UPDATE gateway.audit_events SET row_count=0")=="permission_denied"
     asyncio.run(scenario())
 
@@ -348,7 +377,7 @@ def test_required_outcome_audit_failure_rolls_back_previously_flushed_cursor(reg
         with pytest.raises(GatewayError) as caught: await ctx.service.get(principal(),ctx.execution.id)
         assert caught.value.code=="UPSTREAM_UNAVAILABLE" and "synthetic" not in str(caught.value)
         assert registry_database.scalar("SELECT count(*) FROM gateway.result_cursors")==0
-        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result'")==0
+        assert registry_database.scalar("SELECT count(*) FROM gateway.audit_events WHERE action='result' AND actor_id='result-service'")==0
     asyncio.run(scenario())
 
 
@@ -360,7 +389,7 @@ def test_current_deprecation_warning_composes_on_every_page_without_stored_mutat
         original=registry_database.scalar("SELECT envelope FROM gateway.results")
         first=await ctx.service.get(principal(),ctx.execution.id)
         assert first.warnings==()
-        registry_database.execute_owner("UPDATE gateway.version_states SET status='deprecated',reason='private synthetic lifecycle reason'")
+        await ctx.publisher.transition(ctx.publisher_actor,'revenue',ctx.product.manifest.version,'deprecate','private synthetic lifecycle reason')
         if optional_stale: ctx.clock.instant=ctx.envelope.source_watermark+timedelta(seconds=86400,microseconds=1)
         expected=(("Source-load freshness is stale.",) if optional_stale else ())+ ("This product version is deprecated.",)
         for cursor in (None,first.next_cursor):
@@ -368,8 +397,36 @@ def test_current_deprecation_warning_composes_on_every_page_without_stored_mutat
             assert page.warnings==expected
             assert page.source_watermark==first.source_watermark and page.completed_at==first.completed_at
         assert registry_database.scalar("SELECT envelope FROM gateway.results")==original
-        registry_database.execute_owner("UPDATE gateway.version_states SET status='withdrawn'")
+        await ctx.publisher.transition(ctx.publisher_actor,'revenue',ctx.product.manifest.version,'withdraw','Synthetic withdrawal')
         for cursor in (None,first.next_cursor):
             with pytest.raises(GatewayError) as caught: await ctx.service.get(principal(),ctx.execution.id,cursor)
             assert caught.value.code=="NOT_FOUND_OR_FORBIDDEN"
+    asyncio.run(scenario())
+
+
+def test_audit_retention_failure_preserves_committed_result_expiry_and_retries(registry_database,valid_manifest):
+    """The independently committed result phase survives bounded audit failure."""
+    async def scenario():
+        db=registry_database
+        ctx=await seeded_result(db,valid_manifest,expired=True)
+        db.insert_audit('old-unreferenced-audit',ctx.clock.now()-timedelta(days=31))
+        maintenance=Registry(db.urls['audit_retention'].render_as_string(hide_password=False))
+        role='"'+db.roles['audit_retention']+'"'
+        signature='gateway.prune_unreferenced_audits(timestamptz,integer)'
+        try:
+            sweep=api('retention').RetentionSweep(db.registry,maintenance)
+            db.execute_owner('REVOKE EXECUTE ON FUNCTION '+signature+' FROM '+role)
+            with pytest.raises(GatewayError) as caught:
+                await sweep.run_once(ctx.clock.now())
+            assert caught.value.code=='UPSTREAM_UNAVAILABLE'
+            assert db.scalar('SELECT count(*) FROM gateway.results')==0
+            assert db.scalar("SELECT state FROM gateway.execution_states WHERE execution_id='execution-1'")=='expired'
+            assert db.scalar("SELECT count(*) FROM gateway.audit_events WHERE id='old-unreferenced-audit'")==1
+            db.execute_owner('GRANT EXECUTE ON FUNCTION '+signature+' TO '+role)
+            counts=await sweep.run_once(ctx.clock.now())
+            assert counts.deleted_results==0 and counts.deleted_audits==1
+            assert db.scalar("SELECT count(*) FROM gateway.audit_events WHERE id='old-unreferenced-audit'")==0
+            assert db.scalar('SELECT count(*) FROM gateway.source_publication_operations')==1
+        finally:
+            await maintenance.close()
     asyncio.run(scenario())

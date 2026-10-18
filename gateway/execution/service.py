@@ -19,6 +19,8 @@ from gateway.contracts.execution import ExecutionSpec, ExecutionView
 from gateway.contracts.identity import Decision, Principal
 from gateway.contracts.manifest import iso_date
 from gateway.contracts.query import QueryRequest, validate_query
+from gateway.registry.repository import not_found
+from gateway.source_access_contracts import validate_reviewed_values
 
 
 def unavailable(request_id='execution-status'):
@@ -142,11 +144,38 @@ class ExecutionService:
         except (ValueError,TypeError,AttributeError):
             raise invalid_input('A verified principal and valid query are required.') from None
         product=await self.registry.resolve(request.product_id,request.version)
+        # Expiry maintenance has its own capacity-only transaction; it must not
+        # acquire other executions' locks after this operation's product locks.
+        await self.queue.maintain()
         async with self.registry.transaction() as uow:
             await self.queue.lock_capacity(uow)
-            decision=await self.policy.authorize(principal,'execute',product,uow,
-                parameters=dict(request.inputs),correlation_id=request_id)
+            # A retry belongs to its immutable admitted principal and original
+            # approval. Never normalize its values or look for replacement
+            # authority until the queue has checked that complete identity.
+            existing=await self.queue.find_existing(uow,principal,product,request.idempotency_key)
             request=validate_query(product.manifest,request)
+            reviewed=self.policy.requires_source_approval(product)
+            source_request=None
+            if reviewed:
+                if self.policy.source_access is None:
+                    raise not_found()
+                await self.policy.source_access.prelock(uow,(product,),version_ids=(product.version_id,))
+                decision=await self.policy.evaluate(principal,'execute',product,uow,correlation_id=request_id)
+                if existing is not None:
+                    source_request=await self.policy.source_access.resolve_owner(uow,
+                        {'kind':'execution','id':existing},principal,decision,action='execute',request_id=request_id)
+                else:
+                    source_request=await self.policy.source_access.resolve_admission(uow,product,principal,
+                        decision,request_id=request_id)
+                try:
+                    validate_reviewed_values(source_request.pins,product.manifest,request)
+                except ValueError:
+                    # Source-domain failures must be attributable without retaining
+                    # rejected parameter names, values, or package identifiers.
+                    await self.policy.source_access._deny(uow,principal,'execute',request_id,'INVALID_INPUT')
+            else:
+                decision=await self.policy.authorize(principal,'execute',product,uow,
+                    parameters=dict(request.inputs),correlation_id=request_id)
             binding=await self.bindings.resolve(product.manifest.binding_id,product.manifest.binding_revision)
             check_binding(binding,product.manifest,digest=product.binding_digest)
             if binding.context!='consumer':
@@ -160,7 +189,10 @@ class ExecutionService:
             spec=ExecutionSpec(principal_id=principal.id,pinned_product=product,canonical_query=canonical,
                 canonical_hash=canonical_digest(canonical),policy_revision=decision.policy_revision,
                 context='consumer',request_id=request_id)
-            return await self.queue.admit(uow,principal,spec,decision,request.idempotency_key)
+            # Queue admission rechecks idempotency and owns the final approval
+            # suffix, atomically with execution/capacity/audit persistence.
+            return await self.queue.admit(uow,principal,spec,decision,request.idempotency_key,
+                access_request=source_request)
 
     async def submit_fixture(self, principal: Principal, spec: ExecutionSpec, capability: FixtureCapability) -> ExecutionView:
         # Explicit dependency transferred to Task9; never convert author rights
@@ -190,7 +222,7 @@ class ExecutionService:
         current_cap=cap(authorized)
         async def read():
             nonlocal current_cap
-            current=await self.queue.wait_authorized(execution_id)
+            current=await self.queue.wait_authorized(execution_id,requester=authorized.principal)
             current_cap=min(current_cap,cap(current))
             return current.view
         return await wait_for_view(read,clock=self.clock,seconds=maximum,initial=authorized.view,

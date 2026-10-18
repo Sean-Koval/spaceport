@@ -108,7 +108,7 @@ def test_actual_operations_requires_verified_disposable_stack():
 @pytest.mark.unit
 def test_runtime_assembly_wires_shared_services_without_opening_database(monkeypatch):
     api = module('gateway.runtime')
-    monkeypatch.setattr(api,'database_url',lambda role:'postgresql+psycopg://gateway_app:synthetic@127.0.0.1:1/unused')
+    monkeypatch.setattr(api,'database_url',lambda role:'postgresql+psycopg://gwt_0123456789abcdef_app:synthetic@127.0.0.1:1/gateway_test_0123456789abcdef')
     monkeypatch.setattr(api,'secret_key',lambda name:b'x'*32)
     async def scenario():
         runtime = api.build_runtime()
@@ -538,7 +538,7 @@ def test_each_operation_suite_selects_one_exact_pytest_node(tmp_path):
 def test_runtime_factory_mounts_authenticated_mcp_and_owns_lifetime(monkeypatch):
     from starlette.testclient import TestClient
     api=module('gateway.runtime')
-    monkeypatch.setattr(api,'database_url',lambda role:'postgresql+psycopg://gateway_app:synthetic@127.0.0.1:1/unused')
+    monkeypatch.setattr(api,'database_url',lambda role:'postgresql+psycopg://gwt_0123456789abcdef_app:synthetic@127.0.0.1:1/gateway_test_0123456789abcdef')
     monkeypatch.setattr(api,'secret_key',lambda name:b'x'*32)
     closed=[];original=api.Runtime.close
     async def close(runtime):

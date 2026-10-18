@@ -146,6 +146,9 @@ def catalog_setup(valid_manifest,north_principal,clock):
             raise not_found()
         return decision(principal,['day','revenue'])
     policy.authorize=AsyncMock(side_effect=authorize)
+    # This probe exercises projection/commit flow, not source authorization.
+    policy.requires_source_approval=lambda target:False
+    policy.source_access=None
     service=module('catalog').CatalogService(registry=registry,policy=policy,
         bindings=SimpleNamespace(resolve=AsyncMock(return_value=b)),cursors=module('cursors').PageCursorCodec(b'k'*32,clock))
     return service,registry,policy
@@ -226,6 +229,10 @@ def choice_setup(valid_manifest,north_principal,clock):
             raise not_found()
         return SimpleNamespace(policy_revision=1)
     policy.authorize_scope=AsyncMock(side_effect=scoped)
+    # Sequencing stub only, not evidence of a source approval or exemption.
+    policy.requires_source_approval=lambda target:False
+    policy.source_access=None
+    policy.authorize=AsyncMock(return_value=decision(north_principal,['day','segment','revenue']))
     svc=module('choices').ChoiceService(registry=registry,policy=policy,
         bindings=SimpleNamespace(resolve=AsyncMock(return_value=b)),
         bundles=SimpleNamespace(resolve=lambda digest:SimpleNamespace(context='consumer')),

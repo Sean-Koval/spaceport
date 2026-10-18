@@ -69,8 +69,7 @@ def test_known_checkpoint_is_selected_without_adjacent_private_output(tmp_path):
     assert value['details_status'] == 'available' and value['markers'] == [marker]
 
 
-@pytest.mark.parametrize('mode', ['backend', 'demo'])
-def test_real_pytest_marker_arrives_before_slow_teardown_and_timeout(tmp_path, mode):
+def test_real_pytest_marker_arrives_before_slow_teardown_and_timeout(tmp_path):
     api = diagnostics()
     tests = tmp_path / 'tests'; tests.mkdir()
     (tests / 'conftest.py').write_text('from pathlib import Path\n'

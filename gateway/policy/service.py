@@ -118,8 +118,17 @@ class ScopedAuthorization(StrictModel):
 
 
 class PolicyService:
-    def __init__(self, registry: Registry, principals: PrincipalStore, audit: AuditWriter):
+    def __init__(self, registry: Registry, principals: PrincipalStore, audit: AuditWriter, *,
+                 source_access=None, synthetic_capability=None):
         self.registry, self.principals, self.audit = registry, principals, audit
+        self.source_access = source_access
+        self.synthetic_capability = synthetic_capability
+
+    def requires_source_approval(self, product: PinnedProduct, *, context="consumer") -> bool:
+        """Only an exact, trusted synthetic composition bypasses owner approval."""
+        from gateway.runtime_config import source_approval_required
+        return source_approval_required(product, synthetic_capability=self.synthetic_capability,
+            registry=self.registry, context=context)
 
     async def _identity(self, principal: Principal, uow: UnitOfWork) -> None:
         identity = (await uow.session.execute(select(PrincipalRow.kind, PrincipalRow.service_client_id).where(
@@ -151,11 +160,55 @@ class PolicyService:
         except Exception:
             raise audit_unavailable() from None
 
+    async def evaluate(self, principal: Principal, action: str, product: PinnedProduct,
+                       uow: UnitOfWork, *, correlation_id: str | None = None) -> Decision:
+        """Preliminary current-policy derivation, never release/dispatch authority.
+
+        No allow audit or approval-state lock is taken. Callers must complete
+        their lifecycle locks and the shared final source-access gate before
+        returning data or committing an authorized operation. Rejected request
+        values are deliberately not accepted as audit arguments here.
+        """
+        request_id, revision = str(uuid4()), None
+        try:
+            principal = Principal.model_validate(principal.model_dump(mode="python", warnings=False))
+            product = PinnedProduct.model_validate(product.model_dump(mode="python", warnings=False))
+            request_id = self.audit.event(principal, action, decision="deny", correlation_id=correlation_id).correlation_id
+            if action not in {"discover", "describe", "execute", "result", "author", "publish", "policy_admin", "operate", "audit_view"}:
+                raise invalid_input("The authorization action is invalid.")
+            await self._identity(principal, uow)
+            grants = await self.principals.get_current(principal.id, session=uow.session)
+            current, content = await self._current(product.manifest.policy_id, uow)
+            revision = current.revision
+            decision = derive_decision(grants, action, product, content.rules, revision)
+            if action in {"discover", "describe", "execute", "result"}:
+                state = await uow.session.scalar(select(VersionState.status).where(VersionState.version_id == product.version_id))
+                if state not in {"published", "deprecated"}:
+                    raise not_found()
+            return decision
+        except GatewayError as error:
+            if error.code in {ErrorCode.NOT_FOUND_OR_FORBIDDEN, ErrorCode.UPSTREAM_UNAVAILABLE}:
+                await self._deny(uow, principal, action, product=product, policy_revision=revision,
+                    correlation_id=request_id)
+            else:
+                await uow.session.rollback()
+            message = "The requested product is unavailable." if error.code == ErrorCode.NOT_FOUND_OR_FORBIDDEN else error.safe_message
+            raise GatewayError(error.code, request_id, message) from None
+        except SQLAlchemyError:
+            await self._deny(uow, principal, action, product=product, policy_revision=revision,
+                correlation_id=request_id)
+            raise policy_unavailable() from None
+        except (ValidationError, ValueError, TypeError, AttributeError):
+            await uow.session.rollback()
+            raise policy_unavailable() from None
+
     async def authorize(self, principal: Principal, action: str, product: PinnedProduct, uow: UnitOfWork,
                         *, parameters: dict | None = None, correlation_id: str | None = None,
                         duration_ms: int | None = None, row_count: int | None = None) -> Decision:
-        """Fresh grant/policy read and a mandatory pre-operation audit flush.
+        """Legacy exact-synthetic gate, never a reviewed source-owner substitute.
 
+        Reviewed operations derive policy with evaluate(), then resolve their
+        protected owner/package and finalize after all earlier lifecycle locks.
         No tenant, roles or entitlements are accepted from request arguments.
         Denial always aborts the caller UoW and records a durable denied decision.
         Parameters are optional internal audit context, checked against redaction.
@@ -166,6 +219,12 @@ class PolicyService:
             principal = Principal.model_validate(principal.model_dump(mode="python", warnings=False))
             request_id = self.audit.event(principal, action, decision="deny", correlation_id=correlation_id).correlation_id
             product = PinnedProduct.model_validate(product.model_dump(mode="python", warnings=False))
+            if self.requires_source_approval(product):
+                # Ordinary policy cannot mint release rights. In particular,
+                # execute/result need immutable owner pins, not a new match.
+                # Unreviewed input values must not even reach audit hashing.
+                parameters = None
+                raise not_found()
             if action not in {"discover", "describe", "execute", "result", "author", "publish", "policy_admin", "operate", "audit_view"}:
                 raise invalid_input("The authorization action is invalid.")
             await self._identity(principal, uow)

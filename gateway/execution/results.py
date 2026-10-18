@@ -209,7 +209,7 @@ class ResultService:
 
         started_ns = perf_counter_ns()
         request_id = str(uuid4())
-        policy_denied = False
+        denial_recorded = False
         try:
             principal = Principal.model_validate(principal.model_dump(mode="python"))
         except (ValueError, TypeError, AttributeError):
@@ -226,7 +226,8 @@ class ResultService:
                     Execution.id == execution_id, Execution.principal_id == principal.id,
                     Execution.context == "consumer"))
                 if execution is None: raise not_found()
-                await uow.lock_product(execution.product_id)
+                # Immutable target lookup may precede locks; no result/status
+                # projection is released before the capacity-first final gate.
                 record = (await uow.session.execute(select(ProductVersion, BindingRevision).join(
                     BindingRevision, BindingRevision.id == ProductVersion.binding_id).where(
                     ProductVersion.id == execution.version_id, ProductVersion.product_id == execution.product_id))).one_or_none()
@@ -236,12 +237,24 @@ class ResultService:
                     binding_digest=version.binding_digest, version_id=version.id)
                 if product.manifest.content_digest != version.content_digest or binding_record.content_digest != version.binding_digest:
                     raise _error(execution)
+                reviewed = self.policy.requires_source_approval(product)
+                access = self.policy.source_access if reviewed else None
+                if reviewed:
+                    if access is None:
+                        raise not_found()
+                    await access.prelock(uow, (product,), version_ids=(version.id,))
+                else:
+                    await uow.lock_product(execution.product_id)
                 try:
-                    current = await self.policy.authorize(principal, "result", product, uow,
-                        correlation_id=request_id, parameters=execution.canonical_query.get("inputs"))
+                    if reviewed:
+                        current = await self.policy.evaluate(principal, "result", product, uow,
+                            correlation_id=request_id)
+                    else:
+                        current = await self.policy.authorize(principal, "result", product, uow,
+                            correlation_id=request_id, parameters=execution.canonical_query.get("inputs"))
                 except GatewayError:
                     # PolicyService persists its own denied event after rollback.
-                    policy_denied = True
+                    denial_recorded = True
                     raise
                 # Hold the actual mutable lifecycle row through audit commit, so a
                 # concurrent withdrawal serializes with this release.
@@ -258,9 +271,32 @@ class ResultService:
                 if admitted_principal != principal: raise not_found()
                 binding = await self.bindings.resolve(product.manifest.binding_id, product.manifest.binding_revision)
                 validate_result_scope(execution, product, binding, executed, current, enforce_date_limit=False)
+                source_request = None
+                if reviewed:
+                    try:
+                        source_request = await access.resolve_owner(uow,
+                            {"kind": "execution", "id": execution.id}, principal, current,
+                            action="result", request_id=request_id)
+                    except GatewayError as error:
+                        # Source authority denies preserve this correlation only
+                        # after their own rollback and durable safe audit. Private
+                        # malformed-object errors have a fresh ID and still need
+                        # this boundary's trusted-requester denial below.
+                        denial_recorded = (error.code == ErrorCode.NOT_FOUND_OR_FORBIDDEN
+                            and error.request_id == request_id)
+                        raise
+                    # The repository reconstructs protected accepted domains;
+                    # repeat the pure check before parameter summarization.
+                    from gateway.source_access_contracts import validate_reviewed_values
+                    try:
+                        validate_reviewed_values(source_request.pins, product.manifest,
+                            QueryRequest.model_validate(execution.canonical_query))
+                    except (ValueError, TypeError, AttributeError, GatewayError):
+                        raise not_found() from None
                 state = await uow.session.scalar(select(ExecutionState).where(
                     ExecutionState.execution_id == execution.id).with_for_update().execution_options(populate_existing=True))
                 if state is None: raise _error(execution)
+                release_expires_at = None
                 error = None
                 if state.state in {"failed", "timed_out"}:
                     error = ErrorView(code=state.error_code, request_id=execution.request_id,
@@ -307,12 +343,40 @@ class ResultService:
                                 offset + page_size, result.expires_at)
                         response = result_page(complete, offset=offset, page_size=page_size, next_cursor=token,
                             max_bytes=min(product.manifest.limits.max_bytes, current.limits.max_bytes))
+                        release_expires_at = min(result.expires_at,
+                            cursors.release_expires_at or result.expires_at)
                 duration_ms = min(2_147_483_647, max(0, (perf_counter_ns() - started_ns) // 1_000_000))
+                approval_audit = {} if source_request is None else {
+                    "source_approval_id": source_request.projection.approval_id,
+                    "source_approval_revision": source_request.projection.approval_revision,
+                    "source_approval_digest": source_request.projection.approval_digest,
+                    "source_approval_state_revision": 1,
+                    "source_access_reason_code": "APPROVED",
+                }
                 await self.policy.audit.append(uow, self.policy.audit.event(principal, "result",
                     product=product, policy_revision=current.policy_revision, decision="allow",
                     parameters=execution.canonical_query.get("inputs"), correlation_id=request_id,
                     row_count=response.row_count if isinstance(response, ResultEnvelope) else None,
-                    duration_ms=duration_ms))
+                    duration_ms=duration_ms, **approval_audit))
+                if source_request is not None:
+                    # Cursor state locks and the provisional outcome audit are
+                    # complete. Finalization audits exact approval and rechecks
+                    # fresh DB time; nothing afterward acquires earlier locks.
+                    try:
+                        await access.finalize(uow, (source_request,))
+                    except GatewayError as error:
+                        denial_recorded = (error.code == ErrorCode.NOT_FOUND_OR_FORBIDDEN
+                            and error.request_id == request_id)
+                        raise
+                if release_expires_at is not None:
+                    # Approval validity does not extend immutable result/cursor
+                    # retention. This clock-only suffix acquires no earlier locks;
+                    # an elapsed deadline rolls back every provisional allow and
+                    # cursor before the trusted-requester denial is committed.
+                    release_now = max(timestamp(self.clock.now()), timestamp(
+                        await uow.session.scalar(text("SELECT clock_timestamp()"))))
+                    if release_expires_at <= release_now:
+                        raise not_found()
             # Exiting Registry.transaction commits the audit AND cursor before bytes
             # leave this service. A flush-only success is deliberately insufficient.
             return response
@@ -323,7 +387,7 @@ class ResultService:
             if error.code == ErrorCode.CONFLICT:
                 raise GatewayError(ErrorCode.UPSTREAM_UNAVAILABLE, request_id, "The result store is unavailable.") from None
             if error.code == ErrorCode.NOT_FOUND_OR_FORBIDDEN:
-                if not policy_denied: await self._denied(principal, request_id)
+                if not denial_recorded: await self._denied(principal, request_id)
                 raise GatewayError(ErrorCode.NOT_FOUND_OR_FORBIDDEN, request_id, "The requested product is unavailable.") from None
             raise GatewayError(error.code, request_id, error.safe_message) from None
         except SQLAlchemyError:

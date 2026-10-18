@@ -1,6 +1,6 @@
 # Reviewed-source pilot: setup and product workflow
 
-**Organization activation is blocked pending the separately reviewed data-access security gate.** This connector candidate does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
+**Organization activation is blocked pending the separately reviewed data-access security gate.** This connector candidate does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The staged bounded slice adds revocable data-owner approval for explicitly reviewed non-PII shared-identity products and still requires its own full acceptance; ultimate per-user access remains a separate provider-qualified mode.
 
 The deployment and source-check commands below are a reference for after that security gate and separate operator authorization, not current rollout instructions.
 
@@ -103,9 +103,18 @@ Never paste a token into flags, shell history, a browser form, source JSON or lo
 python -m scripts.spaceport pilot init --provider domo --directory input
 # Or: --provider bigquery
 # Edit input/setup-input.json locally with the approved descriptors and identities.
+# Domo: both consumer and fixture descriptors require immutable numeric
+# client_id_version and client_secret_version references before building.
 python -m scripts.spaceport pilot build --input-file input/setup-input.json --directory package
 python -m scripts.spaceport pilot validate --config package/pilot.json
 ```
+
+Domo templates deliberately omit credential-version authority. Before building,
+provisioning or requesting owner review, supply both `client_id_version` and
+`client_secret_version` as exact numeric Secret Manager version references for
+each consumer and fixture descriptor. Mutable aliases, `latest`, zero and
+leading-zero versions deny. Separately verify the mount-to-version mapping and
+actual provider identity without recording credential values.
 
 The template is fictional `weekly-account-usage` version `1.0.0`, owned by the
 configured team. It returns `day: date`, `account: string`, and `usage_events:
@@ -143,7 +152,7 @@ fixture equivalence, retained model/statement catalogs and the check recipe.
 `manifest.json` is the author input. `source-check.json` is a derivative plan for the
 same exact published manifest/public provenance; it is not an authorization flag.
 
-## 4. Render, then separately authorize deployment
+## 4. Render bootstrap, install owner approvals, then authorize activation
 
 Edit `package/deployment.example.json` into an operator-reviewed deployment plan.
 Replace placeholder image digests, public CA file/hash, existing KSA names, exact
@@ -159,7 +168,9 @@ python -m scripts.spaceport pilot render --config package/pilot.json \
 
 Inspect `rendered/base.json`, `activation.json` and `render-status.json`. Base
 Deployments have zero replicas. The complete activation bundle has one replica per
-service; it is a usable next step after prerequisites and bootstrap. Migration and
+service; do not apply it until prerequisites, bootstrap and exact owner approvals
+are complete. An initial render without approval references is a bootstrap preview,
+not a startup-ready serving configuration. Migration and
 provision CronJobs stay suspended in both files and have no automatic retry.
 No Namespace, ServiceAccount, IAM binding, Secret, public Ingress or cloud apply is
 created by rendering. `render-status.json` lists exact private Cube origins/services.
@@ -177,16 +188,48 @@ mount may shadow another file. Secret names include an explicit version. Rotatio
 requires a new reviewed version name and pod rollout; mounted subPath files do not
 hot-reload. Retain old descriptors, source ledger and unresolved obligations.
 
-After separate operator authorization, an example execution sequence is:
+After separate operator authorization, apply only the zero-replica bootstrap
+bundle and run the explicit migration/provisioning jobs:
 
 ```sh
 kubectl -n NAMESPACE apply -f rendered/base.json
 kubectl -n NAMESPACE create job source-migrate-UNIQUE --from=cronjob/spaceport-migrate
 # Wait for successful completion; investigate redacted failure before proceeding.
 kubectl -n NAMESPACE create job source-provision-UNIQUE --from=cronjob/spaceport-provision
-# Wait for successful completion, then explicitly authorize activation.
-kubectl -n NAMESPACE apply -f rendered/activation.json
+# Wait for successful completion; do not activate this preliminary bundle.
 ```
+
+Before activation, follow the [source-access approval procedure](source-access-approvals.md)
+for **every configured package and revision**, including packages not selected by
+a readiness probe. Have the owner review and canonicalize the complete private
+approval, explicitly import it using the separately authorized owner environment,
+and generate its verified minimal runtime reference. Copy only those closed
+references into `package/pilot.json`'s `source_approval_refs` array. Keep the full
+approval documents outside serving/provider packages. Import requires the existing
+owner registry login; reference verification uses the app registry login to read
+the protected runtime projection. Use separately authorized operator environments
+with the matching existing role files. The owner-only bootstrap pod does not
+automatically provide the app credentials needed for reference verification.
+
+Validate the final configuration and render it into a **new** directory; the
+renderer does not overwrite previous immutable outputs. Recheck source pins,
+version-named credential mounts, actual identity/permission qualification and the
+[activation checklist](source-access-approvals.md#organization-qualification-checklist).
+Then separately authorize applying the reviewed final bundle:
+
+```sh
+python -m scripts.spaceport pilot validate --config package/pilot.json
+python -m scripts.spaceport pilot render --config package/pilot.json \
+  --deployment-file package/deployment.json --directory rendered-approved
+kubectl -n NAMESPACE apply -f rendered-approved/base.json
+# Inspect the newly rendered immutable config and zero-replica resources.
+# Only after explicit activation approval:
+kubectl -n NAMESPACE apply -f rendered-approved/activation.json
+```
+
+Do not reuse the preliminary `rendered/activation.json`: it lacks the final
+approval references. Neither rendered references nor successful startup replace
+current release authorization. Missing, revoked or expired approvals deny.
 
 For an existing mounted operator environment, equivalent explicit commands are:
 

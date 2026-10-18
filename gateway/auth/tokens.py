@@ -10,6 +10,7 @@ import jwt
 
 from gateway.contracts.clock import Clock, SystemClock
 from gateway.contracts.identity import Principal
+from gateway.source_delegation import has_unsupported_delegation_claims
 from .principals import FileCredentialStore, PrincipalStore, credential_digest, unauthenticated
 from .settings import Settings, validate_mode
 
@@ -191,6 +192,9 @@ class Authenticator:
             issuer=self.settings.oidc_issuer, audience=self.settings.oidc_audience,
             options={"require": ["iss", "aud", "sub", "exp", "iat", "client_id", "jti"],
                 "verify_exp": False, "verify_iat": False, "verify_nbf": False})
+        if (self.settings.source == "reviewed_sources"
+            and has_unsupported_delegation_claims(claims)):
+            raise ValueError("Unsupported delegation assertion")
         now = self.clock.now().timestamp()
         if (type(claims.get("exp")) is not int or type(claims.get("iat")) is not int
             or not claims["iat"] <= now < claims["exp"] or claims["exp"] <= claims["iat"]

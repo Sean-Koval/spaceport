@@ -131,14 +131,14 @@ def run(args):
     try:
         if args.action=='init':
             _write_tree(args.directory,{'setup-input.json':template(args.provider).model_dump(mode='json')})
-            result={'status':'template-created','requires_operator_configuration':True,'source_observation':'unverified'}
+            result={'status':'template-created','requires_operator_configuration':True,'approval_state':'unapproved','source_observation':'unverified'}
         elif args.action=='build':
             files=build(read_json(args.input_file))
             _write_tree(args.directory,files)
             config,assets=load_configured(Path(args.directory)/'pilot.json')
             from gateway.source_pilot_render import example_deployment
             write_json(Path(args.directory)/'deployment.example.json',example_deployment(config,assets))
-            result={'status':'configured','config_valid':True,'source_observation':'unverified','deployment_observation':'unverified'}
+            result={'status':'configured','config_valid':True,'approval_state':'unapproved','source_observation':'unverified','deployment_observation':'unverified'}
         else:
             config,assets=load_configured(args.config)
             if args.action=='render':
@@ -151,7 +151,7 @@ def run(args):
                 if package is None:raise ValueError('Unknown package')
                 write_json(args.plan_file,build_source_check_plan(package).model_dump(mode='json'))
             result={'status':'rendered' if args.action=='render' else 'validated','config_valid':True,
-                'source_observation':'unverified','deployment_observation':'unverified'}
+                'approval_state':'unapproved','source_observation':'unverified','deployment_observation':'unverified'}
         print(json.dumps(result,sort_keys=True));return 0
     except CLIError:raise
     except (ValueError,TypeError,OSError,ImportError,StopIteration):

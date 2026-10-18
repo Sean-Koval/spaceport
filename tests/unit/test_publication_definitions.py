@@ -394,6 +394,8 @@ def test_publication_rechecks_fixed_principal_authority_and_fixture_deployment(c
         async def append(self,*args): pass
     class Policy:
         principals=Principals(); audit=Audit()
+        # This pure historical-evidence algorithm has no live source authority.
+        def requires_source_approval(self,product): return False
         async def _identity(self,*args): pass
         async def _current(self,*args): return SimpleNamespace(revision=1),PolicyContent(rules=rules(),reason='Reviewed')
     class Session:
@@ -511,15 +513,18 @@ def test_fixture_adapter_cleanup_cannot_mask_or_extend_terminal_failure(clock,cl
             await asyncio.sleep(30)
     class Runner(api().runner.FixtureRunner):
         def _spec(self,attempt): return spec
-        async def _gate(self,*args,**kwargs): return None
-        async def _finish_failed(self,attempt,code): assert code=='UPSTREAM_UNAVAILABLE'
+        async def _gate(self,*args,**kwargs): return None,None,None,None,()
+        async def _finish_failed(self,attempt,code,check):
+            assert code=='UPSTREAM_UNAVAILABLE' and check.actual_error==code and not check.actual
     runner=Runner(registry=Registry(),policy=None,bindings=None,bundles=None,
         catalog_provider=lambda:None,adapter_factory=BrokenAdapter,clock=clock)
-    attempt=SimpleNamespace(deadline_at=clock.now()+timedelta(seconds=120),request_id='fixture-cleanup')
+    from gateway.publishing.models import FixtureAttempt
+    attempt=FixtureAttempt(id='cleanup-attempt',deadline_at=clock.now()+timedelta(seconds=120),request_id='fixture-cleanup')
+    case=next(case for case in make_catalog_evidence()[2].cases if case.kind=='known_answer')
     async def scenario():
         async with asyncio.timeout(2):
             with pytest.raises(GatewayError) as caught:
-                await runner._execute_case(None,None,attempt,decision)
+                await runner._execute_case(None,case,attempt,decision)
             assert caught.value.code=='UPSTREAM_UNAVAILABLE'
     asyncio.run(scenario())
 
@@ -546,7 +551,7 @@ def test_missing_fixed_identity_is_failed_evidence_not_a_permission_negative_suc
         async def _data_decision(self,uow,authority,case):
             if case.kind!='permission_negative': raise api().runner.fixture_unavailable()
             return None,None
-    runner=Runner(registry=Registry(),policy=None,bindings=None,bundles=None,
+    runner=Runner(registry=Registry(),policy=SimpleNamespace(requires_source_approval=lambda product:False),bindings=None,bundles=None,
         catalog_provider=lambda:catalog,adapter_factory=lambda:None)
     run=asyncio.run(runner.run(SimpleNamespace(id='author'),'draft-1'))
     assert run.status=='failed' and len(stored)==1
@@ -567,22 +572,23 @@ def test_returned_test_evidence_filters_fields_without_rewriting_immutable_proof
     assert all('revenue' in row for check in stored.evidence['checks'] for row in check['expected'])
 
 
-def test_visibility_tightening_between_run_and_review_read_filters_values_and_decimal_tolerances():
+def test_policy_visibility_tightening_between_run_and_review_denies_original_fixture_owner():
     import asyncio
     context=review_service(grant_kind='author',visible=('day','segment','revenue'))
     before=deepcopy(context.stored.evidence)
-    class FixtureRunner:
-        async def run(self,*args):
-            context.settings['visible']=('day','segment')
-            return context.stored
-    context.service.fixture_runner=FixtureRunner()
-    view=asyncio.run(context.service.test(context.actor,context.draft.id))
-    assert view is not context.stored and view.id==context.stored.id
-    assert all('revenue' not in row for check in view.evidence['checks'] for name in ('expected','actual') for row in check[name])
-    assert all(c['absolute_tolerance'] is None and c['relative_tolerance'] is None for c in view.evidence['checks'])
+    async def run(*args):
+        context.settings['visible']=('day','segment')
+        return context.stored
+    context.service.fixture_runner.run=run
+    with pytest.raises(GatewayError) as caught:
+        asyncio.run(context.service.test(context.actor,context.draft.id))
+    assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
+    assert not context.access.owner_batches
+    assert context.records[-1].decision=='deny' and context.records[-1].action=='result'
     assert context.stored.evidence==before
-    again=asyncio.run(context.service.get_test(context.actor,context.draft.id,context.stored.id))
-    assert again.evidence==view.evidence and again.id==context.stored.id
+    with pytest.raises(GatewayError):
+        asyncio.run(context.service.get_test(context.actor,context.draft.id,context.stored.id))
+    assert context.stored.evidence==before
 
 
 def test_publishing_service_exposes_existing_route_test_read_helper():
@@ -615,6 +621,8 @@ def test_fixture_source_authorization_uses_attempt_correlation_without_raw_param
         async def append(self,uow,event): written.append(event)
     class Policy:
         principals=Principals();audit=Writer(b'operator-synthetic-hmac-key-32!!')
+        # Exercise only the legacy audit shape with this inert policy double.
+        def requires_source_approval(self,product): return False
         async def _identity(self,*args): pass
         async def _current(self,*args): return SimpleNamespace(revision=1),PolicyContent(rules=rules(),reason='Reviewed')
     runner=api().runner.FixtureRunner(registry=None,policy=Policy(),bindings=None,bundles=None,
@@ -650,7 +658,7 @@ def test_failed_fixture_check_preserves_real_attempt_identity():
             self._issued.pop(id(capability),None)
             raise GatewayError('UPSTREAM_UNAVAILABLE','attempt-request','Source unavailable')
         async def _data_decision(self,uow,authority,case): return None,decisions[case.principal_id]
-    runner=Runner(registry=Registry(),policy=None,bindings=None,bundles=None,catalog_provider=lambda:catalog,adapter_factory=lambda:None)
+    runner=Runner(registry=Registry(),policy=SimpleNamespace(requires_source_approval=lambda product:False),bindings=None,bundles=None,catalog_provider=lambda:catalog,adapter_factory=lambda:None)
     run=asyncio.run(runner.run(SimpleNamespace(id='author'),'draft-1'))
     known=[c for c in run.evidence['checks'] if c['kind']=='known_answer']
     assert run.status=='failed'
@@ -694,15 +702,50 @@ def test_fixture_orm_inserts_do_not_request_server_owned_column_privileges(model
 
 
 def review_service(*, grant_kind='mixed', visible=('day','segment'), tenants=('north',)):
-    """Real policy/service gates and projections; only storage I/O is replaced."""
+    """Real policy/pure approval contracts; in-memory sequencing, not SQL authority."""
     from contextlib import asynccontextmanager
     from gateway.auth.principals import PrincipalGrants
     from gateway.contracts.identity import Principal
     from gateway.policy.audit import AuditWriter
     from gateway.policy.service import PolicyContent, PolicyService
     from tests.unit.test_policy import grant, rules
-    _, product, _, stored, _ = make_catalog_evidence()
-    stored.id='run-1'; stored.product_id='revenue'; stored.policy_id=product.manifest.policy_id
+    from gateway.contracts.execution import PinnedProduct
+    from tests.unit.source_fixture_probes import RetainedFixtureProbe
+    from gateway.contracts.canonical import canonical_digest
+    from gateway.policy.service import derive_decision, PolicyRules
+    from uuid import uuid4
+    from tests.unit.test_source_approval_contracts import package
+    _, original, catalog, stored, _ = make_catalog_evidence()
+    # This north-only review scope cannot borrow a retained south case owner.
+    cases=tuple(case for case in catalog.cases if case.principal_id!='fixture-south')
+    raw=original.manifest.model_dump(mode='json',exclude={'content_digest'})
+    raw['fixtures']=[fixture for fixture in raw['fixtures'] if fixture['id'] in {case.fixture.id for case in cases}]
+    document, manifest = package.__wrapped__(raw)
+    catalog=catalog.model_copy(update={'cases':cases,'execution_contract_digest':api().runner.execution_contract_digest(manifest)})
+    stored.fixture_version=catalog.digest
+    stored.evidence['checks']=[check for check in stored.evidence['checks'] if check['fixture_id'] in {case.fixture.id for case in cases}]
+    stored.evidence['catalog_digest']=catalog.digest
+    stored.evidence['execution_contract_digest']=catalog.execution_contract_digest
+    document['audiences'][0].update(principal_id='reviewer', client_ids=['review-client'], actions=['author','publish'])
+    for domain in document['input_domains'] + document['filter_domains']:
+        if domain['type'] == 'date': domain['maximum'] = '2030-01-01'
+    product = PinnedProduct(manifest=manifest, binding_digest=document['bindings']['consumer']['content_digest'], version_id='draft-1')
+    stored.id=str(uuid4()); stored.product_id='revenue'; stored.policy_id=product.manifest.policy_id
+    stored.actor_id='original-author'
+    original_actor=Principal(id='original-author',subject='original-author',kind='user',service_client_id='author-client')
+    document['artifacts']['fixture_catalog_digest']=catalog.digest
+    invoker=deepcopy(document['audiences'][0])
+    invoker.update(id='fixture-invoker',context='fixture_test',principal_id=original_actor.id,
+        client_ids=[original_actor.service_client_id],actions=['author'])
+    document['audiences'].append(invoker)
+    for case in catalog.cases:
+        tenant='south' if case.principal_id=='fixture-south' else 'north'
+        entry=deepcopy(document['audiences'][0])
+        entry.update(id='fixture-'+case.fixture.id,context='fixture_test',principal_id=case.principal_id,
+            principal_kind='demo',client_ids=[None],actions=['execute','result'],fixture_case_ids=[case.fixture.id],tenant_id=tenant)
+        entry['row_constraints']=[dict(member='Orders.tenant_id',operator='eq',values=[tenant]),
+            dict(member='Orders.access_group',operator='in',values=[tenant])]
+        document['audiences'].append(entry)
     stored.draft_digest=product.manifest.content_digest
     draft=SimpleNamespace(id=stored.draft_id,product_id='revenue',revision=1,
         content_digest=stored.draft_digest,manifest=product.manifest.model_dump(mode='json'))
@@ -719,6 +762,10 @@ def review_service(*, grant_kind='mixed', visible=('day','segment'), tenants=('n
         aborted=False
         async def scalar(self,statement):
             assert not self.aborted, 'Authorization rollback must never be resumed'
+            from gateway.publishing.models import FixtureAttemptState
+            if statement.column_descriptions[0]['entity'] is FixtureAttemptState:
+                identity=statement.compile().params['attempt_id_1']
+                return SimpleNamespace(attempt_id=identity,state='succeeded',source_completed=True) if identity in access.attempts else None
             return stored
         async def rollback(self): self.aborted=True
         async def get(self,model,identity): return versions.get(identity)
@@ -728,9 +775,9 @@ def review_service(*, grant_kind='mixed', visible=('day','segment'), tenants=('n
             session=Session(); transactions.append(session)
             yield SimpleNamespace(session=session)
     class Principals:
-        async def get_current(self,*args,**kwargs):
+        async def get_current(self,identity,**kwargs):
             assert not kwargs['session'].aborted
-            return PrincipalGrants(principal_id='reviewer',grants=grants)
+            return PrincipalGrants(principal_id=identity,grants=grants if identity=='reviewer' else fixed_grants[identity])
     class Writer(AuditWriter):
         async def append(self,uow,event):
             assert not uow.session.aborted
@@ -741,23 +788,52 @@ def review_service(*, grant_kind='mixed', visible=('day','segment'), tenants=('n
                 raise settings['identity_error']
         async def _current(self,*args):
             return SimpleNamespace(revision=1),PolicyContent(rules=rules(tenant_ids=tenants,visible_fields=settings['visible']),reason='Reviewed')
-    class FixtureRunner:
+    class FixtureRunner(api().runner.FixtureRunner):
         async def run(self,*args): return stored
     class Service(api().service.PublishingService):
         async def _draft(self,uow,draft_id):
             selected=drafts[draft_id]
-            return head,selected,api().service.review_target(validate_manifest(selected.manifest),selected.id)
+            return head,selected,api().service.review_target(validate_manifest(selected.manifest),selected.id,product.binding_digest)
         async def _binding(self,*args): pass
         async def _latest_test(self,*args): return stored
         async def _stale(self,*args):
             selected.append(args[-1])
             return ()
     registry=Registry()
-    service=Service(registry=registry,policy=Policy(registry,Principals(),Writer(b'operator-synthetic-hmac-key-32!!')),
-        bindings=None,bundles=None,fixture_runner=FixtureRunner())
-    return SimpleNamespace(service=service,actor=Principal(id='reviewer',subject='reviewer',kind='demo',service_client_id=None),
+    audit = Writer(b'operator-synthetic-hmac-key-32!!')
+    access = RetainedFixtureProbe(registry,audit)
+    fixed_grants={original_actor.id:[grant(capabilities=('author',))]}
+    for case in catalog.cases:
+        tenant='south' if case.principal_id=='fixture-south' else 'north'
+        fixed_grants[case.principal_id]=[] if case.kind=='permission_negative' else [grant(tenant_id=tenant,entitlements={'groups':[tenant]})]
+    # The same current policy applies to reviewer and original owners.
+    def current_decision(identity,action):
+        return derive_decision(PrincipalGrants(principal_id=identity,grants=fixed_grants[identity]),
+            action,product,PolicyRules.model_validate(rules(visible_fields=settings['visible'])),1)
+    access.current_author_decision=lambda:current_decision(original_actor.id,'author')
+    access.current_decision=current_decision
+    def approve(manifest, *, actions=('author','publish')):
+        from gateway.contracts.canonical import manifest_digest
+        variant = deepcopy(document)
+        variant['audiences'][0]['actions'] = list(actions)
+        variant['product'].update(product_id=manifest.product_id,version=manifest.version,
+            manifest_digest=manifest_digest(manifest),policy_id=manifest.policy_id)
+        return access.install(variant,manifest)
+    approve(manifest)
+    decisions={identity:current_decision(identity,'author' if identity==original_actor.id else 'execute')
+        for identity in fixed_grants if identity!='fixture-denied'}
+    for check in stored.evidence['checks']:
+        case=next(case for case in catalog.cases if case.fixture.id==check['fixture_id'])
+        check['decision_digest']=canonical_digest(decisions[case.principal_id]) if case.principal_id in decisions else None
+    access.retain(product,catalog,stored,original_actor,decisions)
+    policy=Policy(registry,Principals(),audit,source_access=access)
+    runner=FixtureRunner(registry=registry,policy=policy,bindings=None,bundles=None,
+        catalog_provider=lambda:catalog,adapter_factory=lambda:None)
+    service=Service(registry=registry,policy=policy,bindings=None,bundles=None,fixture_runner=runner)
+    return SimpleNamespace(service=service,actor=Principal(id='reviewer',subject='reviewer',kind='user',service_client_id='review-client'),
         draft=draft,head=head,stored=stored,records=records,transactions=transactions,grants=grants,
-        settings=settings,drafts=drafts,versions=versions,selected=selected)
+        settings=settings,drafts=drafts,versions=versions,selected=selected,approve=approve,access=access,
+        original_actor=original_actor,fixed_grants=fixed_grants)
 
 
 @pytest.mark.parametrize('operation',['get_draft','diff','get_test','test'])
@@ -768,7 +844,9 @@ def test_review_uses_current_exact_tenant_author_when_other_tenant_can_publish(o
     if operation=='get_test': args.append(context.stored.id)
     view=asyncio.run(getattr(context.service,operation)(*args))
     assert view is not None
-    assert all(record.action=='author' and record.decision=='allow' for record in context.records)
+    assert all(record.action=='author' and record.decision=='allow' for record in context.records if record.actor_id==context.actor.id)
+    if operation != 'get_draft':
+        assert context.access.owner_batches and any(record.action=='result' for record in context.records)
     if operation=='get_draft': assert 'revenue' not in view.definition['outputs']
     if operation in {'get_test','test'}:
         assert all('revenue' not in row for check in view.evidence['checks'] for name in ('expected','actual') for row in check[name])
@@ -848,7 +926,7 @@ def test_completed_fixture_failure_release_requires_final_authority_and_exact_so
         async def _gate(self,*args,action='execute',**kwargs):
             if action=='result' and source_error=='NOT_FOUND_OR_FORBIDDEN':
                 raise GatewayError(source_error,'completed-request','Current authority revoked')
-            return None,decision,state,clock.now()
+            return None,decision,state,clock.now(),()
     runner=Runner(registry=Registry(),policy=None,bindings=None,
         bundles=SimpleNamespace(resolve_query=lambda *args:SimpleNamespace(context='fixture_test')),
         catalog_provider=lambda:catalog,adapter_factory=Adapter,clock=clock)
@@ -865,7 +943,9 @@ def test_completed_fixture_failure_release_requires_final_authority_and_exact_so
             assert state.source_completed and len(released)==1
             assert terminal[-1][-1]==released[0][-1], 'Terminal proof and exact reservation release must commit together'
         assert state.state=='failed' and state.error_code==source_error
-        assert state.check_digest is None
+        expected_check=(runner._failed_check(case,attempt,decision,source_error)
+            if source_error in {'UPSTREAM_UNAVAILABLE','NOT_FOUND_OR_FORBIDDEN'} else check)
+        assert state.check_digest==canonical_digest(expected_check)
     asyncio.run(scenario())
 
 
@@ -891,6 +971,7 @@ def test_old_draft_locator_independently_authorizes_current_head_without_resumin
     manifest=validate_manifest(raw)
     latest=SimpleNamespace(id='draft-new',product_id='revenue',revision=2,content_digest=manifest.content_digest,
         manifest=manifest.model_dump(mode='json'))
+    context.approve(manifest)  # Independently reviewed exact test package; policy denial remains independent.
     context.drafts[latest.id]=latest;context.head.latest_draft_id=latest.id;context.head.draft_revision=2
     view=asyncio.run(context.service.get_draft(context.actor,context.draft.id))
     assert view.id==context.draft.id and view.revision==1 and not view.is_current_revision
@@ -908,6 +989,7 @@ def test_draft_publish_hint_requires_current_base_and_target_scopes(base_publish
     context=review_service(grant_kind='both')
     raw=deepcopy(context.draft.manifest);raw.pop('content_digest');raw['policy_id']='prior-policy'
     manifest=validate_manifest(raw)
+    context.approve(manifest)  # Explicit exact base package, never an implicit source exemption.
     context.head.current_version_id='published-1'
     context.versions['published-1']=SimpleNamespace(id='published-1',manifest=manifest.model_dump(mode='json'),
         content_digest=manifest.content_digest,binding_digest='b'*64)
@@ -926,6 +1008,12 @@ def test_version_diff_carries_target_identity_and_only_reviewable_selected_test_
     elif run_scope!='exact':
         field={'wrong_product':'product_id','wrong_draft':'draft_id','wrong_policy':'policy_id','wrong_digest':'draft_digest'}[run_scope]
         setattr(context.stored,field,'b'*64 if field=='draft_digest' else 'unrelated')
+    if run_scope not in {'exact','missing'}:
+        with pytest.raises(GatewayError) as caught:
+            asyncio.run(context.service.diff(context.actor,context.draft.id))
+        assert caught.value.code=='NOT_FOUND_OR_FORBIDDEN'
+        assert not context.access.owner_batches and not context.records
+        return
     view=asyncio.run(context.service.diff(context.actor,context.draft.id))
     assert (view.draft_id,view.product_id,view.revision)==(context.draft.id,'revenue',1)
     assert view.latest_test_run_id==(context.stored.id if run_scope=='exact' else None)

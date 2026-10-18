@@ -395,6 +395,8 @@ class _DraftAuthority:
     review_visible_fields: tuple[str, ...]
     catalog: FixtureCatalog
     source_group: object | None = None
+    source_invocation: object | None = None
+    author_decision: object | None = None
 
     def __reduce__(self):
         raise TypeError('Draft fixture authority cannot be serialized')
@@ -478,14 +480,23 @@ class FixtureRunner:
         check = await self._execute_case(authority,case,attempt,decision)
         async with self.registry.transaction() as uow:
             # The terminal view is fixture-only and still author-gated.
-            await self._authority(uow,principal,authority.draft.id,authority)
-            state = await uow.session.get(FixtureAttemptState,attempt.id)
+            current = await self._authority(uow,principal,authority.draft.id,authority)
+            invocation_request = await self._invocation_request(uow,current)
+            fixed,fresh = await self._data_decision(uow,current,case,action='result')
+            if fresh is None or canonical_digest(fresh) != canonical_digest(decision):
+                if self.policy.requires_source_approval(current.product):
+                    await self.policy.source_access._deny(uow,fixed,'result',str(uuid4()),'AUDIENCE_DENIED')
+                raise not_found()
+            state = await uow.session.scalar(select(FixtureAttemptState).where(
+                FixtureAttemptState.attempt_id==attempt.id).with_for_update())
             if state is None or state.state == 'running':
                 raise conflict()
             view = ExecutionView(execution_id=attempt.id,state=state.state,accepted_at=attempt.created_at,
                 started_at=attempt.created_at,completed_at=state.completed_at,
                 error=GatewayError(state.error_code,attempt.request_id,'The fixture execution failed.').as_dict()
                     if state.error_code else None)
+            attempt_request = await self._attempt_request(uow,current,attempt,fixed,fresh,action='result')
+            await self._finalize_requests(uow,(invocation_request,attempt_request))
         return view,check
 
     def catalog(self, manifest=None, binding=None) -> FixtureCatalog:
@@ -561,7 +572,8 @@ class FixtureRunner:
         checks = {check.fixture_id: check for check in evidence.checks}
         for case in catalog.cases:
             try:
-                _, decision = await self._decision_for_case(uow, target, test.policy_revision, case)
+                _, decision = await self._decision_for_case(uow, target, test.policy_revision, case,
+                    invocation_id=test.id if self.policy.requires_source_approval(target) else None)
             except GatewayError as error:
                 if error.code in {ErrorCode.BINDING_DRIFT, ErrorCode.CONFLICT, ErrorCode.NOT_FOUND_OR_FORBIDDEN}:
                     return ('policy',)
@@ -573,6 +585,51 @@ class FixtureRunner:
             elif decision is None or canonical_digest(decision) != check.decision_digest:
                 return ('policy',)
         return ()
+
+    async def prepare_evidence_access(self,uow,test):
+        """Retain original fixture actors for one outer review/release batch.
+
+        No request returned here is a receipt. A later reviewer contributes an
+        independent current transient request; that reviewer never substitutes
+        for this invocation's author or the fixed principals of positive cases.
+        """
+        access = self.policy.source_access
+        if access is None:
+            raise not_found()
+        retained = await access.load_fixture_test_access(uow,test.id)
+        invocation = retained.invocation
+        product = invocation.product
+        if (invocation.invocation_id != test.id or invocation.draft_id != test.draft_id
+            or invocation.draft_digest != test.draft_digest or product.manifest.product_id != test.product_id
+            or invocation.actor.id != test.actor_id or invocation.catalog_digest != test.fixture_version):
+            raise not_found()
+        await access.prelock(uow,(product,),draft_ids=(invocation.draft_id,))
+        request_id = str(uuid4())
+        author = await self.policy.evaluate(invocation.actor,'author',product,uow,correlation_id=request_id)
+        requests = [await access.resolve_owner(uow,
+            {'kind':'fixture_invocation','id':invocation.invocation_id},invocation.actor,author,
+            action='author',request_id=request_id)]
+        cases = {case.fixture_id:ApprovedFixture.model_validate(case.case) for case in invocation.cases}
+        # Finish every policy derivation before locking mutable attempt state.
+        positive = []
+        for attempt in sorted(retained.attempts,key=lambda item:item.attempt_id):
+            case = cases.get(attempt.fixture_id)
+            if case is None or case.kind != 'known_answer' or attempt.product != product:
+                raise not_found()
+            fixed,decision = await self._decision_for_case(uow,product,test.policy_revision,case,
+                action='result',invocation_id=invocation.invocation_id)
+            if fixed != attempt.principal or decision is None or decision != attempt.admitted_decision:
+                await access._deny(uow,attempt.principal,'result',str(uuid4()),'AUDIENCE_DENIED')
+            positive.append((attempt,fixed,decision))
+        for attempt,fixed,decision in positive:
+            state = await uow.session.scalar(select(FixtureAttemptState).where(
+                FixtureAttemptState.attempt_id==attempt.attempt_id).with_for_update())
+            if state is None:
+                raise not_found()
+            requests.append(await access.resolve_owner(uow,
+                {'kind':'fixture_attempt','id':attempt.attempt_id},fixed,decision,
+                action='result',request_id=str(uuid4())))
+        return tuple(requests)
 
     async def _attempts_current(self, manifest, catalog, test, evidence, uow) -> bool:
         """A green check must name this exact successful immutable attempt.
@@ -634,14 +691,33 @@ class FixtureRunner:
         return row
 
     async def _authority(self,uow,actor,draft_id,expected=None,*,correlation_id=None):
+        # This helper also serves run creation and final evidence release, whose
+        # callers do not otherwise acquire the source-capacity prefix.
+        await lock_execution_capacity(uow)
         product_id = await uow.session.scalar(select(DraftRevision.product_id).where(DraftRevision.id==draft_id))
         if product_id is None:
             raise not_found()
         head = await uow.lock_product(product_id)
         draft = await uow.lock_draft(draft_id)
         manifest = validate_manifest(draft.manifest)
-        target = review_target(manifest,draft.id)
-        decision = await self.policy.authorize(actor,'author',target,uow,correlation_id=correlation_id)
+        # The exact protected binding is part of the authority witness even for
+        # the trusted checked-in synthetic composition. A manifest digest cannot
+        # stand in for it. Keep missing/mismatched records target-free here.
+        binding_row = await uow.session.scalar(select(BindingRevision).where(
+            BindingRevision.binding_id == manifest.binding_id,
+            BindingRevision.revision == manifest.binding_revision))
+        if (binding_row is None or binding_row.model_bundle_digest != manifest.model_bundle_digest
+            or binding_row.adapter_revision != manifest.adapter_revision):
+            raise not_found()
+        target = review_target(manifest,draft.id,binding_row.content_digest)
+        reviewed = self.policy.requires_source_approval(target)
+        if reviewed:
+            if self.policy.source_access is None:
+                raise not_found()
+            await self.policy.source_access.prelock(uow,(target,),draft_ids=(draft.id,))
+            decision = await self.policy.evaluate(actor,'author',target,uow,correlation_id=correlation_id)
+        else:
+            decision = await self.policy.authorize(actor,'author',target,uow,correlation_id=correlation_id)
         if head.latest_draft_id != draft.id or head.draft_revision != draft.revision:
             raise conflict()
         bound = await self.bindings.resolve(manifest.binding_id,manifest.binding_revision)
@@ -654,7 +730,9 @@ class FixtureRunner:
                 raise fixture_unavailable()
         authority = _DraftAuthority(self._issuer,actor,draft,
             review_target(manifest,draft.id,consumer.content_digest),consumer,fixture,decision.policy_revision,
-            decision.visible_fields,catalog)
+            decision.visible_fields,catalog,author_decision=decision,
+            source_invocation=getattr(expected,'source_invocation',None),
+            source_group=getattr(expected,'source_group',None))
         if expected is not None and (expected.issuer is not self._issuer or expected.actor != actor
             or expected.draft.id != draft.id or expected.draft.content_digest != draft.content_digest
             or expected.policy_revision != decision.policy_revision or expected.catalog.digest != catalog.digest
@@ -662,6 +740,47 @@ class FixtureRunner:
             or expected.fixture_binding_row.content_digest != fixture.content_digest):
             raise conflict()
         return authority
+
+    async def _invocation_request(self,uow,authority):
+        """Preliminary original-invoker request; callers own the final batch."""
+        if not self.policy.requires_source_approval(authority.product):
+            return None
+        invocation = authority.source_invocation
+        if invocation is None or invocation.actor != authority.actor or invocation.product != authority.product:
+            raise fixture_unavailable()
+        return await self.policy.source_access.resolve_owner(uow,
+            {'kind':'fixture_invocation','id':invocation.invocation_id},invocation.actor,
+            authority.author_decision,action='author',request_id=str(uuid4()))
+
+    async def _attempt_request(self,uow,authority,attempt,principal,decision,*,action):
+        if not self.policy.requires_source_approval(authority.product):
+            return None
+        return await self.policy.source_access.resolve_owner(uow,
+            {'kind':'fixture_attempt','id':attempt.id},principal,decision,
+            action=action,request_id=str(uuid4()))
+
+    async def _finalize_requests(self,uow,requests):
+        requests = tuple(request for request in requests if request is not None)
+        if requests:
+            await self.policy.source_access.finalize(uow,requests)
+
+    async def _finalize_attempt_gate(self,uow,requests,authority,attempt):
+        """Final approval and then a clock-only execution-budget suffix."""
+        requests = tuple(requests)
+        await self._finalize_requests(uow,requests)
+        if not any(request is not None for request in requests):
+            return
+        deadlines = [attempt.deadline_at]
+        # Owner requests carry independently reconstructed protected deadlines;
+        # a mutable Python attempt snapshot cannot extend those original budgets.
+        deadlines.extend(request.accepted.effective_deadline_at for request in requests if request is not None)
+        if getattr(authority,'source_group',None) is not None:
+            deadlines.append(authority.source_group.deadline)
+        if getattr(authority,'source_invocation',None) is not None:
+            deadlines.append(authority.source_invocation.effective_deadline_at)
+        now = await uow.session.scalar(select(func.clock_timestamp()))
+        if now >= min(deadlines):
+            raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
 
     async def _data_decision(self,uow,authority,case,*,action='execute',correlation_id=None):
         """Actual current policy semantics, explicitly skipping published lifecycle.
@@ -672,11 +791,23 @@ class FixtureRunner:
         """
         if authority.issuer is not self._issuer or case not in authority.catalog.cases:
             raise not_found()
-        return await self._decision_for_case(uow, authority.product, authority.policy_revision, case, action=action,correlation_id=correlation_id)
+        return await self._decision_for_case(uow, authority.product, authority.policy_revision, case,
+            action=action,correlation_id=correlation_id,
+            invocation_id=getattr(getattr(authority,'source_invocation',None),'invocation_id',None))
 
-    async def _decision_for_case(self, uow, product, policy_revision, case, *, action='execute',correlation_id=None):
+    async def _decision_for_case(self, uow, product, policy_revision, case, *, action='execute',correlation_id=None,invocation_id=None):
+        reviewed = self.policy.requires_source_approval(product)
+        review = None
+        if reviewed:
+            if self.policy.source_access is None or invocation_id is None:
+                raise fixture_unavailable()
+            review = await self.policy.source_access.load_fixture_case_review(uow,
+                invocation_id=invocation_id,fixture_id=case.fixture.id,request_id=correlation_id or str(uuid4()))
+            if (review.fixture_id != case.fixture.id or review.kind != case.kind
+                or canonical_digest(review.case) != canonical_digest(case)):
+                raise fixture_unavailable()
         try:
-            principal = await self.policy.principals.resolve_principal(case.principal_id)
+            principal = review.principal if review is not None else await self.policy.principals.resolve_principal(case.principal_id)
             await self.policy._identity(principal,uow)
         except GatewayError:
             raise fixture_unavailable() from None
@@ -690,10 +821,15 @@ class FixtureRunner:
         except GatewayError as error:
             if error.code != ErrorCode.NOT_FOUND_OR_FORBIDDEN:
                 raise
-        await self.policy.audit.append(uow,self.policy.audit.event(principal,action,
-            product=product,policy_revision=revision.revision,
-            decision='allow' if decision is not None else 'deny',parameters=dict(case.fixture.inputs),
-            correlation_id=correlation_id))
+        if not reviewed:
+            await self.policy.audit.append(uow,self.policy.audit.event(principal,action,
+                product=product,policy_revision=revision.revision,
+                decision='allow' if decision is not None else 'deny',parameters=dict(case.fixture.inputs),
+                correlation_id=correlation_id))
+        # Reviewed verdicts are inert. The invocation final predicate validates
+        # structural/negative claims, and positive attempts get their own full
+        # execute/result requests. A policy denial must not abort this UoW and
+        # then be caught as permission-negative evidence.
         return principal,decision
 
     async def _case_start(self,authority,case):
@@ -701,10 +837,13 @@ class FixtureRunner:
             await lock_execution_capacity(uow)
             request_id = str(uuid4())
             current = await self._authority(uow,authority.actor,authority.draft.id,authority,correlation_id=request_id)
+            invocation_request = await self._invocation_request(uow,current)
             principal,decision = await self._data_decision(uow,current,case,correlation_id=request_id)
             if case.kind == 'permission_negative':
+                await self._finalize_requests(uow,(invocation_request,))
                 return None,principal,decision
             if decision is None:
+                await self._finalize_requests(uow,(invocation_request,))
                 return None,principal,None
             try:
                 request = validate_query(current.product.manifest,QueryRequest(
@@ -712,10 +851,18 @@ class FixtureRunner:
                     inputs=case.fixture.inputs))
             except GatewayError as error:
                 if error.code == ErrorCode.INVALID_INPUT and case.kind == 'input_negative':
+                    await self._finalize_requests(uow,(invocation_request,))
                     return ErrorCode.INVALID_INPUT,principal,decision
                 raise
             if case.kind == 'input_negative':
+                await self._finalize_requests(uow,(invocation_request,))
                 return None,principal,decision
+            if invocation_request is not None:
+                from gateway.source_access_contracts import validate_reviewed_values
+                try:
+                    validate_reviewed_values(invocation_request.pins,current.product.manifest,request)
+                except (ValueError,TypeError,AttributeError,GatewayError):
+                    await self.policy.source_access._deny(uow,principal,'execute',request_id,'INVALID_INPUT')
             manifest = current.catalog.execution_manifest(current.product.manifest)
             target = PinnedProduct(manifest=manifest,binding_digest=current.catalog.fixture_binding.digest,
                 version_id=current.draft.id)
@@ -729,14 +876,18 @@ class FixtureRunner:
                     raise GatewayError(ErrorCode.RESOURCE_LIMIT,'fixture-capacity','Fixture source capacity is unavailable.')
             canonical = request.model_dump(mode='json',exclude={'idempotency_key'})
             attempt = FixtureAttempt(id=str(uuid4()),product_id=manifest.product_id,draft_id=current.draft.id,
+                source_invocation_id=getattr(getattr(current,'source_invocation',None),'invocation_id',None),
                 draft_digest=current.draft.content_digest,consumer_binding_id=current.binding_row.id,
                 consumer_binding_digest=current.binding_row.content_digest,fixture_binding_id=current.fixture_binding_row.id,
                 fixture_binding_digest=current.fixture_binding_row.content_digest,fixture_manifest=manifest.model_dump(mode='json'),
+                fixture_manifest_canonical=canonical_bytes(manifest.model_dump(mode='python',exclude={'content_digest'})).decode(),
                 fixture_manifest_digest=manifest.content_digest,execution_contract_digest=execution_contract_digest(current.product.manifest),
                 policy_id=manifest.policy_id,policy_revision=decision.policy_revision,catalog_digest=current.catalog.digest,
                 fixture_id=case.fixture.id,fixture_version=case.fixture.version,actor_id=current.actor.id,
                 fixed_principal_id=principal.id,principal_snapshot=principal.model_dump(mode='json'),decision=decision.model_dump(mode='json'),
-                canonical_query=canonical,canonical_hash=canonical_digest(canonical),runner_token=str(uuid4()),
+                decision_canonical=canonical_bytes(decision.model_dump(mode='python')).decode(),
+                canonical_query=canonical,query_canonical=canonical_bytes(canonical).decode(),
+                canonical_hash=canonical_digest(canonical),runner_token=str(uuid4()),
                 request_id=request_id,deadline_at=func.clock_timestamp())
             uow.session.add(attempt)
             await uow.session.flush()
@@ -746,6 +897,8 @@ class FixtureRunner:
                 uow.session.add(FixtureSourceReservation(attempt_id=attempt.id,actor_id=current.actor.id,
                     fixed_principal_id=principal.id,runner_token=attempt.runner_token))
             await uow.session.flush()
+            attempt_request = await self._attempt_request(uow,current,attempt,principal,decision,action='execute')
+            await self._finalize_attempt_gate(uow,(invocation_request,attempt_request),current,attempt)
             return attempt,principal,decision
 
     def _spec(self,attempt):
@@ -758,8 +911,11 @@ class FixtureRunner:
     async def _gate(self,uow,authority,case,attempt,decision,*,action='execute'):
         await lock_execution_capacity(uow)
         current = await self._authority(uow,authority.actor,authority.draft.id,authority,correlation_id=attempt.request_id)
+        invocation_request = await self._invocation_request(uow,current)
         principal,fresh = await self._data_decision(uow,current,case,action=action,correlation_id=attempt.request_id)
         if fresh is None or canonical_digest(fresh) != canonical_digest(decision):
+            if self.policy.requires_source_approval(current.product):
+                await self.policy.source_access._deny(uow,principal,action,str(uuid4()),'AUDIENCE_DENIED')
             # Preserve this denial independently before aborting the caller.
             await self.policy._deny(uow,principal,action,product=authority.product,
                 policy_revision=current.policy_revision,correlation_id=attempt.request_id,parameters=dict(case.fixture.inputs))
@@ -775,19 +931,35 @@ class FixtureRunner:
         deadline=min(attempt.deadline_at,getattr(authority,"source_group",None).deadline) if getattr(authority,"source_group",None) else attempt.deadline_at
         if now >= deadline:
             raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
-        return current,fresh,state,now
+        attempt_request = await self._attempt_request(uow,current,attempt,principal,fresh,action=action)
+        return current,fresh,state,now,(invocation_request,attempt_request)
 
-    async def _finish_failed(self,attempt,code):
+    @staticmethod
+    def _failed_check(case,attempt,decision,code):
+        return FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=False,
+            expected=case.fixture.expected_rows,expected_error=case.fixture.expected_error,
+            actual_error=ErrorCode(code).value,absolute_tolerance=case.fixture.tolerance,
+            relative_tolerance=case.relative_tolerance,reference_watermark=case.fixture.source_watermark,
+            attempt_id=attempt.id if isinstance(attempt,FixtureAttempt) else None,
+            decision_digest=canonical_digest(decision) if decision is not None else None)
+
+    async def _finish_failed(self,attempt,code,check):
         # Record no successful rows. Legacy reservations stay conservative; new
         # source groups settle separately only from retained provider proof.
+        if (type(check) is not FixtureCheck or check.passed or check.actual
+            or check.attempt_id != attempt.id or check.actual_error != ErrorCode(code).value):
+            raise conflict()
         async with self.registry.transaction() as uow:
             await lock_execution_capacity(uow)
-            state = await uow.session.scalar(select(FixtureAttemptState).where(
-                FixtureAttemptState.attempt_id==attempt.id).with_for_update())
+            state = await uow.session.scalar(select(FixtureAttemptState).join(FixtureAttempt,
+                FixtureAttempt.id==FixtureAttemptState.attempt_id).where(
+                FixtureAttempt.id==attempt.id,FixtureAttempt.runner_token==attempt.runner_token
+                ).with_for_update(of=FixtureAttemptState))
             if state is not None and state.state == 'running':
                 state.state = 'timed_out' if code == ErrorCode.EXECUTION_TIMEOUT else 'failed'
                 state.error_code = ErrorCode(code).value
                 state.source_completed = False
+                state.check_digest = canonical_digest(check)
                 await uow.session.flush()
 
     async def _execute_case(self,authority,case,attempt,decision):
@@ -801,7 +973,8 @@ class FixtureRunner:
                 raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.')
             async with asyncio.timeout(min(120,remaining)):
                 async with self.registry.transaction() as uow:
-                    await self._gate(uow,authority,case,attempt,decision)
+                    *_,requests = await self._gate(uow,authority,case,attempt,decision)
+                    await self._finalize_attempt_gate(uow,requests,authority,attempt)
                 adapter = self.adapter_factory()
                 prepared = await adapter.prepare(spec.pinned_product,QueryRequest.model_validate(spec.canonical_query),decision,
                     context='fixture_test',deadline=deadline,request_id=attempt.request_id)
@@ -812,7 +985,8 @@ class FixtureRunner:
                 poll_number = 0
                 while True:
                     async with self.registry.transaction() as uow:
-                        _,fresh,_,_ = await self._gate(uow,authority,case,attempt,decision)
+                        _,fresh,_,_,requests = await self._gate(uow,authority,case,attempt,decision)
+                        await self._finalize_attempt_gate(uow,requests,authority,attempt)
                     authority_context={'spec':spec,'executed_decision':decision} if spec.pinned_product.manifest.adapter_revision in {'cube-rest-v2','domo-named-v2','cube-bigquery-v1'} else {}
                     if getattr(authority,"source_group",None) is not None:
                         if source_context is None:
@@ -838,7 +1012,7 @@ class FixtureRunner:
                     if not status.can_complete_session:
                         raise fixture_unavailable()
                 async with self.registry.transaction() as uow:
-                    _,fresh,state,now = await self._gate(uow,authority,case,attempt,decision,action='result')
+                    _,fresh,state,now,requests = await self._gate(uow,authority,case,attempt,decision,action='result')
                     view = ExecutionView(execution_id=attempt.id,state='succeeded',accepted_at=attempt.created_at,
                         started_at=attempt.created_at,completed_at=now)
                     class CompletionClock:
@@ -856,14 +1030,7 @@ class FixtureRunner:
                         # rejection is distinct from uncertain source completion.
                         # Commit failed proof and its release in this same UoW;
                         # no rejected rows enter the check or a result store.
-                        state.state, state.source_completed = 'failed', True
-                        state.error_code = error.code.value
-                        await uow.session.flush()
-                        if source_context is None:
-                            await uow.session.execute(update(FixtureSourceReservation).where(
-                                FixtureSourceReservation.attempt_id==attempt.id,
-                                FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
-                        return FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=False,
+                        check = FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=False,
                             expected=case.fixture.expected_rows,expected_error=case.fixture.expected_error,
                             actual_error=error.code.value,absolute_tolerance=case.fixture.tolerance,
                             relative_tolerance=case.relative_tolerance,attempt_id=attempt.id,
@@ -871,6 +1038,16 @@ class FixtureRunner:
                             observed_source_load_watermark=completed.source_watermark.isoformat() if completed.source_watermark else None,
                             freshness_status='stale' if error.code==ErrorCode.STALE_DATA else
                                 'unknown' if error.code==ErrorCode.FRESHNESS_UNKNOWN else None)
+                        state.state, state.source_completed = 'failed', True
+                        state.error_code = error.code.value
+                        state.check_digest = canonical_digest(check)
+                        await uow.session.flush()
+                        if source_context is None:
+                            await uow.session.execute(update(FixtureSourceReservation).where(
+                                FixtureSourceReservation.attempt_id==attempt.id,
+                                FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
+                        await self._finalize_attempt_gate(uow,requests,authority,attempt)
+                        return check
                     comparison = compare_rows(authority.product.manifest,case.fixture.expected_rows,envelope.rows,
                         absolute=case.fixture.tolerance,relative=case.relative_tolerance)
                     check = FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=comparison.passed,
@@ -886,15 +1063,18 @@ class FixtureRunner:
                         await uow.session.execute(update(FixtureSourceReservation).where(
                             FixtureSourceReservation.attempt_id==attempt.id,
                             FixtureSourceReservation.runner_token==attempt.runner_token).values(release_reason='completed'))
+                    await self._finalize_attempt_gate(uow,requests,authority,attempt)
                     return check
         except TimeoutError:
-            await self._finish_failed(attempt,ErrorCode.EXECUTION_TIMEOUT)
+            await self._finish_failed(attempt,ErrorCode.EXECUTION_TIMEOUT,
+                self._failed_check(case,attempt,decision,ErrorCode.EXECUTION_TIMEOUT))
             raise GatewayError(ErrorCode.EXECUTION_TIMEOUT,attempt.request_id,'The fixture execution deadline elapsed.') from None
         except GatewayError as error:
-            await self._finish_failed(attempt,error.code)
+            await self._finish_failed(attempt,error.code,self._failed_check(case,attempt,decision,error.code))
             raise
         except Exception:
-            await self._finish_failed(attempt,ErrorCode.UPSTREAM_UNAVAILABLE)
+            await self._finish_failed(attempt,ErrorCode.UPSTREAM_UNAVAILABLE,
+                self._failed_check(case,attempt,decision,ErrorCode.UPSTREAM_UNAVAILABLE))
             raise GatewayError(ErrorCode.UPSTREAM_UNAVAILABLE,attempt.request_id,'The fixture source is unavailable.') from None
         finally:
             if adapter is not None:
@@ -905,9 +1085,14 @@ class FixtureRunner:
                         await adapter.close()
 
     async def run(self,actor,draft_id) -> TestRun:
+        run_id=str(uuid4())
         async with self.registry.transaction() as uow:
             authority = await self._authority(uow,actor,draft_id)
-        run_id=str(uuid4())
+            if self.policy.requires_source_approval(authority.product):
+                invocation = await self.policy.source_access.accept_fixture_invocation(uow,
+                    draft_id=draft_id,actor=actor,catalog_canonical=canonical_bytes(
+                        authority.catalog.model_dump(mode='python')).decode(),run_id=run_id,request_id=str(uuid4()))
+                authority=replace(authority,source_invocation=invocation)
         if authority.catalog.fixture_binding.adapter_revision in {'domo-named-v2','cube-bigquery-v1'}:
             if self.source_lifecycle is None:
                 raise fixture_unavailable()
@@ -924,6 +1109,7 @@ class FixtureRunner:
 
     async def _run_cases(self,authority,run_id,actor,draft_id):
         checks = []
+        decision_canonicals = {}
         for case in authority.catalog.cases:
             attempt,decision = None,None
             try:
@@ -942,13 +1128,14 @@ class FixtureRunner:
                         decision_digest=canonical_digest(decision) if decision is not None else None,
                         reference_watermark=case.fixture.source_watermark)
             except GatewayError as error:
-                check = FixtureCheck(fixture_id=case.fixture.id,kind=case.kind,passed=False,
-                    expected=case.fixture.expected_rows,expected_error=case.fixture.expected_error,
-                    actual_error=error.code.value,absolute_tolerance=case.fixture.tolerance,
-                    relative_tolerance=case.relative_tolerance,reference_watermark=case.fixture.source_watermark,
-                    attempt_id=attempt.id if isinstance(attempt,FixtureAttempt) else None,
-                    decision_digest=canonical_digest(decision) if decision is not None else None)
+                check = self._failed_check(case,attempt,decision,error.code)
+            if case.kind == 'input_negative' and decision is not None:
+                decision_canonicals[case.fixture.id] = canonical_bytes(decision.model_dump(mode='python')).decode()
             checks.append(check)
+        if getattr(authority,'source_group',None) is not None:
+            # Close/settle source dependencies before any final evidence batch.
+            # Unknown source work remains retained and cannot gain terminal proof.
+            await self.source_lifecycle.close_group(authority.source_group.group_id,'completed')
         async with self.registry.transaction() as uow:
             current = await self._authority(uow,actor,draft_id,authority)
             # A positive or negative grant can change after its individual case.
@@ -976,7 +1163,13 @@ class FixtureRunner:
                 draft_digest=current.draft.content_digest,binding_id=current.binding_row.id,
                 binding_digest=current.binding_row.content_digest,policy_id=current.product.manifest.policy_id,
                 policy_revision=current.policy_revision,fixture_version=current.catalog.digest,
-                evidence=evidence.model_dump(mode='json'),status='passed' if successful_evidence(final) else 'failed',actor_id=actor.id)
+                evidence=evidence.model_dump(mode='json'),evidence_canonical=canonical_bytes(evidence.model_dump(mode='python')).decode(),
+                source_decision_canonicals=decision_canonicals,
+                status='passed' if successful_evidence(final) else 'failed',actor_id=actor.id)
             uow.session.add(row)
             await uow.session.flush()
-            return filtered_test_run(row,current.review_visible_fields,current.product.manifest)
+            projected = filtered_test_run(row,current.review_visible_fields,current.product.manifest)
+            if self.policy.requires_source_approval(current.product):
+                requests = await self.prepare_evidence_access(uow,row)
+                await self._finalize_requests(uow,requests)
+            return projected

@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import re
 from typing import Annotated, Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
 
@@ -22,6 +22,8 @@ from gateway.registry.models import AuditEvent
 from gateway.registry.repository import UnitOfWork
 
 AuditAction = Capability | Literal["change_policy"]
+SourceAccessReason = Literal["APPROVED", "MISSING", "REVOKED", "EXPIRED", "PACKAGE_MISMATCH",
+    "AUDIENCE_DENIED", "AMBIGUOUS", "UNSUPPORTED_SOURCE", "INVALID_INPUT", "UNAVAILABLE"]
 ParameterMap = Annotated[dict[Identifier, Scalar], Field(max_length=50)]
 _PARAMETERS = TypeAdapter(ParameterMap)
 
@@ -59,6 +61,33 @@ class AuditEventInput(StrictModel):
     row_count: int | None = Field(default=None, ge=0, le=2_147_483_647)
     adapter: Identifier | None = None
     correlation_id: Identifier
+    source_approval_id: Identifier | None = None
+    source_approval_revision: int | None = Field(default=None, ge=1, le=2_147_483_647)
+    source_approval_digest: Digest | None = None
+    source_approval_state_revision: int | None = Field(default=None, ge=1, le=2)
+    source_access_reason_code: SourceAccessReason | None = None
+
+    @field_validator("source_approval_id")
+    @classmethod
+    def canonical_approval_id(cls, value):
+        if value is not None and str(UUID(value)) != value:
+            raise ValueError("Approval identity must be a canonical UUID")
+        return value
+
+    @model_validator(mode="after")
+    def complete_approval_reference(self):
+        reference = (self.source_approval_id, self.source_approval_revision,
+            self.source_approval_digest, self.source_approval_state_revision)
+        if any(value is not None for value in reference) and not all(value is not None for value in reference):
+            raise ValueError("Approval audit references must be complete")
+        if self.source_approval_id is not None and self.source_access_reason_code is None:
+            raise ValueError("Approval references require a bounded decision reason")
+        if self.source_access_reason_code == "APPROVED" and (self.source_approval_id is None or self.decision != "allow"):
+            raise ValueError("Approval allows require an exact reference")
+        if self.decision == "allow" and self.source_access_reason_code is not None and (
+            self.source_access_reason_code != "APPROVED" or self.source_approval_state_revision != 1):
+            raise ValueError("Approval allows require the active initial state")
+        return self
 
     @field_validator("actor_id", "service_client_id", "product_id", "version_id", "policy_id", "adapter", "correlation_id")
     @classmethod
@@ -111,7 +140,10 @@ class AuditWriter:
     def event(self, actor: Principal, action: AuditAction, *, decision: Literal["allow", "deny"],
               product: PinnedProduct | None = None, policy_id: str | None = None, policy_revision: int | None = None,
               parameters: dict | None = None, duration_ms: int | None = None,
-              row_count: int | None = None, correlation_id: str | None = None) -> AuditEventInput:
+              row_count: int | None = None, correlation_id: str | None = None,
+              source_approval_id: str | None = None, source_approval_revision: int | None = None,
+              source_approval_digest: str | None = None, source_approval_state_revision: int | None = None,
+              source_access_reason_code: SourceAccessReason | None = None) -> AuditEventInput:
         try:
             actor = Principal.model_validate(actor.model_dump(mode="python", warnings=False))
             if product is not None and policy_id is not None and policy_id != product.manifest.policy_id:
@@ -125,11 +157,14 @@ class AuditWriter:
                 policy_revision=policy_revision, decision=decision, parameter_names=names, parameter_digest=digest,
                 duration_ms=duration_ms, row_count=row_count,
                 adapter=product.manifest.adapter_revision if product is not None else None,
-                correlation_id=str(uuid4()) if correlation_id is None else correlation_id)
+                correlation_id=str(uuid4()) if correlation_id is None else correlation_id,
+                source_approval_id=source_approval_id, source_approval_revision=source_approval_revision,
+                source_approval_digest=source_approval_digest, source_approval_state_revision=source_approval_state_revision,
+                source_access_reason_code=source_access_reason_code)
         except (ValidationError, ValueError, TypeError, AttributeError):
             raise invalid_input("The audit event is invalid.") from None
 
-    async def append(self, uow: UnitOfWork, event: AuditEventInput) -> None:
+    async def append(self, uow: UnitOfWork, event: AuditEventInput) -> str:
         """Flush before dispatch, result release or publication; never commits.
 
         Every failure rolls back all caller changes, even if a caller catches the
@@ -139,8 +174,10 @@ class AuditWriter:
             event = AuditEventInput.model_validate(event.model_dump(mode="python", warnings=False))
             if not uow.session.in_transaction():
                 raise ValueError("An audit write requires a caller transaction")
-            uow.session.add(AuditEvent(**event.model_dump(mode="json", warnings=False)))
+            record = AuditEvent(**event.model_dump(mode="json", warnings=False, exclude_none=True))
+            uow.session.add(record)
             await uow.session.flush()
+            return record.id
         except Exception:
             try:
                 await uow.session.rollback()

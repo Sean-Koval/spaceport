@@ -18,7 +18,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.pool import NullPool
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGETS = frozenset(('head', '0001_registry'))
+TARGETS = frozenset(('head', '0001_registry', '0006_source_preparations'))
 ROLE_KEYS = ('owner', 'app', 'audit_retention', 'source_reader')
 MAX_RECEIPT_BYTES = 256 * 1024
 

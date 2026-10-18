@@ -34,7 +34,7 @@ def environment(monkeypatch):
     for key, role in ROLES.items(): monkeypatch.setenv('GATEWAY_' + key.upper() + '_ROLE', role)
 
 
-@pytest.mark.parametrize('target', ['head', '0001_registry'])
+@pytest.mark.parametrize('target', ['head', '0001_registry', '0006_source_preparations'])
 def test_pair_preserves_two_fresh_configs_and_real_snapshot_order(monkeypatch, target):
     module = api(); environment(monkeypatch)
     events = []; configs = []; snapshots = []
@@ -189,3 +189,11 @@ def test_failed_pair_still_cleans_only_its_fresh_database_and_four_roles(monkeyp
     assert drops == ['DROP DATABASE "' + URL_VALUE.database + '" WITH (FORCE)',
         *['DROP ROLE "' + role + '"' for role in reversed(list(ROLES.values()))]]
     assert closed == [True]
+
+
+@pytest.mark.parametrize('target', ['base', '0005_source_lifecycle', '0007_source_access_approvals', 'head-1'])
+def test_historical_aging_target_does_not_enable_arbitrary_revisions(monkeypatch, target):
+    module = api(); environment(monkeypatch); calls = []
+    monkeypatch.setattr(module.command, 'upgrade', lambda *args: calls.append(args))
+    with pytest.raises(ValueError): module.collect_pair(target)
+    assert calls == []

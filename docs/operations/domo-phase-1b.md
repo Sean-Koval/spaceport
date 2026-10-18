@@ -1,6 +1,12 @@
-# Domo Phase 1b: unavailable until evidence gates pass
+# Historical Domo Phase 1b: offline foundation gates
 
-15 October 2026. `select_adapter("domo")` still fails with safe `INVALID_INPUT`. The separate `gateway/adapters/domo.py` implements executable **offline contracts with injected transports**, not a live or runtime-registered connector. No Domo SDK, account, credential, native Cube driver, network-client factory or source activation is provided. The default demonstration needs no Domo tenant or paid account.
+This records the earlier offline connector-foundation scope. The later merged
+[reviewed-source pilot](source-pilot.md) implements finite Domo REST serving and
+operator workflows; use that runbook and the [source-access approval gates](source-access-approvals.md)
+for current setup. Live identity/PDP and business-definition qualification below
+remain relevant and are not satisfied by synthetic provider tests.
+
+At the earlier foundation checkpoint (15 October 2026), `select_adapter("domo")` still fails with safe `INVALID_INPUT`. The separate `gateway/adapters/domo.py` implements executable **offline contracts with injected transports**, not a live or runtime-registered connector. No Domo SDK, account, credential, native Cube driver, network-client factory or source activation is provided. The default demonstration needs no Domo tenant or paid account.
 
 A live Domo integration remains a **separate read-only adapter for operator-reviewed named queries**, sharing gateway authorization, exact manifest contracts, resource bounds, execution/result isolation and redacted errors. Agent inputs remain typed manifest fields. It must not expose SQL, a credential-bearing SDK, bulk exports, arbitrary card formulas or an unrestricted dataset explorer.
 
