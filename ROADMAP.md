@@ -2,15 +2,19 @@
 
 ## Frozen
 
-**Frozen 2026-10-16.** Spaceport is the team's capability plane (governed data products over MCP), paused while hangar adoption and flightdeck come first. Milestones 2 to 5 are paused at freeze; their status lines below are unchanged and describe where each stood.
+**Frozen 2026-10-16.** Spaceport is the team's capability plane (governed data products over MCP), paused while hangar adoption and flightdeck come first. Milestones 2 to 5 are paused at freeze; their status lines below describe where each stood.
 
-- **Allowed while frozen:** security fixes, dependency patches, and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
+- **Allowed while frozen:** security fixes, dependency patches, CI repair, docs fixes and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
 - **Not allowed:** new connectors, live-source activation, deployment.
-- **Unfreeze trigger:** an owner decision, recorded here with its date and scope.
+- **Still works:** the local synthetic demo and the REST/MCP contract.
+- **Won't change:** the four MCP tools, their schemas and the connectors.
+- **Last CI-verified source:** [run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164) on `2d3cd1e` (15 October). The CI, naming, licensing and docs changes merged since (#16–#20) were not re-run; the gateway, Cube, migration and fixture code is unchanged since that source.
+- **Unfreeze trigger:** an owner decision recorded on [#10](https://github.com/Sean-Koval/spaceport/issues/10), then noted here with its date and scope.
+- **Paused work:** draft [PR #8](https://github.com/Sean-Koval/spaceport/pull/8) (owner approvals for shared-source products) is unmerged and paused; it is not a task to finish while frozen.
 
-After unfreeze, milestone 6 makes Spaceport's MCP tools ask the team workspace's decision point. The deprecated `DPG_*` client environment names ([#12](https://github.com/Sean-Koval/spaceport/issues/12)) can then be removed in favour of `SPACEPORT_*`.
+After unfreeze, milestone 6 makes Spaceport's MCP tools ask Tower's decision point. The deprecated `DPG_*` client environment names ([#12](https://github.com/Sean-Koval/spaceport/issues/12)) can then be removed in favour of `SPACEPORT_*`.
 
-Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/design-records/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the current source.
+Updated 16 October 2026 (frozen; see above). The milestones below record the order of work as it stood at the freeze. They are not a delivery sequence in progress, a record of completed acceptance, or permission to use live accounts, incur spend or deploy. The [approved design](docs/design-records/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the source at the freeze.
 
 ## Product outcome
 
@@ -18,7 +22,9 @@ A team publishes a reusable, tested data product once. A person or an agent can 
 
 Work is ordered by usable outcomes and evidence. Synthetic fixtures, mock contracts, live-source checks and production readiness remain separate. There are no delivery-date commitments in this roadmap.
 
-## Current connector pilot wave
+## Connector pilot wave (paused at freeze)
+
+**Paused at freeze (2026-10-16).** The steps below record where the wave stood; none of them is active work while frozen.
 
 PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The [reviewed source pilot](docs/design-records/2026-10-15-source-pilot-runtime.md) merged in PR 5 at `27bb504f9a673267fd070a4e562b698388ded7e5`, with [run 22 backend acceptance](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass). It is not a live deployment.
 
@@ -26,8 +32,8 @@ PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b
 - **Verified in run 22:** actual gateway/registry product journeys for BigQuery and Domo with synthetic provider boundaries, installed runtime and actual image gates.
 - Retain source holds across crashes, revocation, lease generations and unknown provider outcomes. Require durable commits and current authority before data calls; never release unknown capacity merely because the gateway times out.
 - **Merged after review and verification:** PR 5. Later runtime/security changes require their own exact-source evidence before merge.
-- Before calling this organization-usable, implement a separately reviewed security slice: protected data-owner approval and revocation for explicit non-PII products, plus rejection of unsupported delegated-source modes. User/agent relationships and source-user entitlement intersection are requirements, not current capabilities.
-- Then, under separate operator approval, qualify live identities, approved tables/datasets, PDP/business definitions, quotas, freshness and network controls. Browser SSO/PKCE and production/composed acceptance remain separate work.
+- Before calling this organization-usable, a separately reviewed security slice was required (drafted in paused PR #8): protected data-owner approval and revocation for explicit non-PII products, plus rejection of unsupported delegated-source modes. User/agent relationships and source-user entitlement intersection are requirements, not current capabilities.
+- After that, under separate operator approval: qualify live identities, approved tables/datasets, PDP/business definitions, quotas, freshness and network controls. Browser SSO/PKCE and production/composed acceptance remain separate work.
 
 The [pilot runbook](docs/operations/source-pilot.md) describes the author/test/publish workflow and explicit setup actions. GCS remains the offline exact-generation artifact interface; a live route and policy inheritance are later work.
 
@@ -144,26 +150,26 @@ Acceptance:
 - Synthetic OIDC composition, user/service separation, scoped provisioning, repeated bootstrap and resource cleanup have independent source-level review/tests; genuine database evidence is reported separately.
 - The exact combined source is reviewed and tested. No live issuer, GKE, managed database, browser SSO or production acceptance is inferred from mocked/local tests.
 
-Next: select the actual identity provider and validate Studio delegation/browser login against it, then activate one separately approved bounded warehouse product. The foundation retains only the reviewed synthetic model; it is not a generic real-data deployment switch.
+Open at the freeze: selecting the actual identity provider and validating Studio delegation/browser login against it, then activating one separately approved bounded warehouse product. The foundation retains only the reviewed synthetic model; it is not a generic real-data deployment switch.
 
 ## 2B. Deliver reviewed connector software
 
 **Paused at freeze (2026-10-16).**
 
-**Status: foundation merged in PR 4; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). The current pilot wave extends its source-serving slices. No live source or deployment is activated.**
+**Status: foundation merged in PR 4; exact-source checks and independent review are recorded in the [connector evidence](docs/evidence/reviewed-connectors.md). The paused pilot wave extended its source-serving slices. No live source or deployment is activated.**
 
 - Complete the internal reviewed PostgreSQL/Cube v2 path: explicit versioned bindings, exact accepted-query replay, current policy checks, isolated fixture bundles and same-query hidden source checkpoints. Existing v1 bundles/public contracts remain unchanged.
 - Checkpoint joins require unique scoped source rows and atomic producer publication with data. Cache hits keep the original checkpoint and continue to age. Empty results have unknown freshness and cannot satisfy required freshness.
-- The foundation retained a BigQuery driver/admission library. The current pilot adds trusted attempt propagation, durable PostgreSQL lifecycle control and gateway integration. Do not release source capacity on a local timeout or unproven cancellation.
-- The foundation included offline Domo and GCS readers. The current pilot adds Domo-specific REST execution and normalization; GCS still requires explicit artifact authorization and a product-policy relationship before serving.
+- The foundation retained a BigQuery driver/admission library. The merged pilot added trusted attempt propagation, durable PostgreSQL lifecycle control and gateway integration. Do not release source capacity on a local timeout or unproven cancellation.
+- The foundation included offline Domo and GCS readers. The merged pilot added Domo-specific REST execution and normalization; GCS still requires explicit artifact authorization and a product-policy relationship before serving.
 
-Acceptance separates source/mock checks, actual disposable PostgreSQL/Cube checks, packaged-driver checks and live evidence. The next real-source step is one operator-reviewed source/model with authoritative answers and approved access, not unrestricted database or bucket discovery. Do not infer immutability, producer atomicity or permission equivalence from configuration labels.
+Acceptance separates source/mock checks, actual disposable PostgreSQL/Cube checks, packaged-driver checks and live evidence. After unfreeze, the next real-source step would be one operator-reviewed source/model with authoritative answers and approved access, not unrestricted database or bucket discovery. Do not infer immutability, producer atomicity or permission equivalence from configuration labels.
 
 ## 3. Deliver one real BigQuery-backed product
 
 **Paused at freeze (2026-10-16).**
 
-**Status: live activation gated. The current pilot implements reviewed gateway/Cube serving and durable source control, with synthetic-provider evidence and remaining exact-image qualification.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
+**Status: live activation gated. The merged pilot implements reviewed gateway/Cube serving and durable source control, with synthetic-provider evidence and remaining exact-image qualification.** Start with one selected metric and a known authoritative answer, not a generic connector catalog.
 
 Tasks:
 
@@ -184,7 +190,7 @@ Acceptance:
 
 **Paused at freeze (2026-10-16).**
 
-**Status: live Phase 1b qualification remains gated. The current pilot implements finite approved-statement REST serving and isolated fixture workflows; live authentication/PDP and authoritative business reconciliation remain unverified.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
+**Status: live Phase 1b qualification remains gated. The merged pilot implements finite approved-statement REST serving and isolated fixture workflows; live authentication/PDP and authoritative business reconciliation remain unverified.** Use a separate read-only named-query adapter only after its source semantics and permission model are proven.
 
 Tasks:
 
@@ -207,9 +213,9 @@ Tasks and acceptance are tracked by the [production checklist](docs/operations/p
 
 Public release is separate: settle original-code licensing, dependency/image/browser notices, public naming and distribution approval. This roadmap does not authorize publishing packages or opening the repository.
 
-## 6. Govern MCP tools through the workspace (after unfreeze)
+## 6. Govern MCP tools through Tower (after unfreeze)
 
-**Status: planned; starts only after unfreeze.** Spaceport's four MCP tools ask the team workspace's policy decision point before serving, and accept act-chain tokens, so one rule set and one receipt cover data products too. Tracked in [#14](https://github.com/Sean-Koval/spaceport/issues/14).
+**Status: planned; starts only after unfreeze.** Spaceport's four MCP tools ask Tower's policy decision point before serving, and accept act-chain tokens, so one rule set and one receipt cover data products too. Tracked in [#14](https://github.com/Sean-Koval/spaceport/issues/14).
 
 ## Later choices, not commitments
 
