@@ -16,7 +16,7 @@ Anything else waits for an unfreeze, which is an owner decision recorded on #10.
 - Add connectors, data sources or provider adapters, or extend the BigQuery, Domo or GCS paths.
 - Activate a live source, use real credentials, run a paid query or deploy anything (no cluster, cloud or registry changes).
 - Change the four MCP tools, their schemas, the REST contract or the snapshots in `docs/compatibility/` (`mcp-tools.json`, `openapi.json`). That includes wire names such as "Data Product Gateway", listed as legacy names in [versions.md](docs/compatibility/versions.md#legacy-internal-identifiers).
-- Edit anything under `docs/evidence/`. Those files record what was verified at a specific source identity. If a file moves, report the stale link instead of editing the record.
+- Edit anything under `docs/evidence/`, with one exception. Those files record what was verified at a specific source identity. The only allowed change is updating a link's path when the file it points to moves, made in the same PR as the move, with every recorded fact (wording, SHAs, run numbers, counts, results) left untouched. Say in that PR which evidence links you repointed. Don't move a file an evidence record links to unless the move itself is in scope.
 - Finish, rebase or extend draft PR [#8](https://github.com/Sean-Koval/spaceport/pull/8). It is paused at the freeze.
 - Treat `docs/archive/` as instructions. The plans, research and preview there are historical; their unchecked boxes are not open work.
 
