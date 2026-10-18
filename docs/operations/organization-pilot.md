@@ -8,7 +8,7 @@ Spaceport has a substantive application foundation: governed product contracts, 
 
 It is not yet ready to serve organization data. The shipped demo composition is synthetic-only; a real organization identity path, an enforceably bounded real source, actual browser/composed acceptance and operational qualification remain required. BigQuery is deliberately non-executable even with credentials. Domo has no adapter.
 
-The implemented vertical foundation is [the OIDC synthetic pilot runtime](../superpowers/specs/2026-10-14-organization-runtime-foundation.md). It wires existing identity/policy services into explicit HTTPS/TLS/mounted-secret configuration and controlled provisioning. Its [source-level evidence](../evidence/organization-runtime-foundation.md) does not establish a deployed pilot. It deliberately retains synthetic revenue data. Proving organization login against synthetic data is useful before permitting a warehouse query. Browser authorization-code/PKCE login and compatibility with the selected identity provider/Studio connection remain separate work.
+The implemented vertical foundation is [the OIDC synthetic pilot runtime](../design-records/2026-10-14-organization-runtime-foundation.md). It wires existing identity/policy services into explicit HTTPS/TLS/mounted-secret configuration and controlled provisioning. Its [source-level evidence](../evidence/organization-runtime-foundation.md) does not establish a deployed pilot. It deliberately retains synthetic revenue data. Proving organization login against synthetic data is useful before permitting a warehouse query. Browser authorization-code/PKCE login and compatibility with the selected identity provider/Studio connection remain separate work.
 
 ## P0 sequence
 

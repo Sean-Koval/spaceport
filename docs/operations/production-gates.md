@@ -2,7 +2,7 @@
 
 A successful synthetic demo automatically satisfies none of these.
 
-GCP/GKE is the selected deployment target. See the [organization-pilot assessment](organization-pilot.md) and [runtime-foundation scope](../superpowers/specs/2026-10-14-organization-runtime-foundation.md). A configured OIDC synthetic pilot does not satisfy these gates or establish compatibility with the actual identity provider.
+GCP/GKE is the selected deployment target. See the [organization-pilot assessment](organization-pilot.md) and [runtime-foundation scope](../design-records/2026-10-14-organization-runtime-foundation.md). A configured OIDC synthetic pilot does not satisfy these gates or establish compatibility with the actual identity provider.
 
 - Ownership: name service, data/product, source/model, security and operations owners; agree incident response and support responsibilities.
 - Original-code license: done. Apache-2.0 ([LICENSE](../../LICENSE)), chosen 16 October 2026. Public distribution: still requires owner approval; complete dependency/image/browser notices and review upstream obligations before distribution.

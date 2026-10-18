@@ -48,6 +48,6 @@ Every item remains **UNPROVEN** here. Assign an owner, retain exact reviewed rev
 
 Keep authorized Domo evidence separate from mock BigQuery and synthetic PostgreSQL results. Record exact tenant/API and non-secret credential scope, principal/PDP test matrix, authoritative definition revisions, expected/actual reconciliation, drift cases, source bounds, redacted failures and unresolved gaps. No public connector status/schema is invented here.
 
-The existing [integration research](../research/integrations.md) identifies official `pydomo==0.3.0.16` only as a deferred candidate; it has not been installed or compatibility-tested. Any later use needs the exact package/transitive notice inventory and a narrow read-only wrapper, without exposing SDK mutation methods or raw exception text. Original-code licensing and distribution approval remain Task 14 gates.
+The existing [integration research](../archive/research/integrations.md) identifies official `pydomo==0.3.0.16` only as a deferred candidate; it has not been installed or compatibility-tested. Any later use needs the exact package/transitive notice inventory and a narrow read-only wrapper, without exposing SDK mutation methods or raw exception text. Original-code licensing and distribution approval remain Task 14 gates.
 
 If tenant identity/PDP equivalence, authoritative business logic or enforceable resource behavior cannot be demonstrated, leave the product unavailable. Documentation is a checklist, not an execution implementation or permission grant.

@@ -10,7 +10,7 @@
 
 After unfreeze, milestone 6 makes Spaceport's MCP tools ask the team workspace's decision point. The deprecated `DPG_*` client environment names ([#12](https://github.com/Sean-Koval/spaceport/issues/12)) can then be removed in favour of `SPACEPORT_*`.
 
-Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/superpowers/specs/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the current source.
+Updated 16 October 2026 (frozen; see above). This is the delivery sequence, not a record of completed acceptance or permission to use live accounts, incur spend or deploy. The [approved design](docs/design-records/2026-10-13-spaceport.md) remains the architectural boundary; the [README](README.md) describes the current source.
 
 ## Product outcome
 
@@ -20,7 +20,7 @@ Work is ordered by usable outcomes and evidence. Synthetic fixtures, mock contra
 
 ## Current connector pilot wave
 
-PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The [reviewed source pilot](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) merged in PR 5 at `27bb504f9a673267fd070a4e562b698388ded7e5`, with [run 22 backend acceptance](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass). It is not a live deployment.
+PR 4 connector foundation is merged at `3fa6b2f698fa406918d82173d4422166c059b84b`. The [reviewed source pilot](docs/design-records/2026-10-15-source-pilot-runtime.md) merged in PR 5 at `27bb504f9a673267fd070a4e562b698388ded7e5`, with [run 22 backend acceptance](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass). It is not a live deployment.
 
 - **Delivered:** operator CLI, retained sample packages, source verification recipe and GKE application inventory for existing infrastructure.
 - **Verified in run 22:** actual gateway/registry product journeys for BigQuery and Domo with synthetic provider boundaries, installed runtime and actual image gates.
@@ -129,7 +129,7 @@ Acceptance:
 
 **Paused at freeze (2026-10-16).**
 
-**Status: foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3); independent source review, source-level checks and the complete hosted backend gate passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,221 unit/contract tests and all 346 genuine backend cases passing with verified cleanup in [run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566), plus 254 unchanged frontend tests passing locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/superpowers/specs/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
+**Status: foundation merged in [PR 3](https://github.com/Sean-Koval/spaceport/pull/3); independent source review, source-level checks and the complete hosted backend gate passed. GCP/GKE is the selected target, with no deployment approved.** The [foundation evidence](docs/evidence/organization-runtime-foundation.md) records 2,221 unit/contract tests and all 346 genuine backend cases passing with verified cleanup in [run 38650608566](https://github.com/Sean-Koval/spaceport/actions/runs/38650608566), plus 254 unchanged frontend tests passing locally. The [readiness assessment](docs/operations/organization-pilot.md) and [bounded design](docs/design-records/2026-10-14-organization-runtime-foundation.md) distinguish this foundation from serving organization data.
 
 Build:
 

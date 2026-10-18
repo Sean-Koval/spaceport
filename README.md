@@ -159,10 +159,10 @@ The packet observer is not currently available, so full demo acceptance remains 
 - `cube/`, `fixtures/`, `infra/`: reviewed semantic assets, synthetic data and runtime packaging.
 - `clients/`: independent Python and TypeScript MCP acceptance clients.
 - `migrations/`, `scripts/`, `tests/`: schema migrations, operational/verifier tools and test suites.
-- `docs/`: [documentation index](docs/README.md), [approved design](docs/superpowers/specs/2026-10-13-spaceport.md), [implementation plan](docs/superpowers/plans/2026-10-13-spaceport.md), compatibility, operations and evidence.
+- `docs/`: [documentation index](docs/README.md), [design records](docs/design-records/), compatibility, operations and evidence; [archive](docs/archive/README.md) for historical plans and research.
 
 ## Live sources and release boundaries
 
-Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [source pilot design](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) describes the merged BigQuery/Domo serving paths; GCS remains the earlier offline artifact slice.
+Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [source pilot design](docs/design-records/2026-10-15-source-pilot-runtime.md) describes the merged BigQuery/Domo serving paths; GCS remains the earlier offline artifact slice.
 
 V1 excludes ETL, arbitrary SQL/formulas, cross-product joins, source writes, dashboards, ontology engines and agent orchestration. Real credentials, paid queries, deployment and public distribution require their own decisions and verification. Preserve [third-party notices](THIRD_PARTY_NOTICES.md) and the [dependency inventory](docs/operations/licensing.md). Original code is licensed under [Apache-2.0](LICENSE); that license does not cover third-party components and does not authorize publishing images or browser bundles, which remain release gates.

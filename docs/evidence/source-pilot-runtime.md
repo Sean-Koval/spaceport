@@ -1,6 +1,6 @@
 # Source pilot runtime: evidence boundary
 
-15 October 2026. Scope: [source pilot design](../superpowers/specs/2026-10-15-source-pilot-runtime.md) and [implementation plan](../superpowers/plans/2026-10-15-source-pilot-runtime.md).
+15 October 2026. Scope: [source pilot design](../design-records/2026-10-15-source-pilot-runtime.md) and [implementation plan](../archive/plans/2026-10-15-source-pilot-runtime.md).
 
 **Exact-source backend acceptance passed in run 22. PR 5 is merged; organization activation remains blocked.** The previous connector foundation was merged by approval into private main `3fa6b2f698fa406918d82173d4422166c059b84b`, tree `a3155cbfb8fc5c073a4c2d184ecd75d0b99d0024`. Its [run 18 receipt](reviewed-connectors.md#hosted-gate-attempt-18-pass) applies to that foundation only. The pilot has its own reviewed exact-source backend receipt below and has merged by user approval; the additional security/live qualification gates remain required.
 
@@ -40,7 +40,7 @@ These are development observations, not a final-build certificate. Later integra
 5. Before organization use, implement the separately reviewed, revocable data-owner approval gate for explicit non-PII shared-source products and fail closed on unsupported delegated-source modes. Current user/client authentication and product ACLs do not prove employee Domo permissions, relationship-based delegation or PII safety.
 6. Separately configure and verify operator-owned credentials/IAM, restricted source datasets, network egress, identity/PDP mapping, source definitions, quotas and freshness prerequisites. Live source requests, cloud resource creation and deployment are not authorized by the implementation work.
 
-Browser SSO/PKCE, composed browser acceptance, the clean no-acquisition repeat, packet-observer assurance and production rollout remain separate gates. Domo MCP is not used for approved-statement serving; the direct REST transport and its shared integration-identity semantics are described in the [Domo design](../superpowers/specs/2026-10-15-domo-pilot-runtime.md). GCS remains the earlier offline exact-generation artifact slice.
+Browser SSO/PKCE, composed browser acceptance, the clean no-acquisition repeat, packet-observer assurance and production rollout remain separate gates. Domo MCP is not used for approved-statement serving; the direct REST transport and its shared integration-identity semantics are described in the [Domo design](../design-records/2026-10-15-domo-pilot-runtime.md). GCS remains the earlier offline exact-generation artifact slice.
 
 ## Hosted attempt 19: blocked before backend
 

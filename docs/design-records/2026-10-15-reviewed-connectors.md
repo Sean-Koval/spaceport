@@ -55,4 +55,4 @@ Reject case-insensitive and percent-encoded GCS V4 signing keys and V2 `Signatur
 
 ## Technical review outcome
 
-The narrowed durable BigQuery library design, v2 accepted-query and same-query checkpoint protocol, and offline Domo/GCS boundaries were independently reviewed and implemented. Exact-source hosted run 18 passed the disposable backend and guarded actual-image package gates. See [the evidence record](../../evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass); serving integration, real-provider/source prerequisites and production approval remain separate.
+The narrowed durable BigQuery library design, v2 accepted-query and same-query checkpoint protocol, and offline Domo/GCS boundaries were independently reviewed and implemented. Exact-source hosted run 18 passed the disposable backend and guarded actual-image package gates. See [the evidence record](../evidence/reviewed-connectors.md#hosted-gate-attempt-18-pass); serving integration, real-provider/source prerequisites and production approval remain separate.
