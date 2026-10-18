@@ -11,14 +11,16 @@
   "packageManager": "npm@11.9.0",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run check:airframe && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:e2e": "playwright test",
     "preview": "vite preview --host 127.0.0.1",
     "generate": "openapi-typescript ../docs/compatibility/openapi.json -o src/generated/api.ts",
     "check:generated": "node scripts/check-generated.mjs",
-    "format:check": "prettier --check src scripts e2e *.ts *.json *.html ../tests/e2e/publisher.spec.ts"
+    "format:check": "prettier --check src scripts e2e *.ts *.json *.html ../tests/e2e/publisher.spec.ts",
+    "generate:airframe": "node scripts/airframe.mjs",
+    "check:airframe": "node scripts/airframe.mjs --check"
   },
   "dependencies": {
     "@radix-ui/themes": "3.3.0",

@@ -1,0 +1,67 @@
+{
+  "repository": "Sean-Koval/agent-factory",
+  "tag": "theme-v6",
+  "commit": "16c947fcbe1ba5763fe14dae414eeb1f20a427bf",
+  "files": [
+    {
+      "path": "LICENSE",
+      "gitBlob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "airframe/fonts/Archivo-ExpandedBold.ttf",
+      "gitBlob": "92f51089c4695709fd5692eaa534d5c0cbf423cb",
+      "sha256": "031790b1ce022adf5eee03899e9dd6323a457bd53bacb80429dc105ee41c4784"
+    },
+    {
+      "path": "airframe/fonts/DMMono-Medium.ttf",
+      "gitBlob": "0d3897298499d5e20f8839548267ffbbcc221260",
+      "sha256": "03479841e63c38e19d5fcafc733aa41640f3420e3ee69fc2a75ad990d9f3d057"
+    },
+    {
+      "path": "airframe/fonts/OFL-Archivo.txt",
+      "gitBlob": "8597481ebc941863ab228e79ea4305507cd73cc6",
+      "sha256": "108b4e57c9c796d3d38d0428ca7ee39de47ad93187302718d9b2d8864b9b716b"
+    },
+    {
+      "path": "airframe/fonts/OFL-DMMono.txt",
+      "gitBlob": "01450afc0769581ef9548569b1214d88ee28cd1a",
+      "sha256": "2bada5ea45c3c63b7f1ea1f88ce9672c9e4f0c42b2c3b7378949084fe55a3066"
+    },
+    {
+      "path": "airframe/fonts/OFL-RedHatText.txt",
+      "gitBlob": "16cf394bb1bd5100686703ebc4a3772a568e0e6a",
+      "sha256": "435fbfb7e66988b2a06686a4cb966faec733f35d8fe100a1601573c27f3e0bb8"
+    },
+    {
+      "path": "airframe/fonts/RedHatText-Regular.ttf",
+      "gitBlob": "f318333edd583d8b00ba1d98325348027e6def8c",
+      "sha256": "482e300e6d39960d15f2f867ff1d022ab07fbc27aa3bd26633e426f11dcd5cdc"
+    },
+    {
+      "path": "airframe/icons/marks.json",
+      "gitBlob": "0e370da777bef8158077bb8f0c11b62f6606bc90",
+      "sha256": "743ace4a63f43687dda0bb24b2f0f9fdca088cd3559185c070154913e89eb7fe"
+    },
+    {
+      "path": "brand/spaceport/favicon.svg",
+      "gitBlob": "b1f0749e00f45cd438e3ac9a424fb5d3b087cd0c",
+      "sha256": "3c0ce2dd1533258e2793948c9a982e136d67f444daa6db104bbfc9b0c0791a52"
+    },
+    {
+      "path": "theme/airframe-components.css",
+      "gitBlob": "3c02238591289cd0eebf005bf7b0aef95561e3cc",
+      "sha256": "1c3005c3462db81e77c60ab5dd8a02eee876522602d31664afbfd006731a248b"
+    },
+    {
+      "path": "theme/airframe-icons.svg",
+      "gitBlob": "4b30e78baa54328d7a4cd879ff7dec3c5b8750e7",
+      "sha256": "061a87a09a6335e1a7ac05ac9cb553fdf1005a40e832ea486c7a97b0c82be97a"
+    },
+    {
+      "path": "theme/airframe.css",
+      "gitBlob": "f0865ba5aa82400e9086f44735e3f1a5434b8dc6",
+      "sha256": "066809ddfa37f1bcc2444e58f770bbdf258d0cf536f96eb0460b0c75620b6ef7"
+    }
+  ]
+}

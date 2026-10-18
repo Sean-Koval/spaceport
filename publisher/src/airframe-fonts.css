@@ -1,0 +1,23 @@
+/* Same fonts as Agent Factory, bundled locally. Licenses ship beside the files. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/airframe/fonts/Archivo-ExpandedBold.ttf') format('truetype');
+  font-weight: 700;
+  font-stretch: 125%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('/airframe/fonts/DMMono-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Red Hat Text';
+  src: url('/airframe/fonts/RedHatText-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

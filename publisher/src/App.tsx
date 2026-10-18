@@ -3,6 +3,7 @@ import {
   createBrowserRouter,
   RouterProvider,
   Link,
+  NavLink,
   Outlet,
   Navigate,
   useLocation,
@@ -47,18 +48,24 @@ function Layout() {
       <div className="demo-banner">
         Synthetic demo · illustrative data only · no production readiness claim
       </div>
-      <header>
+      <header className="app-header af-nav af-hue--spaceport">
         <Link className="brand" to="/catalog">
           <Icon name="port" className="brand-mark" />
-          Spaceport
+          <span className="af-nav__name">Spaceport</span>
         </Link>
-        <nav aria-label="Primary">
-          <Link to="/catalog">Catalog</Link>
+        <nav className="af-nav__tabs" aria-label="Primary">
+          <NavLink className="af-nav__tab" to="/catalog" end>
+            Catalog
+          </NavLink>
           {session && (
             <>
-              <Link to="/drafts">Drafts</Link>
-              <Link to="/drafts/new">Create draft</Link>
-              <button className="text-button" onClick={end}>
+              <NavLink className="af-nav__tab" to="/drafts" end>
+                Drafts
+              </NavLink>
+              <NavLink className="af-nav__tab" to="/drafts/new">
+                Create draft
+              </NavLink>
+              <button className="af-btn af-btn--ghost session-end" onClick={end}>
                 <Icon name="exit" />
                 End session
               </button>

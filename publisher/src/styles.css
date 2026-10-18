@@ -1,14 +1,8 @@
+/* Product layout and adapters over exact Airframe theme-v6. No product color palette. */
 :root {
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-  color: #202326;
-  background: #f5f5f2;
+  font-family: var(--af-font-sans);
+  color: var(--af-fg);
+  background: var(--af-canvas);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -19,68 +13,72 @@ body {
   margin: 0;
 }
 a {
-  color: #174f67;
+  color: var(--af-fg);
   text-underline-offset: 3px;
 }
-button,
+button:not(.af-btn),
 input,
 select,
 textarea {
   font: inherit;
 }
-button,
+button:not(.af-btn),
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: 1px solid #a93211;
-  border-radius: 2px;
-  background: #a93211;
-  color: #fff;
+  border: 1px solid var(--af-brand);
+  border-radius: var(--af-radius-control);
+  background: var(--af-brand);
+  color: var(--af-on-brand);
   padding: 0.68rem 1rem;
-  font-weight: 650;
+  font-family: var(--af-font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: var(--af-label-track);
+  font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   min-height: 44px;
 }
-button.secondary,
+button.secondary:not(.af-btn),
 .button.secondary {
-  background: #fff;
-  color: #a93211;
-  border-color: #858b8e;
+  background: var(--af-raised);
+  color: var(--af-fg);
+  border-color: var(--af-line-strong);
 }
 .text-button {
   background: transparent !important;
-  color: #a93211 !important;
+  color: var(--af-fg-muted) !important;
   border: 0 !important;
   padding: 0.4rem 0.6rem;
   text-decoration: underline;
   min-height: 40px;
 }
-button:disabled {
-  color: #62666a;
-  background: #e8e9e6;
-  border-color: #c9ccca;
+button:not(.af-btn):disabled {
+  color: var(--af-fg-subtle);
+  background: var(--af-surface);
+  border-color: var(--af-line);
   cursor: not-allowed;
   opacity: 1;
 }
-button:hover:not(:disabled),
+button:not(.af-btn):hover:not(:disabled),
 .button:hover {
-  filter: brightness(0.94);
+  background: var(--af-brand-hover);
 }
 :focus-visible {
-  outline: 3px solid #17617e;
+  outline: 3px solid var(--af-focus);
   outline-offset: 3px;
 }
 input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #858b8e;
-  background: #fff;
-  color: #202326;
-  border-radius: 2px;
+  border: 1px solid var(--af-line-strong);
+  background: var(--af-surface);
+  color: var(--af-fg);
+  border-radius: var(--af-radius-control);
   padding: 0.65rem 0.7rem;
   min-height: 44px;
 }
@@ -89,7 +87,7 @@ textarea {
   resize: vertical;
 }
 input[readonly] {
-  background: #edefec;
+  background: var(--af-surface);
 }
 label {
   display: block;
@@ -113,17 +111,17 @@ legend {
   vertical-align: middle;
 }
 .demo-banner {
-  background: #e9ebe8;
-  color: #4d5459;
+  background: var(--af-surface);
+  color: var(--af-fg-muted);
   padding: 0.6rem 5%;
   font-size: 0.82rem;
   text-align: center;
-  border-bottom: 1px solid #d1d5d2;
+  border-bottom: 1px solid var(--af-line-subtle);
   font-weight: 550;
 }
 header {
-  background: #fff;
-  border-bottom: 1px solid #d1d5d2;
+  background: var(--af-raised);
+  border-bottom: 1px solid var(--af-line-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -132,7 +130,7 @@ header {
 }
 .brand {
   font-weight: 750;
-  color: #202326;
+  color: var(--af-fg);
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -146,7 +144,7 @@ header {
 .brand-mark {
   width: 30px;
   height: 30px;
-  color: #b83d19;
+  color: var(--af-product-spaceport);
 }
 nav {
   display: flex;
@@ -167,18 +165,21 @@ main:focus {
   outline: none;
 }
 footer {
-  border-top: 1px solid #d1d5d2;
+  border-top: 1px solid var(--af-line-subtle);
   padding: 1.4rem 2rem;
   text-align: center;
-  color: #586168;
+  color: var(--af-fg-muted);
   font-size: 0.85rem;
 }
 h1 {
+  font-family: var(--af-font-display);
+  font-stretch: var(--af-display-stretch);
+  font-weight: var(--af-display-weight);
   font-size: clamp(1.8rem, 4vw, 2.75rem);
   letter-spacing: -0.035em;
   line-height: 1.15;
   margin: 0.3rem 0 1rem;
-  color: #202326;
+  color: var(--af-fg);
 }
 h2 {
   font-size: 1.35rem;
@@ -202,20 +203,20 @@ li {
   line-height: 1.55;
 }
 .eyebrow {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--af-font-mono);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.115em;
   font-weight: 700;
-  color: #586168;
+  color: var(--af-fg-muted);
 }
 .lead {
   max-width: 760px;
   font-size: 1.15rem;
-  color: #586168;
+  color: var(--af-fg-muted);
 }
 .muted {
-  color: #586168;
+  color: var(--af-fg-muted);
   font-size: 0.9rem;
 }
 .page-heading {
@@ -226,9 +227,9 @@ li {
   margin-bottom: 1.5rem;
 }
 .panel {
-  border: 1px solid #d1d5d2;
-  border-radius: 2px;
-  background: #fff;
+  border: 0;
+  border-radius: var(--af-radius-card);
+  background: var(--af-raised);
   padding: 1.4rem;
   margin: 1.25rem 0;
 }
@@ -247,7 +248,7 @@ li {
   min-height: 220px;
 }
 .product-card h2 a {
-  color: #202326;
+  color: var(--af-fg);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -259,7 +260,7 @@ li {
 }
 .product-card h2 .icon {
   align-self: center;
-  color: #586168;
+  color: var(--af-fg-muted);
 }
 .card-meta {
   display: flex;
@@ -275,28 +276,24 @@ li {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font:
-    0.75rem ui-monospace,
-    SFMono-Regular,
-    Consolas,
-    monospace;
-  color: #4d575c;
+  font: 0.75rem var(--af-font-mono);
+  color: var(--af-fg-muted);
 }
 .product-status .icon {
   width: 14px;
   height: 14px;
 }
 .product-card .card-footer {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--af-font-mono);
 }
 .product-card .card-footer {
   margin-top: auto;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid #d1d5d2;
+  border-top: 1px solid var(--af-line-subtle);
   padding-top: 1rem;
-  color: #586168;
+  color: var(--af-fg-muted);
   font-size: 0.82rem;
 }
 .search {
@@ -313,24 +310,24 @@ li {
   min-width: 140px;
 }
 .notice {
-  border: 1px solid #bdc9cc;
-  border-left: 4px solid #17617e;
-  border-radius: 2px;
+  border: 1px solid var(--af-line);
+  border-left: 4px solid var(--af-focus);
+  border-radius: var(--af-radius-control);
   padding: 1rem 1.2rem;
-  background: #eef3f5;
+  background: var(--af-surface);
   margin: 1rem 0;
 }
 .notice.warning {
-  background: #fcf3e5;
-  border-color: #c9ad78;
-  border-left-color: #805717;
-  color: #63450f;
+  background: var(--af-raised);
+  border-color: var(--af-line);
+  border-left-color: var(--af-status-approval);
+  color: var(--af-fg);
 }
 .notice.success {
-  background: #edf4ee;
-  border-color: #a5bfa9;
-  border-left-color: #316337;
-  color: #305638;
+  background: var(--af-raised);
+  border-color: var(--af-line);
+  border-left-color: var(--af-status-running);
+  color: var(--af-fg);
 }
 .facts {
   display: grid;
@@ -348,15 +345,11 @@ li {
 .typed-value {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font:
-    0.83rem/1.6 ui-monospace,
-    SFMono-Regular,
-    Consolas,
-    monospace;
-  background: #f2f3f0;
-  color: #273139;
-  border: 1px solid #d5d9d5;
-  border-radius: 2px;
+  font: 0.83rem/1.6 var(--af-font-mono);
+  background: var(--af-surface);
+  color: var(--af-fg);
+  border: 1px solid var(--af-line);
+  border-radius: var(--af-radius-control);
   padding: 0.7rem;
   margin: 0.4rem 0;
 }
@@ -364,8 +357,8 @@ li {
   overflow-x: auto;
   max-width: 100%;
   margin: 1rem 0;
-  border: 1px solid #d1d5d2;
-  border-radius: 2px;
+  border: 1px solid var(--af-line-subtle);
+  border-radius: var(--af-radius-control);
 }
 table {
   border-collapse: collapse;
@@ -376,17 +369,17 @@ caption {
   text-align: left;
   padding: 0.8rem;
   font-weight: 700;
-  background: #e9ece9;
+  background: var(--af-surface);
 }
 th,
 td {
-  border-bottom: 1px solid #d1d5d2;
+  border-bottom: 1px solid var(--af-line-subtle);
   padding: 0.7rem;
   text-align: left;
   vertical-align: top;
 }
 th {
-  background: #f0f2ef;
+  background: var(--af-surface);
 }
 td .typed-value {
   background: transparent;
@@ -402,9 +395,10 @@ td .typed-value {
 }
 .badge {
   display: inline-block;
+  color: var(--af-fg-muted);
   text-transform: capitalize;
-  background: #e9ece9;
-  border-radius: 2px;
+  background: var(--af-surface);
+  border-radius: var(--af-radius-control);
   padding: 0.15rem 0.5rem;
   font-size: 0.8rem;
   font-weight: 650;
@@ -422,15 +416,15 @@ summary {
   min-height: 36px;
 }
 summary:focus-visible {
-  outline: 3px solid #17617e;
+  outline: 3px solid var(--af-focus);
 }
 .action-bar {
   position: sticky;
   bottom: 0;
-  border: 1px solid #c6cdca;
-  border-radius: 2px;
+  border: 1px solid var(--af-line);
+  border-radius: var(--af-radius-control);
   padding: 1rem 1.2rem;
-  background: #fbfcf9;
+  background: var(--af-raised);
   margin: 1.5rem 0;
   z-index: 5;
 }
@@ -444,9 +438,9 @@ summary:focus-visible {
   z-index: 4;
   gap: 0.6rem;
   padding: 0.65rem;
-  background: #edefec;
-  border: 1px solid #d1d5d2;
-  border-radius: 2px;
+  background: var(--af-surface);
+  border: 1px solid var(--af-line-subtle);
+  border-radius: var(--af-radius-control);
 }
 .section-nav a {
   font-size: 0.85rem;
@@ -462,17 +456,17 @@ summary:focus-visible {
   margin: 0.8rem 0;
 }
 .nested-fields {
-  border: 1px solid #d1d5d2;
-  border-radius: 2px;
+  border: 1px solid var(--af-line-subtle);
+  border-radius: var(--af-radius-control);
   padding: 1rem;
   margin: 0.9rem 0;
-  background: #fafbf8;
+  background: var(--af-surface);
 }
 .nested-fields .nested-fields {
-  background: #fff;
+  background: var(--af-raised);
 }
 .field-group {
-  border-bottom: 1px dashed #d1d5d2;
+  border-bottom: 1px dashed var(--af-line-subtle);
   padding: 0.25rem 0 0.7rem;
 }
 .field-group:last-child {
@@ -487,12 +481,12 @@ summary:focus-visible {
 .input-field {
   max-width: 650px;
   margin: 1.2rem 0;
-  border-bottom: 1px solid #d1d5d2;
+  border-bottom: 1px solid var(--af-line-subtle);
   padding-bottom: 1rem;
 }
 .support {
-  background: #edefec;
-  color: #4d575c;
+  background: var(--af-surface);
+  color: var(--af-fg-muted);
 }
 .support h2 {
   font-size: 1.1rem;
@@ -503,7 +497,7 @@ summary:focus-visible {
 }
 .example {
   padding: 0.8rem;
-  border-left: 3px solid #8da8b2;
+  border-left: 3px solid var(--af-line-strong);
   margin: 1rem 0;
 }
 .sign-in {
@@ -522,7 +516,7 @@ summary:focus-visible {
   top: -100px;
   left: 1rem;
   z-index: 100;
-  background: #fff;
+  background: var(--af-raised);
   padding: 1rem;
 }
 .skip:focus {
@@ -605,5 +599,163 @@ summary:focus-visible {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Radix retains its accessible dialog behavior; Airframe owns its appearance. */
+.radix-themes {
+  background: var(--af-canvas);
+  color: var(--af-fg);
+  --default-font-family: var(--af-font-sans);
+  --heading-font-family: var(--af-font-display);
+  --code-font-family: var(--af-font-mono);
+}
+.confirm-panel.rt-DialogContent {
+  background: var(--af-raised);
+  color: var(--af-fg);
+  border: 1px solid var(--af-line-strong);
+  border-radius: var(--af-radius-card);
+  box-shadow: var(--af-shadow-overlay);
+}
+.confirm-panel .rt-DialogTitle,
+.confirm-panel .rt-DialogDescription {
+  color: var(--af-fg);
+}
+.confirm-panel .rt-BaseButton.af-btn--primary {
+  background: var(--af-brand);
+  color: var(--af-on-brand);
+}
+.confirm-panel .rt-BaseButton.af-btn--secondary {
+  background: transparent;
+  color: var(--af-fg);
+  box-shadow: none;
+}
+.confirm-panel .rt-Flex {
+  flex-wrap: wrap;
+}
+.app-header.af-nav {
+  height: auto;
+  min-height: var(--af-header-h);
+  padding: 0 max(var(--af-space-24), calc((100vw - var(--af-container-max)) / 2));
+  justify-content: flex-start;
+  gap: var(--af-space-32);
+}
+.app-header .brand {
+  min-height: var(--af-header-h);
+  flex-shrink: 0;
+}
+.app-header .af-nav__tabs {
+  flex: 1;
+  gap: var(--af-space-4);
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.app-header .af-nav__tab {
+  min-height: 44px;
+  font-size: 0.75rem;
+}
+.app-header .session-end {
+  margin-left: auto;
+  align-self: center;
+}
+.af-btn {
+  min-height: 44px;
+  height: auto;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 1.4;
+}
+button.secondary:not(:disabled):hover,
+.button.secondary:hover,
+.text-button:hover:not(:disabled) {
+  background: var(--af-selected);
+}
+.af-card.product-card {
+  padding: var(--af-space-24);
+  gap: var(--af-space-12);
+}
+.product-card .card-meta {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+.product-card h2,
+.product-card p {
+  margin: 0;
+}
+.product-card .card-footer {
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+}
+.notice:not(.warning):not(.success) {
+  border-left-color: var(--af-line-strong);
+}
+.facts dt,
+th {
+  font-family: var(--af-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.facts dd,
+.typed-value,
+td {
+  font-variant-numeric: tabular-nums;
+}
+main {
+  max-width: var(--af-container-max);
+}
+::placeholder {
+  color: var(--af-fg-subtle);
+  opacity: 1;
+}
+@media (prefers-color-scheme: light) {
+  html:not([data-theme='dark']) {
+    color-scheme: light;
+  }
+}
+@media (max-width: 650px) {
+  .app-header.af-nav {
+    padding: 0 var(--af-space-16) var(--af-space-8);
+    align-items: stretch;
+    gap: 0;
+  }
+  .app-header .af-nav__tabs {
+    gap: 0;
+  }
+  .app-header .af-nav__tab {
+    padding: 0 var(--af-space-8);
+  }
+  .app-header .session-end {
+    margin-left: 0;
+  }
+  .af-card.product-card {
+    padding: var(--af-space-16);
+  }
+  .af-btn {
+    white-space: normal;
+  }
+}
+@media (forced-colors: active) {
+  .panel,
+  .notice,
+  .action-bar,
+  .confirm-panel.rt-DialogContent {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+  .notice.warning {
+    border-left-color: CanvasText;
+  }
+  button,
+  .button,
+  input,
+  select,
+  textarea {
+    border-color: ButtonText;
+  }
+  :focus-visible {
+    outline-color: Highlight;
+  }
+  .brand-mark {
+    color: CanvasText;
   }
 }

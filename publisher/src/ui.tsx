@@ -55,6 +55,7 @@ export function Confirm({
       }}
     >
       <Dialog.Content
+        className="confirm-panel"
         maxWidth="600px"
         aria-describedby="confirm-description"
         onOpenAutoFocus={() => {
@@ -77,11 +78,20 @@ export function Confirm({
         {children}
         <Flex gap="3" mt="4" justify="end">
           <Dialog.Close>
-            <Button variant="soft" color="gray" disabled={pending}>
+            <Button
+              className="af-btn af-btn--secondary"
+              variant="soft"
+              color="gray"
+              disabled={pending}
+            >
               Cancel
             </Button>
           </Dialog.Close>
-          <Button disabled={disabled || pending} onClick={onConfirm}>
+          <Button
+            className="af-btn af-btn--primary"
+            disabled={disabled || pending}
+            onClick={onConfirm}
+          >
             {pending ? 'Submitting…' : confirmLabel}
           </Button>
         </Flex>

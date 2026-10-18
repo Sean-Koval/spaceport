@@ -24,7 +24,7 @@ export default function Catalog() {
           <h1>Catalog</h1>
           <p>Browse product definitions, contracts, and published versions.</p>
         </div>
-        <Link className="button secondary" to="/drafts/new">
+        <Link className="af-btn af-btn--secondary" to="/drafts/new">
           <Icon name="plus" />
           Create draft
         </Link>
@@ -45,7 +45,7 @@ export default function Catalog() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button>
+          <button className="af-btn af-btn--primary">
             <Icon name="search" />
             Search
           </button>
@@ -62,7 +62,7 @@ export default function Catalog() {
           ) : (
             <ul className="catalog-grid">
               {result.data.items.map((item) => (
-                <li className="panel product-card" key={`${item.product_id}:${item.version}`}>
+                <li className="af-card product-card" key={`${item.product_id}:${item.version}`}>
                   <div className="card-meta">
                     <p className="eyebrow">{item.domain ?? 'Data product'}</p>
                     <span className="product-status">
@@ -70,7 +70,7 @@ export default function Catalog() {
                       {item.status}
                     </span>
                   </div>
-                  <h2>
+                  <h2 className="af-card__title">
                     <Link
                       to={`/products/${encodeURIComponent(item.product_id)}?version=${encodeURIComponent(item.version)}`}
                     >
@@ -78,8 +78,10 @@ export default function Catalog() {
                       <Icon name="arrow-up-right" />
                     </Link>
                   </h2>
-                  <p>{item.description ?? 'Description not provided in this view.'}</p>
-                  <div className="card-footer">
+                  <p className="af-card__desc">
+                    {item.description ?? 'Description not provided in this view.'}
+                  </p>
+                  <div className="card-footer af-card__foot">
                     <span>Version {item.version}</span>
                     <span>{item.grain ?? 'Authorized view'}</span>
                   </div>

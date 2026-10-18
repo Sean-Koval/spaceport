@@ -2,6 +2,8 @@
 
 A same-origin React catalog, structured publisher and bounded single-product result view. The gateway remains authoritative for validation, access, evidence and lifecycle. Synthetic demo labeling is present on every route. No bearer or private query cache is persisted.
 
+The UI consumes Agent Factory's pinned Airframe `theme-v6` tokens, components, fonts, icons and Spaceport mark. See [the Airframe integration guide](AIRFRAME.md) for provenance, local-only font delivery, README coordination and the remaining browser-verification gates. Run `npm run check:airframe` to verify upstream hashes and generated assets; the production build runs this check automatically.
+
 ## Reproducible development
 
 Use Node **24.19.0**, npm **11.9.0** (the exact verified runtime), then:
@@ -46,4 +48,4 @@ With `GATEWAY_OPERATIONS_EVIDENCE_DIR`, the suite writes `publisher-junit.xml`, 
 - A concrete access denial unmounts protected fields/results, cancels pending reads and discards session-local read caches. Explicit reload starts a new authorized view; old in-flight operations cannot restore it or navigate a newer view. Non-denial validation errors preserve edits.
 - Lifecycle controls require an explicitly opened, authorized existing published/deprecated version matching the reviewed product and version. That target is read-only; sessions without consumer read access cannot dispatch lifecycle changes.
 - Unknown freshness is a warning. Execution completion, fixture reference watermark and observed source-load watermark are distinct. Connector support notes make no live-health claim.
-- Original components only; no Helix Foundry code or logos were copied.
+- Shared Airframe components and original application components; no Helix Foundry code or logos were copied.
