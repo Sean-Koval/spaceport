@@ -4,7 +4,7 @@ Updated 14 October 2026. GCP/GKE is the selected infrastructure target. This doc
 
 ## The answer today
 
-Spaceport has a substantive application foundation: governed product contracts, separate author/publisher workflows, authorized discovery, typed execution, durable PostgreSQL queue/results, current-policy reauthorization and shared REST/MCP services. The merged workflow implementation passed 1,950 unit/contract tests, 329 genuine PostgreSQL/Cube cases and 254 frontend tests on its recorded source. Those counts do not certify later changes. See the [roadmap evidence](../../ROADMAP.md#1-complete-two-everyday-workflows).
+Spaceport has a substantive application foundation: governed product contracts, separate author/publisher workflows, authorized discovery, typed execution, durable PostgreSQL queue/results, current-policy reauthorization and shared REST/MCP services. The merged workflow implementation passed 1,950 unit/contract tests, 329 genuine PostgreSQL/Cube cases and 254 frontend tests on its recorded source. Those counts do not certify later changes. See the [roadmap evidence](../../ROADMAP.md#delivered-before-the-freeze).
 
 It is not yet ready to serve organization data. The shipped demo composition is synthetic-only; a real organization identity path, an enforceably bounded real source, actual browser/composed acceptance and operational qualification remain required. BigQuery is deliberately non-executable even with credentials. Domo has no adapter.
 

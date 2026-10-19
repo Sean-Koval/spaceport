@@ -29,7 +29,7 @@ How to run, configure and gate the system. Freshness: as of freeze; no deploymen
   - [Organization pilot (GCP/GKE)](operations/organization-pilot.md): deployment-readiness assessment, not approval.
   - [Identity and deployment modes](operations/identity.md).
   - [Production gates](operations/production-gates.md): what must be satisfied before real data or deployment.
-  - [Licensing and dependencies](operations/licensing.md), with the generated [dependency inventory](operations/dependency-inventory.json) and verbatim upstream notices under `operations/notices/`.
+  - [Licensing and dependencies](operations/licensing.md), with the generated [dependency inventory](operations/dependency-inventory.json) and verbatim upstream notices under [`THIRD_PARTY_NOTICES/`](../THIRD_PARTY_NOTICES/) at the repository root.
   - Source-specific gates: [BigQuery through Cube](operations/bigquery.md), [offline BigQuery controls](operations/bigquery-controls.md), [Domo phase 1b](operations/domo-phase-1b.md), [GCS artifacts](operations/gcs-artifacts.md), [reviewed PostgreSQL v2](operations/reviewed-postgres.md).
   - [Packet observer proposal](operations/observer-proposal.md): blocked, not implemented.
   - [Bounded serial backend verification](operations/serial-gateway-verification.md): the manual partitioned CI workflow.

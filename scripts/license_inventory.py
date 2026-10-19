@@ -16,7 +16,7 @@ import tarfile
 
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'docs/operations'
-NOTICE=OUT/'notices'
+NOTICE=ROOT/'THIRD_PARTY_NOTICES'
 
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
