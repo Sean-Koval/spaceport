@@ -4,6 +4,5 @@
 
 - `plans/`: the implementation plans that agent sessions followed while building each milestone. The matching designs live in [design records](../design-records/).
 - `research/`: dated research notes from 13 October 2026. They are recommendations considered at the time, not selected dependencies.
-- `spaceport-preview/`: an offline HTML design study that predates Airframe, the suite design system. Its hosted copy is an owner-private page outside this repository; the HTML in this folder is the complete study.
 
 Where a current document still cites one of these files (for example the operations gates citing integration research), the citation is to the historical record.

@@ -60,8 +60,9 @@ Historical material kept for provenance. Freshness: frozen; these are not instru
 - `archive/`:
   - `archive/plans/`: the implementation plans for the [approved design](archive/plans/2026-10-13-spaceport.md), [organization runtime foundation](archive/plans/2026-10-14-organization-runtime-foundation.md), [reviewed connectors](archive/plans/2026-10-15-reviewed-connectors.md) and [source pilot runtime](archive/plans/2026-10-15-source-pilot-runtime.md).
   - `archive/research/`: dated research notes (13 October 2026), recommendations rather than selected dependencies: [integrations and SDKs](archive/research/integrations.md), [performance and reliability](archive/research/performance.md), [publisher UI libraries](archive/research/publisher-ui.md), [Foundry-like references](archive/research/foundry-references.md), [Helix Foundry reuse](archive/research/helix-foundry.md), [nao and dashboard references](archive/research/nao-dashboard-references.md).
-  - `archive/spaceport-preview/`: [Spaceport theme preview](archive/spaceport-preview/README.md), an offline HTML design study that predates Airframe and changes no runtime behavior.
 - `assets/`: README banner images.
+
+Spaceport's visual system is Airframe ([agent-factory/airframe](https://github.com/Sean-Koval/agent-factory/tree/main/airframe)). The earlier HTML design study `spaceport-preview` is deleted; git history keeps it, last at commit [3832dba](https://github.com/Sean-Koval/spaceport/commit/3832dba) under `docs/archive/spaceport-preview/`.
 
 ## Not yet indexed
 
