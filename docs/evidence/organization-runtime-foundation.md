@@ -1,6 +1,6 @@
 # Organization runtime foundation: source and backend evidence
 
-Verified through 15 October 2026. Scope is the [bounded OIDC/synthetic runtime foundation](../superpowers/specs/2026-10-14-organization-runtime-foundation.md), with GCP/GKE selected as the target. This is not live identity, managed-database, cloud deployment or organization-data acceptance.
+Verified through 15 October 2026. Scope is the [bounded OIDC/synthetic runtime foundation](../design-records/2026-10-14-organization-runtime-foundation.md), with GCP/GKE selected as the target. This is not live identity, managed-database, cloud deployment or organization-data acceptance.
 
 ## Source identity
 
