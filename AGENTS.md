@@ -30,3 +30,9 @@ uv run --locked --offline pytest tests/unit/test_docs_links.py -q
 ```
 
 When you add, move or remove a docs file or directory, update the [documentation index](docs/README.md) in the same change. For anything beyond docs, also run the source-level checks in [docs/operations/verification.md](docs/operations/verification.md). All workflows are manual (`workflow_dispatch`), so a pull request gets no CI run on its own: say in the PR what you ran.
+
+## Tracking
+
+- Work is tracked in Jira project KAN (<https://seanmkoval.atlassian.net>). GitHub Projects is retired; GitHub Issues are for outside reports only.
+- Work tied to a ticket carries its key, so the GitHub for Jira app links it: the branch starts with it (`KAN-35-apply-atomic`), the PR title starts with it (`KAN-35: make hangar apply all or nothing`) and the PR body has a `Jira: KAN-35` line. Commits may mention it. Work without a ticket (typo fixes, outside contributions) needs no key.
+- Lanes: only `lane:agent` tickets (job-sized: one repo or one change-set profile, acceptance criteria, a verify command) start a hangar job, when moved to "Ready for agent". `lane:pair` is Sean with Claude Code; `lane:human` is Sean only.
