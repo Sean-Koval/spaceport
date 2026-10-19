@@ -1,13 +1,13 @@
 <picture>
-  <source media="(max-width: 640px)" srcset="docs/assets/spaceport-banner-mobile.svg">
-  <img src="docs/assets/spaceport-banner.svg" width="1280" alt="Spaceport. Reviewed data products for people and agents. Define, test, publish, query.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/banner-dark.svg">
+  <img alt="Spaceport: reviewed data products that people and agents discover and query through one governed API. Part of the agent factory (capability plane)." src="docs/assets/brand/banner-light.svg" width="960" height="320">
 </picture>
 
 # Spaceport
 
 > **Status: frozen (2026-10-16).** Spaceport is the team's capability plane: governed data products over MCP. It is paused while hangar adoption and flightdeck come first.
 >
-> - **Allowed:** security fixes, dependency patches, CI repair, docs fixes and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
+> - **Allowed:** security fixes, dependency patches, CI repair, docs fixes and the cleanup issues listed in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)) (#11, #12, #13, #15, all closed). #14 is post-unfreeze work and is not allowed.
 > - **Not allowed:** new connectors, live-source activation, deployment.
 > - **Still works:** the local synthetic demo and the REST/MCP contract.
 > - **Won't change:** the four MCP tools, their schemas and the connectors.
