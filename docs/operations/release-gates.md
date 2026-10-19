@@ -2,6 +2,22 @@
 
 **As of the freeze (2026-10-16).** These sections used to sit on the README front page. None of this is active work: new connectors, live-source activation and deployment are not allowed while Spaceport is frozen (see the [README status block](../../README.md#spaceport)).
 
+## State at freeze
+
+The README keeps a four-row summary; this is the full table it points to.
+
+| Area | Available now | Still gated |
+| --- | --- | --- |
+| Product workflow | Catalog, draft editor, isolated fixtures, separate publisher, immutable versions, REST + four MCP tools | Full composed-browser acceptance |
+| PostgreSQL / Cube | Synthetic reference plus reviewed v2 bindings and same-query checkpoints | Operator-qualified organization models and producer guarantees |
+| BigQuery | Reviewed Cube/SDK runtime, bounded jobs, durable source holds, full synthetic-provider journey | Live identity, permissions, cost, freshness and network qualification |
+| Domo | Finite reviewed SQL over direct REST, isolated fixture/consumer identities, single-send accounting | Live OAuth/PDP, dataset/business-definition qualification; shared credentials do not inherit employee access |
+| GCS | Offline exact-generation artifact reader | Public route, live transport and source-policy inheritance |
+| Access security | Current user/client authentication and product policy checks | Revocable owner approval for non-PII products; full ReBAC, agent delegation and per-user source entitlement intersection |
+| Deployment | Operator CLI, images, GKE review templates | Authorized infrastructure/credentials, browser SSO/PKCE, production rollout |
+
+Organization activation stays blocked. Owner approvals exist only in paused draft [PR #8](https://github.com/Sean-Koval/spaceport/pull/8), and a passing fixture journey does not establish live credentials, user-level Domo permissions, PII safety or production readiness.
+
 ## BigQuery and Domo pilot
 
 **Organization activation is blocked pending the separately reviewed data-access security gate.** This merged connector pilot does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. Revocable data-owner approval for explicitly reviewed non-PII shared-identity products was drafted in [PR #8](https://github.com/Sean-Koval/spaceport/pull/8), which is paused unmerged at the freeze; ultimate per-user access remains a separate provider-qualified mode.
