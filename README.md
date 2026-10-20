@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/banner-dark.svg">
-  <img alt="Spaceport: reviewed data products that people and agents discover and query through one governed API. Part of the agent factory (capability plane)." src="docs/assets/brand/banner-light.svg" width="960" height="320">
+  <img alt="Spaceport: reviewed data products that people and agents discover and query through one governed API. Part of the agent factory: Capability." src="docs/assets/brand/banner-light.svg" width="960" height="320">
 </picture>
 
 # Spaceport
