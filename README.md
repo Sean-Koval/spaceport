@@ -5,93 +5,47 @@
 
 # Spaceport
 
-> **Status: frozen (2026-10-16).** Spaceport is the team's capability plane: governed data products over MCP. It is paused while hangar adoption and flightdeck come first.
+> **Frozen since 16 October 2026** ([#10](https://github.com/Sean-Koval/spaceport/issues/10)). Spaceport is the suite's capability plane: governed data products over MCP. It waits while hangar adoption and flightdeck come first.
 >
-> - **Allowed:** security fixes, dependency patches, and the cleanup issues in the freeze epic ([#10](https://github.com/Sean-Koval/spaceport/issues/10)).
-> - **Not allowed:** new connectors, live-source activation, deployment.
-> - **Unfreeze:** an owner decision recorded in [ROADMAP](ROADMAP.md#frozen).
+> **Still works:** the local synthetic demo, the REST contract and the four MCP tools, unchanged since [CI run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164) on `2d3cd1e`.
 >
-> The status below is accurate as of the freeze; it describes what exists, not work in progress.
+> **Allowed:** security fixes, dependency patches, CI repair and docs. Nothing else until the owner records an unfreeze on #10. Agents: read [AGENTS.md](AGENTS.md) first.
 
-Spaceport is a self-hosted gateway that turns reviewed team data into reusable products that people and agents can discover and query through one governed API. A product defines what an answer means, its typed inputs and outputs, who can use it, how fresh it must be, and the tests required before publication.
+**Publish a tested metric once; every agent gets the same permission-checked answer over MCP.**
 
-The goal is to publish a trusted metric once and reuse the same approved definition across agent clients. The current reference implementation uses synthetic PostgreSQL data through Cube Core, without requiring a model-provider or vendor account. A separate reviewed PostgreSQL/Cube v2 path removes the synthetic Orders-only binding restriction. A reviewed-source pilot adds BigQuery/Cube and finite Domo REST serving, private operator CLI workflows and GKE configuration templates. Its exact-source backend acceptance passed; live activation remains separately gated. GCS remains an offline artifact slice. Domo still requires reconciliation with authoritative cards and Beast Modes.
+<img alt="The publisher's review screen for the synthetic product Daily revenue, version 1.0.0, revision 3: fixture checks passed, the north-total known-answer rows match, and a publisher who is not the author has the Publish button available." src="docs/assets/front/review.png" width="960" height="600">
 
-The private GitHub repository is [Sean-Koval/spaceport](https://github.com/Sean-Koval/spaceport). The uv project is `spaceport` and the publisher package is `spaceport-publisher`; the `gateway/` import package and the `dpg` prefixes in stored identifiers and credential formats are kept for compatibility ([legacy identifiers](docs/compatibility/versions.md#legacy-internal-identifiers)). Original code is licensed under [Apache-2.0](LICENSE) (see [NOTICE](NOTICE)). "Spaceport" is an internal project name; public distribution under that name needs a separate owner decision.
+*The review screen over the repository's own fixture product. Regenerate it with `python3 scripts/capture_front.py`, which runs the publisher against a small mock gateway; no credentials are involved.*
 
-## How it fits
+## Where it fits
 
-Spaceport is the capability plane in the team's agent tooling. Agents reach governed data products over MCP: they get reviewed, permission-checked answers instead of credentials or SQL. After unfreeze, its MCP tools will also ask the governed workspace's decision point before serving a call ([#14](https://github.com/Sean-Koval/spaceport/issues/14)). Around it, hangar runs the agents, the workspace governs what they may do, and flightdeck judges how well they did. The [documentation index](docs/README.md) lists every design, operations, compatibility, evidence and research document as of the freeze.
+In the [agent-factory suite](https://sean-koval.github.io/agent-factory/), hangar runs the agents, Tower governs what they may do, flightdeck judges the results, and Spaceport answers their data questions. Four MCP tools (`search_products`, `describe_product`, `query_product`, `get_result`) return permission-checked rows instead of credentials or SQL. The suite's [architecture page](https://sean-koval.github.io/agent-factory/architecture/) shows the planes; asking Tower's decision point on every call is post-unfreeze work ([#14](https://github.com/Sean-Koval/spaceport/issues/14)).
 
-## What is implemented
+## What it is for
 
-The source includes:
+- **An agent answers a metric without warehouse credentials.** It finds a product with `search_products`, reads its meaning and limits with `describe_product`, and gets rows through `query_product` and `get_result`. Policy is checked on every call.
+- **An owner gates publication on known-answer tests.** An author saves a draft and runs its fixture tests; a different person, the publisher, publishes that exact tested revision.
+- **Two clients get the same version-pinned answer.** Published versions are immutable, and each result names the product, version and digest it came from. The independent Python and TypeScript client harnesses check this.
 
-- A permission-filtered catalog, product definitions, examples, units, grain, freshness requirements and provenance.
-- A React publisher with an authorized saved-draft inbox, versioned editor, known-answer and permission-negative test results, definition diffs, and publication of the exact tested revision. Author and publisher are separate roles.
-- A consumer workspace with permitted typed filters and sorting, in-memory idempotent request recovery, explicit new runs and pinned result identity checks.
-- Immutable published versions, audited lifecycle changes, tenant-scoped queries, durable execution, idempotency, bounded results and authorized pagination.
-- A REST API and four fixed MCP tools: `search_products`, `describe_product`, `query_product` and `get_result`. Python and TypeScript client harnesses exercise the same contract.
-- Synthetic Compose packaging, migrations, generated demo identities, health/readiness checks, backup/restore commands and verification tooling.
+## State at freeze
 
-Agents receive approved product capabilities, not database credentials or unrestricted SQL. Source models and bindings are operator-reviewed assets; the publisher does not upload executable models.
-
-## Current status
-
-**The BigQuery and Domo connector pilot is merged.** [PR 5](https://github.com/Sean-Koval/spaceport/pull/5) merged at [`27bb504f`](https://github.com/Sean-Koval/spaceport/commit/27bb504f9a673267fd070a4e562b698388ded7e5). [Run 22](https://github.com/Sean-Koval/spaceport/actions/runs/38800064164) passed **3,336 source tests and 406 backend cases**, including the actual runtime images, offline CLI/import smoke and complete synthetic-provider product journeys. Exact cleanup passed. The merge preserves the reviewed documentation-only descendant of that tested source; see the [source-bound receipt](docs/evidence/source-pilot-runtime.md#hosted-attempt-22-exact-source-backend-pass).
-
-**Organization activation remains blocked.** The next security slice is still being implemented and reviewed. A passing fixture journey does not establish live credentials, user-level Domo permissions, PII safety or production readiness.
-
-| Area | Available now | Still gated |
+| | Works now | Gated |
 | --- | --- | --- |
-| Product workflow | Catalog, draft editor, isolated fixtures, separate publisher, immutable versions, REST + four MCP tools | Full composed-browser acceptance |
-| PostgreSQL / Cube | Synthetic reference plus reviewed v2 bindings and same-query checkpoints | Operator-qualified organization models and producer guarantees |
-| BigQuery | Reviewed Cube/SDK runtime, bounded jobs, durable source holds, full synthetic-provider journey | Live identity, permissions, cost, freshness and network qualification |
-| Domo | Finite reviewed SQL over direct REST, isolated fixture/consumer identities, single-send accounting | Live OAuth/PDP, dataset/business-definition qualification; shared credentials do not inherit employee access |
-| GCS | Offline exact-generation artifact reader | Public route, live transport and source-policy inheritance |
-| Access security | Current user/client authentication and product policy checks | Revocable owner approval for non-PII products; full ReBAC, agent delegation and per-user source entitlement intersection |
-| Deployment | Operator CLI, images, GKE review templates | Authorized infrastructure/credentials, browser SSO/PKCE, production rollout |
+| Product workflow | Catalog, draft editor, isolated fixture tests, separate publisher, immutable versions, REST and the four MCP tools | Full composed-browser acceptance |
+| Sources | Synthetic PostgreSQL/Cube reference; reviewed BigQuery, Domo and GCS paths proven against fixtures only | Any live source: identity, permissions, cost, freshness and network |
+| Access | User and client authentication, product policy checks | Owner approval, ReBAC, agent delegation, per-user source entitlements |
+| Deployment | Operator CLI, images, GKE review templates | Authorized infrastructure, browser SSO, production rollout |
 
-See the [acceptance index](docs/evidence/acceptance.md), [limitations](docs/evidence/limitations.md) and [roadmap](ROADMAP.md). Earlier [baseline](docs/evidence/private-main-baseline.md), [runtime foundation](docs/evidence/organization-runtime-foundation.md) and [connector foundation](docs/evidence/reviewed-connectors.md) receipts remain tied to their original revisions.
+The full table and the reasons behind each gate are in [release gates](docs/operations/release-gates.md#state-at-freeze). A passing fixture journey does not establish live credentials, PII safety or production readiness.
 
-## Start here
+## Try it with synthetic data
 
-- **Explore with synthetic data:** follow [local setup](#local-synthetic-setup) below. No vendor account or model-provider key is required.
-- **Prepare a BigQuery or Domo product:** use the [operator setup and team workflow](docs/operations/source-pilot.md). Package creation and validation are offline; rendering does not provision or deploy resources.
-- **Understand the contract:** read the [OpenAPI snapshot](docs/compatibility/openapi.json) and [four-tool MCP profile](docs/compatibility/mcp.md).
-- **Plan an organization pilot:** review the [remaining security and live-source gates](#bigquery-and-domo-pilot) before configuring access.
+<details>
+<summary>Run the local synthetic demo (no vendor account or model-provider key)</summary>
 
-## Architecture
+These are the implemented startup commands, not a claim that the full flow has passed acceptance. Read the [operations runbook](docs/operations/runbook.md) first, and use a new disposable state directory, never production credentials or an existing production database.
 
-The React UI and MCP clients call the same Python gateway services. The gateway authenticates the caller, checks current policy, pins a product version and builds a query from its approved binding. A worker processes bounded jobs through the reviewed provider adapter; consumers retrieve authorized, typed result envelopes.
-
-- **Gateway:** Python, FastAPI and the MCP SDK; contracts, catalog, authorization, publishing, execution and results.
-- **Registry:** PostgreSQL stores definitions, draft revisions, publication evidence, executions, results and redacted audits. Alembic manages schema changes.
-- **Semantic execution:** separate Cube services use reviewed PostgreSQL or BigQuery models; Domo executes finite reviewed REST statements. Fixture execution uses independently pinned source identities and assets.
-- **Publisher:** React, TypeScript and Vite with generated OpenAPI types, served by the local edge service.
-- **Operations:** separate worker and retention processes; only the edge exposes loopback ingress. Cube and database ports remain private.
-
-REST routes use `/v1`; MCP uses JSON Streamable HTTP at `/mcp`. The [saved-draft inbox](docs/compatibility/drafts.md) is a bounded, authorized REST discovery surface; the four MCP tools are unchanged. See the [OpenAPI snapshot](docs/compatibility/openapi.json), [MCP profile](docs/compatibility/mcp.md) and [tool schemas](docs/compatibility/mcp-tools.json). Result freshness refers to the recorded source-load watermark, not the time a query was fetched.
-
-## BigQuery and Domo pilot
-
-**Organization activation is blocked pending the separately reviewed data-access security gate.** This merged connector pilot does not implement per-user Domo entitlement intersection, a user–agent delegation relationship model, or a complete PII field policy. Current product labels and shared source credentials are not proof of those controls. The next bounded slice must enforce revocable data-owner approval for explicitly reviewed non-PII shared-identity products; ultimate per-user access remains a separate provider-qualified mode.
-
-Start with the [operator setup and team workflow](docs/operations/source-pilot.md). The supported CLI builds and validates a fixed weekly-account-usage package offline, renders a zero-replica GKE review bundle, and guides author → isolated fixture test → separate publisher → bounded consumer check. Existing cluster, registry, IdP, source views/datasets, reviewed network access and operator-managed credentials are prerequisites. Rendering does not create them or deploy anything.
-
-BigQuery uses GKE Workload Identity; Domo uses separately restricted OAuth integration identities. Domo MCP is not the approved-statement serving transport. Shared Domo credentials do not inherit each employee’s PDP. No organization query, cloud deployment or browser SSO is established by the fixture evidence.
-
-## Local synthetic setup
-
-These are the implemented startup commands, not a claim that the full flow has passed acceptance. Read the [operations runbook](docs/operations/runbook.md) before running them. Use synthetic data and a new disposable state directory, never production credentials or an existing production database.
-
-Prerequisites:
-
-- Operator-controlled Linux Docker Engine with Docker Compose, `linux/amd64`.
-- Exact toolchain: Python **3.12.14**, uv **0.12.23**, Node **24.19.0**, npm **11.9.0**. The Node pin does not supply the required npm version automatically.
-- Network access during preparation to acquire locked packages, images and Playwright Chromium; required browser system libraries must already be available before verification.
-
-From the repository root:
+You need Linux Docker Engine with Docker Compose (`linux/amd64`), Python 3.12 with uv, and Node 24 with npm. The locked installs expect the exact releases in [pinned versions](docs/compatibility/versions.md). Preparation needs network access for packages, images and Playwright Chromium.
 
 ```sh
 uv sync --locked --dev
@@ -106,63 +60,21 @@ make demo-prepare STATE_DIR="$STATE_DIR"
 make demo-up STATE_DIR="$STATE_DIR"
 ```
 
-The state directory must be absolute, outside the repository and previously nonexistent; its parent must already exist and be private. Preparation generates synthetic credentials, builds locked images and records source/image identities. Keep all generated state private and out of version control. Source changes require a newly prepared state.
+Keep the generated state private and out of version control; a source change needs a newly prepared state. Open **http://127.0.0.1:8080**. The synthetic tokens are in `$STATE_DIR/identities/demo-tokens.json`; enter only the intended account's token.
 
-Open **http://127.0.0.1:8080**. The synthetic tokens are in `$STATE_DIR/identities/demo-tokens.json`; enter only the intended account's token in the browser. Tokens remain in browser memory.
+1. As `demo-author`, load the revenue template, save a draft and run its fixtures.
+2. As `demo-publisher`, review and publish that exact tested revision.
+3. As `demo-north` or `demo-south`, find the product and query the authorized rows.
 
-1. Use `demo-author` to load the revenue template, save a draft and run its fixtures.
-2. Use the separate `demo-publisher` account to review and publish that exact tested revision.
-3. Use `demo-north` or `demo-south` to discover the product and query the authorized rows.
+Nothing is published on first boot, so `/readyz` returns 503 until step 2. Stop with `make demo-down STATE_DIR="$STATE_DIR"`; volumes and state are kept. Backup, restore and acceptance are in the runbook.
 
-The first boot intentionally has no published product: `/healthz` can succeed while `/readyz` returns 503. Publication establishes the readiness probe. Demo source data older than its 24-hour freshness limit correctly becomes stale; prepare a fresh stack rather than changing its watermark to hide staleness.
+</details>
 
-```sh
-make demo-down STATE_DIR="$STATE_DIR"
-```
+## Read more
 
-Stopping retains volumes and state; `demo-up` resumes them. Startup does not pull images or install dependencies. See the runbook for [backup and fresh-stack restore](docs/operations/runbook.md#backup-and-restore).
+- [Documentation index](docs/README.md): every design record, operations, compatibility and evidence document as of the freeze.
+- [Architecture at the freeze](docs/architecture.md): what is implemented, how the parts fit, and a repository guide.
+- [Verification](docs/operations/verification.md), [release gates](docs/operations/release-gates.md) and the [acceptance index](docs/evidence/acceptance.md).
+- [Spaceport in the suite docs](https://sean-koval.github.io/agent-factory/tools/spaceport/) and the [ROADMAP](ROADMAP.md).
 
-## Development and verification
-
-After installing the locked dependencies above, the source-level checks are:
-
-```sh
-uv run --locked --offline pytest -m 'unit or contract' -q
-npm --prefix publisher test -- --run
-npm --prefix publisher run typecheck
-npm --prefix publisher run check:generated
-npm --prefix publisher run build
-npm --prefix publisher run format:check
-```
-
-The unrestricted `make test` includes suites requiring real services. The frontend development server (`npm --prefix publisher run dev`) proxies `/v1` to `127.0.0.1:8000`; it does not start a gateway or provision demo state.
-
-For final acceptance, use a clean checkout on the supported Docker host and the two separate wrapper modes:
-
-```sh
-umask 077
-BACKEND_PARENT="$(mktemp -d /tmp/spaceport-backend.XXXXXX)"
-DEMO_TEST_PARENT="$(mktemp -d /tmp/spaceport-acceptance.XXXXXX)"
-unset PYTEST_ADDOPTS PYTEST_PLUGINS
-bash scripts/verify_gateway_integration.sh --backend "$BACKEND_PARENT/run"
-bash scripts/verify_gateway_integration.sh --demo "$DEMO_TEST_PARENT/run"
-```
-
-Each `run` path must be new, with a private, owner-controlled parent outside the repository. Keep package/browser caches outside those run directories. Backend mode requires the complete real PostgreSQL/Cube selection. Demo mode requires all 14 integration slots in two independent clean cycles; the second must reuse prepared dependencies and image IDs without acquisition.
-
-The packet observer is not currently available, so full demo acceptance remains blocked even when individual business suites pass. Ordinary `make verify-demo` covers 13 business-verification slots and omits `acceptance_security`; it cannot substitute for final acceptance. Follow the [exact acceptance procedure](docs/operations/runbook.md#separate-final-acceptance-modes), including cleanup and retained source-bound evidence.
-
-## Repository guide
-
-- `gateway/`: contracts, API/MCP, identity/policy, registry, publishing, adapters and execution.
-- `publisher/`: UI and component/browser test configuration.
-- `cube/`, `fixtures/`, `infra/`: reviewed semantic assets, synthetic data and runtime packaging.
-- `clients/`: independent Python and TypeScript MCP acceptance clients.
-- `migrations/`, `scripts/`, `tests/`: schema migrations, operational/verifier tools and test suites.
-- `docs/`: [documentation index](docs/README.md), [approved design](docs/superpowers/specs/2026-10-13-spaceport.md), [implementation plan](docs/superpowers/plans/2026-10-13-spaceport.md), compatibility, operations and evidence.
-
-## Live sources and release boundaries
-
-Start with the [BigQuery gate](docs/operations/bigquery.md), [Domo Phase 1b gate](docs/operations/domo-phase-1b.md), [identity guide](docs/operations/identity.md) and [production checklist](docs/operations/production-gates.md). A configured connection, a mocked test or a synthetic demo does not establish live-source readiness. The [source pilot design](docs/superpowers/specs/2026-10-15-source-pilot-runtime.md) describes the merged BigQuery/Domo serving paths; GCS remains the earlier offline artifact slice.
-
-V1 excludes ETL, arbitrary SQL/formulas, cross-product joins, source writes, dashboards, ontology engines and agent orchestration. Real credentials, paid queries, deployment and public distribution require their own decisions and verification. Preserve [third-party notices](THIRD_PARTY_NOTICES.md) and the [dependency inventory](docs/operations/licensing.md). Original code is licensed under [Apache-2.0](LICENSE); that license does not cover third-party components and does not authorize publishing images or browser bundles, which remain release gates.
+Original code is licensed under [Apache-2.0](LICENSE) (see [NOTICE](NOTICE)). "Spaceport" is an internal project name; public distribution under that name needs a separate owner decision.

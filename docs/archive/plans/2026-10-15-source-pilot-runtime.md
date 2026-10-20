@@ -4,7 +4,7 @@ Baseline: main `3fa6b2f`, exact local tree `a3155cb`. Private feature developmen
 
 ## Reviewed setup/workflow component
 
-Independent design review approved the [setup component](../specs/2026-10-15-source-pilot-setup.md) on 15 October 2026. Common source-ledger and source dispatch details were subsequently independently approved in the linked source specifications. Do not fake completed source integration.
+Independent design review approved the [setup component](../../design-records/2026-10-15-source-pilot-setup.md) on 15 October 2026. Common source-ledger and source dispatch details were subsequently independently approved in the linked source specifications. Do not fake completed source integration.
 
 1. Create isolated setup worktree; preserve legacy demo/pilot entrypoints and immutable v1 assets.
 2. Add strict product/config/catalog models with no-follow bounded reads, digest checks, trusted origins, no credentials or sockets during validation/rendering, and explicit new identity profile with old-profile rejection regressions.
@@ -26,13 +26,13 @@ Integrate reviewed commits in the coordinator worktree. Verify original public A
 
 ## Reviewed Domo transport/semantic component
 
-Independent component review approved [the Domo design](../specs/2026-10-15-domo-pilot-runtime.md). Implement exact OAuth/query transport, immutable v2 binding/plan and strict normalization with failing-first tests. Shared lifecycle/dispatch integration waits for its reviewed interfaces; no helper-only completion claim. No live source requests.
+Independent component review approved [the Domo design](../../design-records/2026-10-15-domo-pilot-runtime.md). Implement exact OAuth/query transport, immutable v2 binding/plan and strict normalization with failing-first tests. Shared lifecycle/dispatch integration waits for its reviewed interfaces; no helper-only completion claim. No live source requests.
 
 Ownership: BQ owns `source_lifecycle.py`, registry models, migration 0005 and `execution/queue.py`; Domo owns source-specific modules, generic binding/preparation/normalization dispatch, migration 0006, `execution/{service,worker,results}.py`, `publishing/{service,test_runner}.py` and `api/{choices,readiness}.py`; setup owns new runtime/catalog/bootstrap/config/CLI/GKE modules and `auth/settings.py`. Domo and BQ coordinate registry model definitions and preparation APIs without overlapping edits. Source-specific sample wire assets belong to Domo/BQ, while installable package examples belong to setup.
 
 ## Shared lifecycle and BigQuery implementation steps
 
-The independent reviewer approved the [shared/BQ design](../specs/2026-10-15-bigquery-pilot-runtime.md) after current-authority fencing and all lifecycle/privilege closures.
+The independent reviewer approved the [shared/BQ design](../../design-records/2026-10-15-bigquery-pilot-runtime.md) after current-authority fencing and all lifecycle/privilege closures.
 
 1. Ledger owner writes failing-first contract and real PostgreSQL tests for stable operation groups, exact sessions, BQ intents/Domo single sends, case/whole-suite budgets, seal/settlement, coherent authority stamps, roles and legacy migrations. Implement migration 0005, models/service and queue integration without changing legacy reservation semantics.
 2. Node owner implements new versioned BQ serving runtime in `cube/bigquery-runtime/`: explicit WIF client, PostgreSQL ledger client, signed request context, generation-scoped Cube caches, bounded SDK jobs/results, versioned provider metadata, metadata-only reconciler and no-I/O startup. Prior POSIX library remains unchanged.

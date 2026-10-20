@@ -26,10 +26,10 @@
       "license": "MIT",
       "name": "alembic",
       "notice_paths": [
-        "docs/operations/notices/python-alembic-1.20.0-alembic-1.20.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-alembic-1.20.0-alembic-1.20.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-alembic-1.20.0-alembic-1.20.0.dist-info-licenses-LICENSE": "6e68d94a03a0e3e327ddf3e86d1ebedc14eece3922022618fc246a36296fd0cc"
+        "THIRD_PARTY_NOTICES/python-alembic-1.20.0-alembic-1.20.0.dist-info-licenses-LICENSE": "6e68d94a03a0e3e327ddf3e86d1ebedc14eece3922022618fc246a36296fd0cc"
       },
       "version": "1.20.0"
     },
@@ -38,10 +38,10 @@
       "license": "MIT",
       "name": "annotated-doc",
       "notice_paths": [
-        "docs/operations/notices/python-annotated-doc-0.0.5-annotated_doc-0.0.5.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-annotated-doc-0.0.5-annotated_doc-0.0.5.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-annotated-doc-0.0.5-annotated_doc-0.0.5.dist-info-licenses-LICENSE": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+        "THIRD_PARTY_NOTICES/python-annotated-doc-0.0.5-annotated_doc-0.0.5.dist-info-licenses-LICENSE": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
       },
       "version": "0.0.5"
     },
@@ -50,10 +50,10 @@
       "license": "MIT",
       "name": "annotated-types",
       "notice_paths": [
-        "docs/operations/notices/python-annotated-types-0.8.0-annotated_types-0.8.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-annotated-types-0.8.0-annotated_types-0.8.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-annotated-types-0.8.0-annotated_types-0.8.0.dist-info-licenses-LICENSE": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+        "THIRD_PARTY_NOTICES/python-annotated-types-0.8.0-annotated_types-0.8.0.dist-info-licenses-LICENSE": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
       },
       "version": "0.8.0"
     },
@@ -62,10 +62,10 @@
       "license": "MIT",
       "name": "anyio",
       "notice_paths": [
-        "docs/operations/notices/python-anyio-4.15.1-anyio-4.15.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-anyio-4.15.1-anyio-4.15.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-anyio-4.15.1-anyio-4.15.1.dist-info-licenses-LICENSE": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+        "THIRD_PARTY_NOTICES/python-anyio-4.15.1-anyio-4.15.1.dist-info-licenses-LICENSE": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
       },
       "version": "4.15.1"
     },
@@ -74,10 +74,10 @@
       "license": "MIT",
       "name": "attrs",
       "notice_paths": [
-        "docs/operations/notices/python-attrs-26.1.0-attrs-26.1.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-attrs-26.1.0-attrs-26.1.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-attrs-26.1.0-attrs-26.1.0.dist-info-licenses-LICENSE": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+        "THIRD_PARTY_NOTICES/python-attrs-26.1.0-attrs-26.1.0.dist-info-licenses-LICENSE": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
       },
       "version": "26.1.0"
     },
@@ -86,10 +86,10 @@
       "license": "MPL-2.0",
       "name": "certifi",
       "notice_paths": [
-        "docs/operations/notices/python-certifi-2026.7.22-certifi-2026.7.22.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-certifi-2026.7.22-certifi-2026.7.22.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-certifi-2026.7.22-certifi-2026.7.22.dist-info-licenses-LICENSE": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+        "THIRD_PARTY_NOTICES/python-certifi-2026.7.22-certifi-2026.7.22.dist-info-licenses-LICENSE": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
       },
       "version": "2026.7.22"
     },
@@ -98,10 +98,10 @@
       "license": "MIT-0",
       "name": "cffi",
       "notice_paths": [
-        "docs/operations/notices/python-cffi-2.1.1-cffi-2.1.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-cffi-2.1.1-cffi-2.1.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-cffi-2.1.1-cffi-2.1.1.dist-info-licenses-LICENSE": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+        "THIRD_PARTY_NOTICES/python-cffi-2.1.1-cffi-2.1.1.dist-info-licenses-LICENSE": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
       },
       "version": "2.1.1"
     },
@@ -110,10 +110,10 @@
       "license": "BSD-3-Clause",
       "name": "click",
       "notice_paths": [
-        "docs/operations/notices/python-click-8.5.0-click-8.5.0.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-click-8.5.0-click-8.5.0.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-click-8.5.0-click-8.5.0.dist-info-licenses-LICENSE.txt": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+        "THIRD_PARTY_NOTICES/python-click-8.5.0-click-8.5.0.dist-info-licenses-LICENSE.txt": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
       },
       "version": "8.5.0"
     },
@@ -131,14 +131,14 @@
       "license": "Apache-2.0 OR BSD-3-Clause",
       "name": "cryptography",
       "notice_paths": [
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE",
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.APACHE",
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.BSD"
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE",
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.APACHE",
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.BSD"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE": "3e0c7c091a948b82533ba98fd7cbb40432d6f1a9acbf85f5922d2f99a93ae6bb",
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.APACHE": "aac73b3148f6d1d7111dbca32099f68d26c644c6813ae1e4f05f6579aa2663fe",
-        "docs/operations/notices/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.BSD": "602c4c7482de6479dd2e9793cda275e5e63d773dacd1eca689232ab7008fb4fb"
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE": "3e0c7c091a948b82533ba98fd7cbb40432d6f1a9acbf85f5922d2f99a93ae6bb",
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.APACHE": "aac73b3148f6d1d7111dbca32099f68d26c644c6813ae1e4f05f6579aa2663fe",
+        "THIRD_PARTY_NOTICES/python-cryptography-50.0.2-cryptography-50.0.2.dist-info-licenses-LICENSE.BSD": "602c4c7482de6479dd2e9793cda275e5e63d773dacd1eca689232ab7008fb4fb"
       },
       "version": "50.0.2"
     },
@@ -147,10 +147,10 @@
       "license": "MIT",
       "name": "fastapi",
       "notice_paths": [
-        "docs/operations/notices/python-fastapi-0.143.0-fastapi-0.143.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-fastapi-0.143.0-fastapi-0.143.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-fastapi-0.143.0-fastapi-0.143.0.dist-info-licenses-LICENSE": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+        "THIRD_PARTY_NOTICES/python-fastapi-0.143.0-fastapi-0.143.0.dist-info-licenses-LICENSE": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
       },
       "version": "0.143.0"
     },
@@ -159,12 +159,12 @@
       "license": "MIT AND PSF-2.0",
       "name": "greenlet",
       "notice_paths": [
-        "docs/operations/notices/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE",
-        "docs/operations/notices/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE.PSF"
+        "THIRD_PARTY_NOTICES/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE",
+        "THIRD_PARTY_NOTICES/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE.PSF"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE": "769831d6e5dfaf2c20802faccff1fafb4c2025dd8f6253dfa47fcad59d4d0979",
-        "docs/operations/notices/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE.PSF": "e5ff3c23c110e494cd7d736c10fd96d462457bafeca310840db6527298c7d46b"
+        "THIRD_PARTY_NOTICES/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE": "769831d6e5dfaf2c20802faccff1fafb4c2025dd8f6253dfa47fcad59d4d0979",
+        "THIRD_PARTY_NOTICES/python-greenlet-3.5.6-greenlet-3.5.6.dist-info-licenses-LICENSE.PSF": "e5ff3c23c110e494cd7d736c10fd96d462457bafeca310840db6527298c7d46b"
       },
       "version": "3.5.6"
     },
@@ -173,10 +173,10 @@
       "license": "MIT",
       "name": "h11",
       "notice_paths": [
-        "docs/operations/notices/python-h11-0.16.0-h11-0.16.0.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-h11-0.16.0-h11-0.16.0.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-h11-0.16.0-h11-0.16.0.dist-info-licenses-LICENSE.txt": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+        "THIRD_PARTY_NOTICES/python-h11-0.16.0-h11-0.16.0.dist-info-licenses-LICENSE.txt": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
       },
       "version": "0.16.0"
     },
@@ -185,10 +185,10 @@
       "license": "BSD-3-Clause",
       "name": "httpcore",
       "notice_paths": [
-        "docs/operations/notices/python-httpcore-1.0.9-httpcore-1.0.9.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-httpcore-1.0.9-httpcore-1.0.9.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-httpcore-1.0.9-httpcore-1.0.9.dist-info-licenses-LICENSE.md": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+        "THIRD_PARTY_NOTICES/python-httpcore-1.0.9-httpcore-1.0.9.dist-info-licenses-LICENSE.md": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
       },
       "version": "1.0.9"
     },
@@ -197,10 +197,10 @@
       "license": "BSD-3-Clause",
       "name": "httpcore2",
       "notice_paths": [
-        "docs/operations/notices/python-httpcore2-2.13.1-httpcore2-2.13.1.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-httpcore2-2.13.1-httpcore2-2.13.1.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-httpcore2-2.13.1-httpcore2-2.13.1.dist-info-licenses-LICENSE.md": "c4df125c807b0613501e943a5c92496dd11d2c16604ce396097a8dde396304d9"
+        "THIRD_PARTY_NOTICES/python-httpcore2-2.13.1-httpcore2-2.13.1.dist-info-licenses-LICENSE.md": "c4df125c807b0613501e943a5c92496dd11d2c16604ce396097a8dde396304d9"
       },
       "version": "2.13.1"
     },
@@ -209,10 +209,10 @@
       "license": "BSD-3-Clause",
       "name": "httpx",
       "notice_paths": [
-        "docs/operations/notices/python-httpx-0.28.1-httpx-0.28.1.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-httpx-0.28.1-httpx-0.28.1.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-httpx-0.28.1-httpx-0.28.1.dist-info-licenses-LICENSE.md": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+        "THIRD_PARTY_NOTICES/python-httpx-0.28.1-httpx-0.28.1.dist-info-licenses-LICENSE.md": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
       },
       "version": "0.28.1"
     },
@@ -221,10 +221,10 @@
       "license": "BSD-3-Clause",
       "name": "httpx2",
       "notice_paths": [
-        "docs/operations/notices/python-httpx2-2.13.1-httpx2-2.13.1.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-httpx2-2.13.1-httpx2-2.13.1.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-httpx2-2.13.1-httpx2-2.13.1.dist-info-licenses-LICENSE.md": "7e7d6dbaf7fe160d39fd6e84fd02c33cab96bcbea34d36998d545bceb4a19c30"
+        "THIRD_PARTY_NOTICES/python-httpx2-2.13.1-httpx2-2.13.1.dist-info-licenses-LICENSE.md": "7e7d6dbaf7fe160d39fd6e84fd02c33cab96bcbea34d36998d545bceb4a19c30"
       },
       "version": "2.13.1"
     },
@@ -242,10 +242,10 @@
       "license": "BSD-3-Clause",
       "name": "idna",
       "notice_paths": [
-        "docs/operations/notices/python-idna-3.20-idna-3.20.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-idna-3.20-idna-3.20.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-idna-3.20-idna-3.20.dist-info-licenses-LICENSE.md": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+        "THIRD_PARTY_NOTICES/python-idna-3.20-idna-3.20.dist-info-licenses-LICENSE.md": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
       },
       "version": "3.20"
     },
@@ -254,10 +254,10 @@
       "license": "MIT",
       "name": "iniconfig",
       "notice_paths": [
-        "docs/operations/notices/python-iniconfig-2.3.1-iniconfig-2.3.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-iniconfig-2.3.1-iniconfig-2.3.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-iniconfig-2.3.1-iniconfig-2.3.1.dist-info-licenses-LICENSE": "3409fa91f7ace557894632676656e32264fe5ef7581535725dc9a23774551bd4"
+        "THIRD_PARTY_NOTICES/python-iniconfig-2.3.1-iniconfig-2.3.1.dist-info-licenses-LICENSE": "3409fa91f7ace557894632676656e32264fe5ef7581535725dc9a23774551bd4"
       },
       "version": "2.3.1"
     },
@@ -266,10 +266,10 @@
       "license": "MIT",
       "name": "jsonschema",
       "notice_paths": [
-        "docs/operations/notices/python-jsonschema-4.26.0-jsonschema-4.26.0.dist-info-licenses-COPYING"
+        "THIRD_PARTY_NOTICES/python-jsonschema-4.26.0-jsonschema-4.26.0.dist-info-licenses-COPYING"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-jsonschema-4.26.0-jsonschema-4.26.0.dist-info-licenses-COPYING": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+        "THIRD_PARTY_NOTICES/python-jsonschema-4.26.0-jsonschema-4.26.0.dist-info-licenses-COPYING": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
       },
       "version": "4.26.0"
     },
@@ -278,10 +278,10 @@
       "license": "MIT",
       "name": "jsonschema-specifications",
       "notice_paths": [
-        "docs/operations/notices/python-jsonschema-specifications-2025.9.1-jsonschema_specifications-2025.9.1.dist-info-licenses-COPYING"
+        "THIRD_PARTY_NOTICES/python-jsonschema-specifications-2025.9.1-jsonschema_specifications-2025.9.1.dist-info-licenses-COPYING"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-jsonschema-specifications-2025.9.1-jsonschema_specifications-2025.9.1.dist-info-licenses-COPYING": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        "THIRD_PARTY_NOTICES/python-jsonschema-specifications-2025.9.1-jsonschema_specifications-2025.9.1.dist-info-licenses-COPYING": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
       },
       "version": "2025.9.1"
     },
@@ -290,10 +290,10 @@
       "license": "MIT",
       "name": "mako",
       "notice_paths": [
-        "docs/operations/notices/python-mako-1.4.3-mako-1.4.3.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-mako-1.4.3-mako-1.4.3.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-mako-1.4.3-mako-1.4.3.dist-info-licenses-LICENSE": "8c1d171bc5d341ad9cd33d5e2c39b96a82c7bd49b3ae89a470c37e5822232054"
+        "THIRD_PARTY_NOTICES/python-mako-1.4.3-mako-1.4.3.dist-info-licenses-LICENSE": "8c1d171bc5d341ad9cd33d5e2c39b96a82c7bd49b3ae89a470c37e5822232054"
       },
       "version": "1.4.3"
     },
@@ -302,10 +302,10 @@
       "license": "BSD-3-Clause",
       "name": "markupsafe",
       "notice_paths": [
-        "docs/operations/notices/python-markupsafe-3.0.4-markupsafe-3.0.4.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-markupsafe-3.0.4-markupsafe-3.0.4.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-markupsafe-3.0.4-markupsafe-3.0.4.dist-info-licenses-LICENSE.txt": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
+        "THIRD_PARTY_NOTICES/python-markupsafe-3.0.4-markupsafe-3.0.4.dist-info-licenses-LICENSE.txt": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
       },
       "version": "3.0.4"
     },
@@ -314,10 +314,10 @@
       "license": "MIT",
       "name": "mcp",
       "notice_paths": [
-        "docs/operations/notices/python-mcp-2.3.0-mcp-2.3.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-mcp-2.3.0-mcp-2.3.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-mcp-2.3.0-mcp-2.3.0.dist-info-licenses-LICENSE": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
+        "THIRD_PARTY_NOTICES/python-mcp-2.3.0-mcp-2.3.0.dist-info-licenses-LICENSE": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
       },
       "version": "2.3.0"
     },
@@ -326,10 +326,10 @@
       "license": "MIT",
       "name": "mcp-types",
       "notice_paths": [
-        "docs/operations/notices/python-mcp-types-2.3.0-mcp_types-2.3.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-mcp-types-2.3.0-mcp_types-2.3.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-mcp-types-2.3.0-mcp_types-2.3.0.dist-info-licenses-LICENSE": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
+        "THIRD_PARTY_NOTICES/python-mcp-types-2.3.0-mcp_types-2.3.0.dist-info-licenses-LICENSE": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
       },
       "version": "2.3.0"
     },
@@ -338,10 +338,10 @@
       "license": "Apache-2.0",
       "name": "opentelemetry-api",
       "notice_paths": [
-        "docs/operations/notices/python-opentelemetry-api-1.45.1-opentelemetry_api-1.45.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-opentelemetry-api-1.45.1-opentelemetry_api-1.45.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-opentelemetry-api-1.45.1-opentelemetry_api-1.45.1.dist-info-licenses-LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        "THIRD_PARTY_NOTICES/python-opentelemetry-api-1.45.1-opentelemetry_api-1.45.1.dist-info-licenses-LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
       },
       "version": "1.45.1"
     },
@@ -350,14 +350,14 @@
       "license": "Apache-2.0 OR BSD-2-Clause",
       "name": "packaging",
       "notice_paths": [
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE",
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.APACHE",
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.BSD"
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE",
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.APACHE",
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.BSD"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.APACHE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
-        "docs/operations/notices/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.BSD": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.APACHE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+        "THIRD_PARTY_NOTICES/python-packaging-26.3-packaging-26.3.dist-info-licenses-LICENSE.BSD": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
       },
       "version": "26.3"
     },
@@ -366,10 +366,10 @@
       "license": "MIT",
       "name": "pluggy",
       "notice_paths": [
-        "docs/operations/notices/python-pluggy-1.6.0-pluggy-1.6.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pluggy-1.6.0-pluggy-1.6.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pluggy-1.6.0-pluggy-1.6.0.dist-info-licenses-LICENSE": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606"
+        "THIRD_PARTY_NOTICES/python-pluggy-1.6.0-pluggy-1.6.0.dist-info-licenses-LICENSE": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606"
       },
       "version": "1.6.0"
     },
@@ -378,10 +378,10 @@
       "license": "LGPL-3.0-only",
       "name": "psycopg",
       "notice_paths": [
-        "docs/operations/notices/python-psycopg-3.3.6-psycopg-3.3.6.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-psycopg-3.3.6-psycopg-3.3.6.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-psycopg-3.3.6-psycopg-3.3.6.dist-info-licenses-LICENSE.txt": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+        "THIRD_PARTY_NOTICES/python-psycopg-3.3.6-psycopg-3.3.6.dist-info-licenses-LICENSE.txt": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
       },
       "version": "3.3.6"
     },
@@ -390,10 +390,10 @@
       "license": "LGPL-3.0-only",
       "name": "psycopg-binary",
       "notice_paths": [
-        "docs/operations/notices/python-psycopg-binary-3.3.6-psycopg_binary-3.3.6.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-psycopg-binary-3.3.6-psycopg_binary-3.3.6.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-psycopg-binary-3.3.6-psycopg_binary-3.3.6.dist-info-licenses-LICENSE.txt": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+        "THIRD_PARTY_NOTICES/python-psycopg-binary-3.3.6-psycopg_binary-3.3.6.dist-info-licenses-LICENSE.txt": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
       },
       "version": "3.3.6"
     },
@@ -402,10 +402,10 @@
       "license": "BSD-3-Clause",
       "name": "pycparser",
       "notice_paths": [
-        "docs/operations/notices/python-pycparser-3.11-pycparser-3.11.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pycparser-3.11-pycparser-3.11.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pycparser-3.11-pycparser-3.11.dist-info-licenses-LICENSE": "0a9e78156ae8b96caf1b4f11ac2df424b83de29736f9e757630548a6272fdf90"
+        "THIRD_PARTY_NOTICES/python-pycparser-3.11-pycparser-3.11.dist-info-licenses-LICENSE": "0a9e78156ae8b96caf1b4f11ac2df424b83de29736f9e757630548a6272fdf90"
       },
       "version": "3.11"
     },
@@ -414,10 +414,10 @@
       "license": "MIT",
       "name": "pydantic",
       "notice_paths": [
-        "docs/operations/notices/python-pydantic-2.14.1-pydantic-2.14.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pydantic-2.14.1-pydantic-2.14.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pydantic-2.14.1-pydantic-2.14.1.dist-info-licenses-LICENSE": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+        "THIRD_PARTY_NOTICES/python-pydantic-2.14.1-pydantic-2.14.1.dist-info-licenses-LICENSE": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
       },
       "version": "2.14.1"
     },
@@ -426,10 +426,10 @@
       "license": "MIT",
       "name": "pydantic-core",
       "notice_paths": [
-        "docs/operations/notices/python-pydantic-core-2.50.1-pydantic_core-2.50.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pydantic-core-2.50.1-pydantic_core-2.50.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pydantic-core-2.50.1-pydantic_core-2.50.1.dist-info-licenses-LICENSE": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+        "THIRD_PARTY_NOTICES/python-pydantic-core-2.50.1-pydantic_core-2.50.1.dist-info-licenses-LICENSE": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
       },
       "version": "2.50.1"
     },
@@ -438,10 +438,10 @@
       "license": "BSD-2-Clause",
       "name": "pygments",
       "notice_paths": [
-        "docs/operations/notices/python-pygments-2.21.0-pygments-2.21.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pygments-2.21.0-pygments-2.21.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pygments-2.21.0-pygments-2.21.0.dist-info-licenses-LICENSE": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
+        "THIRD_PARTY_NOTICES/python-pygments-2.21.0-pygments-2.21.0.dist-info-licenses-LICENSE": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
       },
       "version": "2.21.0"
     },
@@ -450,10 +450,10 @@
       "license": "MIT",
       "name": "pyjwt",
       "notice_paths": [
-        "docs/operations/notices/python-pyjwt-2.15.1-pyjwt-2.15.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pyjwt-2.15.1-pyjwt-2.15.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pyjwt-2.15.1-pyjwt-2.15.1.dist-info-licenses-LICENSE": "797a7a20231d4c433e9f1911db1731d06b5828b98f499819a034f7c0f56f5ce5"
+        "THIRD_PARTY_NOTICES/python-pyjwt-2.15.1-pyjwt-2.15.1.dist-info-licenses-LICENSE": "797a7a20231d4c433e9f1911db1731d06b5828b98f499819a034f7c0f56f5ce5"
       },
       "version": "2.15.1"
     },
@@ -462,10 +462,10 @@
       "license": "MIT",
       "name": "pytest",
       "notice_paths": [
-        "docs/operations/notices/python-pytest-9.1.1-pytest-9.1.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-pytest-9.1.1-pytest-9.1.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-pytest-9.1.1-pytest-9.1.1.dist-info-licenses-LICENSE": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
+        "THIRD_PARTY_NOTICES/python-pytest-9.1.1-pytest-9.1.1.dist-info-licenses-LICENSE": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
       },
       "version": "9.1.1"
     },
@@ -474,10 +474,10 @@
       "license": "Apache-2.0",
       "name": "python-multipart",
       "notice_paths": [
-        "docs/operations/notices/python-python-multipart-0.0.32-python_multipart-0.0.32.dist-info-licenses-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/python-python-multipart-0.0.32-python_multipart-0.0.32.dist-info-licenses-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-python-multipart-0.0.32-python_multipart-0.0.32.dist-info-licenses-LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        "THIRD_PARTY_NOTICES/python-python-multipart-0.0.32-python_multipart-0.0.32.dist-info-licenses-LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
       },
       "version": "0.0.32"
     },
@@ -495,10 +495,10 @@
       "license": "MIT",
       "name": "referencing",
       "notice_paths": [
-        "docs/operations/notices/python-referencing-0.37.0-referencing-0.37.0.dist-info-licenses-COPYING"
+        "THIRD_PARTY_NOTICES/python-referencing-0.37.0-referencing-0.37.0.dist-info-licenses-COPYING"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-referencing-0.37.0-referencing-0.37.0.dist-info-licenses-COPYING": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        "THIRD_PARTY_NOTICES/python-referencing-0.37.0-referencing-0.37.0.dist-info-licenses-COPYING": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
       },
       "version": "0.37.0"
     },
@@ -507,10 +507,10 @@
       "license": "SEE_UPSTREAM_NOTICE",
       "name": "rfc8785",
       "notice_paths": [
-        "docs/operations/notices/python-rfc8785-0.1.4-rfc8785-0.1.4.dist-info-LICENSE"
+        "THIRD_PARTY_NOTICES/python-rfc8785-0.1.4-rfc8785-0.1.4.dist-info-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-rfc8785-0.1.4-rfc8785-0.1.4.dist-info-LICENSE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        "THIRD_PARTY_NOTICES/python-rfc8785-0.1.4-rfc8785-0.1.4.dist-info-LICENSE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
       },
       "version": "0.1.4"
     },
@@ -519,10 +519,10 @@
       "license": "MIT",
       "name": "rpds-py",
       "notice_paths": [
-        "docs/operations/notices/python-rpds-py-2026.9.1-rpds_py-2026.9.1.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-rpds-py-2026.9.1-rpds_py-2026.9.1.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-rpds-py-2026.9.1-rpds_py-2026.9.1.dist-info-licenses-LICENSE": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
+        "THIRD_PARTY_NOTICES/python-rpds-py-2026.9.1-rpds_py-2026.9.1.dist-info-licenses-LICENSE": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
       },
       "version": "2026.9.1"
     },
@@ -531,10 +531,10 @@
       "license": "MIT",
       "name": "sqlalchemy",
       "notice_paths": [
-        "docs/operations/notices/python-sqlalchemy-2.0.54-sqlalchemy-2.0.54.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-sqlalchemy-2.0.54-sqlalchemy-2.0.54.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-sqlalchemy-2.0.54-sqlalchemy-2.0.54.dist-info-licenses-LICENSE": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9"
+        "THIRD_PARTY_NOTICES/python-sqlalchemy-2.0.54-sqlalchemy-2.0.54.dist-info-licenses-LICENSE": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9"
       },
       "version": "2.0.54"
     },
@@ -543,10 +543,10 @@
       "license": "BSD-3-Clause",
       "name": "sse-starlette",
       "notice_paths": [
-        "docs/operations/notices/python-sse-starlette-3.5.0-sse_starlette-3.5.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-sse-starlette-3.5.0-sse_starlette-3.5.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-sse-starlette-3.5.0-sse_starlette-3.5.0.dist-info-licenses-LICENSE": "80af6bfccbebd2c14d4aab96695cab9950e177190cc80f5ef819e99996883e8e"
+        "THIRD_PARTY_NOTICES/python-sse-starlette-3.5.0-sse_starlette-3.5.0.dist-info-licenses-LICENSE": "80af6bfccbebd2c14d4aab96695cab9950e177190cc80f5ef819e99996883e8e"
       },
       "version": "3.5.0"
     },
@@ -555,10 +555,10 @@
       "license": "BSD-3-Clause",
       "name": "starlette",
       "notice_paths": [
-        "docs/operations/notices/python-starlette-1.8.0-starlette-1.8.0.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-starlette-1.8.0-starlette-1.8.0.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-starlette-1.8.0-starlette-1.8.0.dist-info-licenses-LICENSE.md": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+        "THIRD_PARTY_NOTICES/python-starlette-1.8.0-starlette-1.8.0.dist-info-licenses-LICENSE.md": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
       },
       "version": "1.8.0"
     },
@@ -567,10 +567,10 @@
       "license": "MIT",
       "name": "truststore",
       "notice_paths": [
-        "docs/operations/notices/python-truststore-0.10.5-truststore-0.10.5.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-truststore-0.10.5-truststore-0.10.5.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-truststore-0.10.5-truststore-0.10.5.dist-info-licenses-LICENSE": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca"
+        "THIRD_PARTY_NOTICES/python-truststore-0.10.5-truststore-0.10.5.dist-info-licenses-LICENSE": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca"
       },
       "version": "0.10.5"
     },
@@ -579,10 +579,10 @@
       "license": "PSF-2.0",
       "name": "typing-extensions",
       "notice_paths": [
-        "docs/operations/notices/python-typing-extensions-4.16.0-typing_extensions-4.16.0.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-typing-extensions-4.16.0-typing_extensions-4.16.0.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-typing-extensions-4.16.0-typing_extensions-4.16.0.dist-info-licenses-LICENSE": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        "THIRD_PARTY_NOTICES/python-typing-extensions-4.16.0-typing_extensions-4.16.0.dist-info-licenses-LICENSE": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
       },
       "version": "4.16.0"
     },
@@ -591,10 +591,10 @@
       "license": "MIT",
       "name": "typing-inspection",
       "notice_paths": [
-        "docs/operations/notices/python-typing-inspection-0.4.4-typing_inspection-0.4.4.dist-info-licenses-LICENSE"
+        "THIRD_PARTY_NOTICES/python-typing-inspection-0.4.4-typing_inspection-0.4.4.dist-info-licenses-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-typing-inspection-0.4.4-typing_inspection-0.4.4.dist-info-licenses-LICENSE": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+        "THIRD_PARTY_NOTICES/python-typing-inspection-0.4.4-typing_inspection-0.4.4.dist-info-licenses-LICENSE": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
       },
       "version": "0.4.4"
     },
@@ -612,10 +612,10 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "notice_paths": [
-        "docs/operations/notices/python-uvicorn-0.54.0-uvicorn-0.54.0.dist-info-licenses-LICENSE.md"
+        "THIRD_PARTY_NOTICES/python-uvicorn-0.54.0-uvicorn-0.54.0.dist-info-licenses-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/python-uvicorn-0.54.0-uvicorn-0.54.0.dist-info-licenses-LICENSE.md": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+        "THIRD_PARTY_NOTICES/python-uvicorn-0.54.0-uvicorn-0.54.0.dist-info-licenses-LICENSE.md": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
       },
       "version": "0.54.0"
     },
@@ -640,10 +640,10 @@
       "license": "MIT",
       "name": "@adobe/css-tools",
       "notice_paths": [
-        "docs/operations/notices/npm-_adobe_css-tools-4.5.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_adobe_css-tools-4.5.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_adobe_css-tools-4.5.0-LICENSE": "326ff3850062286003ff4cbdaa8f61764e128f9a6532431bccf97e4e2bd75059"
+        "THIRD_PARTY_NOTICES/npm-_adobe_css-tools-4.5.0-LICENSE": "326ff3850062286003ff4cbdaa8f61764e128f9a6532431bccf97e4e2bd75059"
       },
       "optional": false,
       "project": "publisher",
@@ -670,10 +670,10 @@
       "license": "MIT",
       "name": "@asamuzakjp/css-color",
       "notice_paths": [
-        "docs/operations/notices/npm-_asamuzakjp_css-color-7.1.5-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_asamuzakjp_css-color-7.1.5-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_asamuzakjp_css-color-7.1.5-LICENSE": "bd4539377980dd797fc6a51d90e664e52b2b2625b2158f01d4c68b5fe107eacb"
+        "THIRD_PARTY_NOTICES/npm-_asamuzakjp_css-color-7.1.5-LICENSE": "bd4539377980dd797fc6a51d90e664e52b2b2625b2158f01d4c68b5fe107eacb"
       },
       "optional": false,
       "project": "publisher",
@@ -700,10 +700,10 @@
       "license": "MIT",
       "name": "@asamuzakjp/dom-selector",
       "notice_paths": [
-        "docs/operations/notices/npm-_asamuzakjp_dom-selector-9.2.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_asamuzakjp_dom-selector-9.2.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_asamuzakjp_dom-selector-9.2.4-LICENSE": "7cdf9db3b91cc77b9ec947ad0c7126140f00e34528b67c3a58e9fc1a98055e14"
+        "THIRD_PARTY_NOTICES/npm-_asamuzakjp_dom-selector-9.2.4-LICENSE": "7cdf9db3b91cc77b9ec947ad0c7126140f00e34528b67c3a58e9fc1a98055e14"
       },
       "optional": false,
       "project": "publisher",
@@ -730,10 +730,10 @@
       "license": "MIT",
       "name": "@babel/code-frame",
       "notice_paths": [
-        "docs/operations/notices/npm-_babel_code-frame-7.29.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_babel_code-frame-7.29.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_babel_code-frame-7.29.7-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        "THIRD_PARTY_NOTICES/npm-_babel_code-frame-7.29.7-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
       },
       "optional": false,
       "project": "publisher",
@@ -760,10 +760,10 @@
       "license": "MIT",
       "name": "@babel/helper-validator-identifier",
       "notice_paths": [
-        "docs/operations/notices/npm-_babel_helper-validator-identifier-7.29.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_babel_helper-validator-identifier-7.29.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_babel_helper-validator-identifier-7.29.7-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        "THIRD_PARTY_NOTICES/npm-_babel_helper-validator-identifier-7.29.7-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
       },
       "optional": false,
       "project": "publisher",
@@ -790,10 +790,10 @@
       "license": "MIT",
       "name": "@babel/runtime",
       "notice_paths": [
-        "docs/operations/notices/npm-_babel_runtime-7.29.10-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_babel_runtime-7.29.10-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_babel_runtime-7.29.10-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        "THIRD_PARTY_NOTICES/npm-_babel_runtime-7.29.10-LICENSE": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
       },
       "optional": false,
       "project": "publisher",
@@ -820,10 +820,10 @@
       "license": "MIT",
       "name": "@bramus/specificity",
       "notice_paths": [
-        "docs/operations/notices/npm-_bramus_specificity-2.4.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_bramus_specificity-2.4.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_bramus_specificity-2.4.3-LICENSE": "ae842a63dd9bc829c95a2ec22dda25a08e422a368b71dbca67a45cde7c4a4b81"
+        "THIRD_PARTY_NOTICES/npm-_bramus_specificity-2.4.3-LICENSE": "ae842a63dd9bc829c95a2ec22dda25a08e422a368b71dbca67a45cde7c4a4b81"
       },
       "optional": false,
       "project": "publisher",
@@ -850,10 +850,10 @@
       "license": "MIT-0",
       "name": "@csstools/color-helpers",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_color-helpers-6.1.2-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_color-helpers-6.1.2-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_color-helpers-6.1.2-LICENSE.md": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6"
+        "THIRD_PARTY_NOTICES/npm-_csstools_color-helpers-6.1.2-LICENSE.md": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6"
       },
       "optional": false,
       "project": "publisher",
@@ -880,10 +880,10 @@
       "license": "MIT",
       "name": "@csstools/css-calc",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_css-calc-3.4.3-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-calc-3.4.3-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_css-calc-3.4.3-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-calc-3.4.3-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
       },
       "optional": false,
       "project": "publisher",
@@ -910,10 +910,10 @@
       "license": "MIT",
       "name": "@csstools/css-color-parser",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_css-color-parser-4.2.6-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-color-parser-4.2.6-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_css-color-parser-4.2.6-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-color-parser-4.2.6-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
       },
       "optional": false,
       "project": "publisher",
@@ -940,10 +940,10 @@
       "license": "MIT",
       "name": "@csstools/css-parser-algorithms",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_css-parser-algorithms-4.0.2-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-parser-algorithms-4.0.2-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_css-parser-algorithms-4.0.2-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-parser-algorithms-4.0.2-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
       },
       "optional": false,
       "project": "publisher",
@@ -970,10 +970,10 @@
       "license": "MIT-0",
       "name": "@csstools/css-syntax-patches-for-csstree",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_css-syntax-patches-for-csstree-1.1.15-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-syntax-patches-for-csstree-1.1.15-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_css-syntax-patches-for-csstree-1.1.15-LICENSE.md": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-syntax-patches-for-csstree-1.1.15-LICENSE.md": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6"
       },
       "optional": false,
       "project": "publisher",
@@ -1000,10 +1000,10 @@
       "license": "MIT",
       "name": "@csstools/css-tokenizer",
       "notice_paths": [
-        "docs/operations/notices/npm-_csstools_css-tokenizer-4.0.2-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-tokenizer-4.0.2-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_csstools_css-tokenizer-4.0.2-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
+        "THIRD_PARTY_NOTICES/npm-_csstools_css-tokenizer-4.0.2-LICENSE.md": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665"
       },
       "optional": false,
       "project": "publisher",
@@ -1030,10 +1030,10 @@
       "license": "MIT",
       "name": "@exodus/bytes",
       "notice_paths": [
-        "docs/operations/notices/npm-_exodus_bytes-1.16.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_exodus_bytes-1.16.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_exodus_bytes-1.16.0-LICENSE": "dbffd380d59504ba19fcf87ff5a1a33c37edf66d5b09966b0ad5368ab87bc2af"
+        "THIRD_PARTY_NOTICES/npm-_exodus_bytes-1.16.0-LICENSE": "dbffd380d59504ba19fcf87ff5a1a33c37edf66d5b09966b0ad5368ab87bc2af"
       },
       "optional": false,
       "project": "publisher",
@@ -1060,10 +1060,10 @@
       "license": "MIT",
       "name": "@floating-ui/core",
       "notice_paths": [
-        "docs/operations/notices/npm-_floating-ui_core-1.8.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_core-1.8.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_floating-ui_core-1.8.0-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_core-1.8.0-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
       },
       "optional": false,
       "project": "publisher",
@@ -1090,10 +1090,10 @@
       "license": "MIT",
       "name": "@floating-ui/dom",
       "notice_paths": [
-        "docs/operations/notices/npm-_floating-ui_dom-1.8.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_dom-1.8.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_floating-ui_dom-1.8.0-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_dom-1.8.0-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
       },
       "optional": false,
       "project": "publisher",
@@ -1120,10 +1120,10 @@
       "license": "MIT",
       "name": "@floating-ui/react-dom",
       "notice_paths": [
-        "docs/operations/notices/npm-_floating-ui_react-dom-2.1.9-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_react-dom-2.1.9-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_floating-ui_react-dom-2.1.9-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_react-dom-2.1.9-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
       },
       "optional": false,
       "project": "publisher",
@@ -1150,10 +1150,10 @@
       "license": "MIT",
       "name": "@floating-ui/utils",
       "notice_paths": [
-        "docs/operations/notices/npm-_floating-ui_utils-0.2.12-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_utils-0.2.12-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_floating-ui_utils-0.2.12-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+        "THIRD_PARTY_NOTICES/npm-_floating-ui_utils-0.2.12-LICENSE": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
       },
       "optional": false,
       "project": "publisher",
@@ -1180,10 +1180,10 @@
       "license": "MIT",
       "name": "@jridgewell/resolve-uri",
       "notice_paths": [
-        "docs/operations/notices/npm-_jridgewell_resolve-uri-3.1.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_resolve-uri-3.1.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_jridgewell_resolve-uri-3.1.2-LICENSE": "b8778b155bfde5a28b023a558753c0fa058a52bb9de35c343c250be1bbcdedab"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_resolve-uri-3.1.2-LICENSE": "b8778b155bfde5a28b023a558753c0fa058a52bb9de35c343c250be1bbcdedab"
       },
       "optional": false,
       "project": "publisher",
@@ -1210,10 +1210,10 @@
       "license": "MIT",
       "name": "@jridgewell/sourcemap-codec",
       "notice_paths": [
-        "docs/operations/notices/npm-_jridgewell_sourcemap-codec-1.6.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_sourcemap-codec-1.6.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_jridgewell_sourcemap-codec-1.6.0-LICENSE": "769d154fbde32a915af110b1123650bc79f4cbe675acc66e005265bf069c6c6c"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_sourcemap-codec-1.6.0-LICENSE": "769d154fbde32a915af110b1123650bc79f4cbe675acc66e005265bf069c6c6c"
       },
       "optional": false,
       "project": "publisher",
@@ -1240,10 +1240,10 @@
       "license": "MIT",
       "name": "@jridgewell/trace-mapping",
       "notice_paths": [
-        "docs/operations/notices/npm-_jridgewell_trace-mapping-0.3.31-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_trace-mapping-0.3.31-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_jridgewell_trace-mapping-0.3.31-LICENSE": "769d154fbde32a915af110b1123650bc79f4cbe675acc66e005265bf069c6c6c"
+        "THIRD_PARTY_NOTICES/npm-_jridgewell_trace-mapping-0.3.31-LICENSE": "769d154fbde32a915af110b1123650bc79f4cbe675acc66e005265bf069c6c6c"
       },
       "optional": false,
       "project": "publisher",
@@ -1270,10 +1270,10 @@
       "license": "MIT",
       "name": "@oxc-project/types",
       "notice_paths": [
-        "docs/operations/notices/npm-_oxc-project_types-0.153.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_oxc-project_types-0.153.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_oxc-project_types-0.153.0-LICENSE": "95ced5ecf1133fbf41d409b5555c86c344f83f3b019926057ddbc07cfdcc27b3"
+        "THIRD_PARTY_NOTICES/npm-_oxc-project_types-0.153.0-LICENSE": "95ced5ecf1133fbf41d409b5555c86c344f83f3b019926057ddbc07cfdcc27b3"
       },
       "optional": false,
       "project": "publisher",
@@ -1302,12 +1302,12 @@
       "license": "Apache-2.0",
       "name": "@playwright/test",
       "notice_paths": [
-        "docs/operations/notices/npm-_playwright_test-1.64.0-LICENSE",
-        "docs/operations/notices/npm-_playwright_test-1.64.0-NOTICE"
+        "THIRD_PARTY_NOTICES/npm-_playwright_test-1.64.0-LICENSE",
+        "THIRD_PARTY_NOTICES/npm-_playwright_test-1.64.0-NOTICE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_playwright_test-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
-        "docs/operations/notices/npm-_playwright_test-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+        "THIRD_PARTY_NOTICES/npm-_playwright_test-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
+        "THIRD_PARTY_NOTICES/npm-_playwright_test-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
       },
       "optional": false,
       "project": "publisher",
@@ -1334,10 +1334,10 @@
       "license": "MIT",
       "name": "@radix-ui/colors",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_colors-3.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_colors-3.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_colors-3.0.0-LICENSE": "9c400881b9139571aa7acc3bd6e422a4f05223b4519169fb661298fb44bf228e"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_colors-3.0.0-LICENSE": "9c400881b9139571aa7acc3bd6e422a4f05223b4519169fb661298fb44bf228e"
       },
       "optional": false,
       "project": "publisher",
@@ -1364,10 +1364,10 @@
       "license": "MIT",
       "name": "@radix-ui/number",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_number-1.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_number-1.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_number-1.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_number-1.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1394,10 +1394,10 @@
       "license": "MIT",
       "name": "@radix-ui/primitive",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_primitive-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_primitive-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_primitive-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_primitive-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1424,10 +1424,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-accessible-icon",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-accessible-icon-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-accessible-icon-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-accessible-icon-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-accessible-icon-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1454,10 +1454,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-accordion",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-accordion-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-accordion-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-accordion-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-accordion-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1484,10 +1484,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-alert-dialog",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-alert-dialog-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-alert-dialog-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-alert-dialog-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-alert-dialog-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1514,10 +1514,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-arrow",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-arrow-1.1.17-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-arrow-1.1.17-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-arrow-1.1.17-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-arrow-1.1.17-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1544,10 +1544,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-aspect-ratio",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-aspect-ratio-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-aspect-ratio-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-aspect-ratio-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-aspect-ratio-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1574,10 +1574,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-avatar",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-avatar-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-avatar-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-avatar-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-avatar-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1604,10 +1604,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-checkbox",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-checkbox-1.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-checkbox-1.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-checkbox-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-checkbox-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1634,10 +1634,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-collapsible",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-collapsible-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-collapsible-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-collapsible-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-collapsible-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1664,10 +1664,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-collection",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-collection-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-collection-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-collection-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-collection-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1694,10 +1694,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-compose-refs",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-compose-refs-1.1.5-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-compose-refs-1.1.5-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-compose-refs-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-compose-refs-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1724,10 +1724,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-context",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-context-1.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-context-1.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-context-1.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-context-1.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1754,10 +1754,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-context-menu",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-context-menu-2.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-context-menu-2.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-context-menu-2.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-context-menu-2.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1784,10 +1784,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-dialog",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-dialog-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dialog-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-dialog-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dialog-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1814,10 +1814,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-direction",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-direction-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-direction-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-direction-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-direction-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1844,10 +1844,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-dismissable-layer",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-dismissable-layer-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dismissable-layer-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-dismissable-layer-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dismissable-layer-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1874,10 +1874,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-dropdown-menu",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-dropdown-menu-2.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dropdown-menu-2.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-dropdown-menu-2.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-dropdown-menu-2.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1904,10 +1904,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-focus-guards",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-focus-guards-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-focus-guards-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-focus-guards-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-focus-guards-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1934,10 +1934,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-focus-scope",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-focus-scope-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-focus-scope-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-focus-scope-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-focus-scope-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1964,10 +1964,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-form",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-form-0.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-form-0.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-form-0.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-form-0.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -1994,10 +1994,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-hover-card",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-hover-card-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-hover-card-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-hover-card-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-hover-card-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2024,10 +2024,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-id",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-id-1.1.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-id-1.1.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-id-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-id-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2054,10 +2054,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-label",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-label-2.1.17-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-label-2.1.17-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-label-2.1.17-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-label-2.1.17-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2084,10 +2084,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-menu",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-menu-2.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-menu-2.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-menu-2.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-menu-2.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2114,10 +2114,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-menubar",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-menubar-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-menubar-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-menubar-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-menubar-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2144,10 +2144,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-navigation-menu",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-navigation-menu-1.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-navigation-menu-1.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-navigation-menu-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-navigation-menu-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2174,10 +2174,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-one-time-password-field",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-one-time-password-field-0.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-one-time-password-field-0.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-one-time-password-field-0.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-one-time-password-field-0.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2204,10 +2204,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-password-toggle-field",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-password-toggle-field-0.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-password-toggle-field-0.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-password-toggle-field-0.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-password-toggle-field-0.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2234,10 +2234,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-popover",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-popover-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-popover-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-popover-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-popover-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2264,10 +2264,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-popper",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-popper-1.4.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-popper-1.4.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-popper-1.4.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-popper-1.4.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2294,10 +2294,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-portal",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-portal-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-portal-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-portal-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-portal-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2324,10 +2324,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-presence",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-presence-1.1.11-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-presence-1.1.11-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-presence-1.1.11-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-presence-1.1.11-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2354,10 +2354,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-primitive",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-primitive-2.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-primitive-2.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-primitive-2.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-primitive-2.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2384,10 +2384,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-progress",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-progress-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-progress-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-progress-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-progress-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2414,10 +2414,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-radio-group",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-radio-group-1.5.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-radio-group-1.5.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-radio-group-1.5.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-radio-group-1.5.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2444,10 +2444,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-roving-focus",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-roving-focus-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-roving-focus-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-roving-focus-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-roving-focus-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2474,10 +2474,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-scroll-area",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-scroll-area-1.4.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-scroll-area-1.4.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-scroll-area-1.4.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-scroll-area-1.4.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2504,10 +2504,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-select",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-select-2.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-select-2.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-select-2.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-select-2.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2534,10 +2534,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-separator",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-separator-1.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-separator-1.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-separator-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-separator-1.2.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2564,10 +2564,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-slider",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-slider-1.6.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-slider-1.6.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-slider-1.6.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-slider-1.6.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2594,10 +2594,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-slot",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-slot-1.5.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-slot-1.5.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-slot-1.5.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-slot-1.5.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2624,10 +2624,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-switch",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-switch-1.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-switch-1.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-switch-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-switch-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2654,10 +2654,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-tabs",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-tabs-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-tabs-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-tabs-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-tabs-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2684,10 +2684,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-toast",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-toast-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toast-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-toast-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toast-1.3.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2714,10 +2714,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-toggle",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-toggle-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toggle-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-toggle-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toggle-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2744,10 +2744,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-toggle-group",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-toggle-group-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toggle-group-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-toggle-group-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toggle-group-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2774,10 +2774,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-toolbar",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-toolbar-1.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toolbar-1.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-toolbar-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-toolbar-1.2.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2804,10 +2804,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-tooltip",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-tooltip-1.4.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-tooltip-1.4.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-tooltip-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-tooltip-1.4.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2834,10 +2834,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-callback-ref",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-callback-ref-1.1.5-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-callback-ref-1.1.5-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-callback-ref-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-callback-ref-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2864,10 +2864,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-controllable-state",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-controllable-state-1.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-controllable-state-1.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-controllable-state-1.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-controllable-state-1.3.0-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2894,10 +2894,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-effect-event",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-effect-event-0.0.5-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-effect-event-0.0.5-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-effect-event-0.0.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-effect-event-0.0.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2924,10 +2924,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-escape-keydown",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-escape-keydown-1.1.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-escape-keydown-1.1.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-escape-keydown-1.1.6-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-escape-keydown-1.1.6-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2954,10 +2954,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-is-hydrated",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-is-hydrated-0.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-is-hydrated-0.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-is-hydrated-0.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-is-hydrated-0.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -2984,10 +2984,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-layout-effect",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-layout-effect-1.1.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-layout-effect-1.1.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-layout-effect-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-layout-effect-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3014,10 +3014,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-previous",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-previous-1.1.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-previous-1.1.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-previous-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-previous-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3044,10 +3044,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-rect",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-rect-1.1.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-rect-1.1.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-rect-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-rect-1.1.4-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3074,10 +3074,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-use-size",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-use-size-1.1.5-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-size-1.1.5-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-use-size-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-use-size-1.1.5-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3104,10 +3104,10 @@
       "license": "MIT",
       "name": "@radix-ui/react-visually-hidden",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_react-visually-hidden-1.2.13-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-visually-hidden-1.2.13-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_react-visually-hidden-1.2.13-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_react-visually-hidden-1.2.13-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3134,10 +3134,10 @@
       "license": "MIT",
       "name": "@radix-ui/rect",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_rect-1.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_rect-1.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_rect-1.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_rect-1.1.3-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -3164,10 +3164,10 @@
       "license": "MIT",
       "name": "@radix-ui/themes",
       "notice_paths": [
-        "docs/operations/notices/npm-_radix-ui_themes-3.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_themes-3.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_radix-ui_themes-3.3.0-LICENSE": "89e4ae7d91c640c6e8a3ca90ba578d799eb2491b766ed65e0725ba36499d56ba"
+        "THIRD_PARTY_NOTICES/npm-_radix-ui_themes-3.3.0-LICENSE": "89e4ae7d91c640c6e8a3ca90ba578d799eb2491b766ed65e0725ba36499d56ba"
       },
       "optional": false,
       "project": "publisher",
@@ -3194,10 +3194,10 @@
       "license": "MIT",
       "name": "@redocly/ajv",
       "notice_paths": [
-        "docs/operations/notices/npm-_redocly_ajv-8.11.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_redocly_ajv-8.11.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_redocly_ajv-8.11.2-LICENSE": "a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
+        "THIRD_PARTY_NOTICES/npm-_redocly_ajv-8.11.2-LICENSE": "a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
       },
       "optional": false,
       "project": "publisher",
@@ -3224,10 +3224,10 @@
       "license": "MIT",
       "name": "@redocly/config",
       "notice_paths": [
-        "docs/operations/notices/npm-_redocly_config-0.22.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_redocly_config-0.22.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_redocly_config-0.22.0-LICENSE": "92bb818822d131f7c4987ee5c4191eb3d73ea831b1f40904ea4f028b3cde1d64"
+        "THIRD_PARTY_NOTICES/npm-_redocly_config-0.22.0-LICENSE": "92bb818822d131f7c4987ee5c4191eb3d73ea831b1f40904ea4f028b3cde1d64"
       },
       "optional": false,
       "project": "publisher",
@@ -3492,10 +3492,10 @@
       "license": "MIT",
       "name": "@rolldown/pluginutils",
       "notice_paths": [
-        "docs/operations/notices/npm-_rolldown_pluginutils-1.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_rolldown_pluginutils-1.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_rolldown_pluginutils-1.0.1-LICENSE": "e1919b3b98b8bf6c1b99fcc60a0ed46027c97ac947432e1278446c9606f50161"
+        "THIRD_PARTY_NOTICES/npm-_rolldown_pluginutils-1.0.1-LICENSE": "e1919b3b98b8bf6c1b99fcc60a0ed46027c97ac947432e1278446c9606f50161"
       },
       "optional": false,
       "project": "publisher",
@@ -3522,10 +3522,10 @@
       "license": "MIT",
       "name": "@tanstack/query-core",
       "notice_paths": [
-        "docs/operations/notices/npm-_tanstack_query-core-5.104.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_tanstack_query-core-5.104.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_tanstack_query-core-5.104.2-LICENSE": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
+        "THIRD_PARTY_NOTICES/npm-_tanstack_query-core-5.104.2-LICENSE": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
       },
       "optional": false,
       "project": "publisher",
@@ -3552,10 +3552,10 @@
       "license": "MIT",
       "name": "@tanstack/react-query",
       "notice_paths": [
-        "docs/operations/notices/npm-_tanstack_react-query-5.104.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_tanstack_react-query-5.104.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_tanstack_react-query-5.104.2-LICENSE": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
+        "THIRD_PARTY_NOTICES/npm-_tanstack_react-query-5.104.2-LICENSE": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
       },
       "optional": false,
       "project": "publisher",
@@ -3582,10 +3582,10 @@
       "license": "MIT",
       "name": "@testing-library/dom",
       "notice_paths": [
-        "docs/operations/notices/npm-_testing-library_dom-10.4.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_dom-10.4.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_testing-library_dom-10.4.2-LICENSE": "bf8fd38056b7606deccfcadb4d8ca1c210082d8ef5513426d2650daedc30bed3"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_dom-10.4.2-LICENSE": "bf8fd38056b7606deccfcadb4d8ca1c210082d8ef5513426d2650daedc30bed3"
       },
       "optional": false,
       "project": "publisher",
@@ -3612,10 +3612,10 @@
       "license": "MIT",
       "name": "@testing-library/jest-dom",
       "notice_paths": [
-        "docs/operations/notices/npm-_testing-library_jest-dom-7.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_jest-dom-7.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_testing-library_jest-dom-7.0.1-LICENSE": "bf8fd38056b7606deccfcadb4d8ca1c210082d8ef5513426d2650daedc30bed3"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_jest-dom-7.0.1-LICENSE": "bf8fd38056b7606deccfcadb4d8ca1c210082d8ef5513426d2650daedc30bed3"
       },
       "optional": false,
       "project": "publisher",
@@ -3642,10 +3642,10 @@
       "license": "MIT",
       "name": "dom-accessibility-api",
       "notice_paths": [
-        "docs/operations/notices/npm-dom-accessibility-api-0.6.3-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-dom-accessibility-api-0.6.3-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-dom-accessibility-api-0.6.3-LICENSE.md": "0ffe67fe630169de46df2d29dc18f5857b4c98f0f95b0cd9e3c21fef51f9a9b8"
+        "THIRD_PARTY_NOTICES/npm-dom-accessibility-api-0.6.3-LICENSE.md": "0ffe67fe630169de46df2d29dc18f5857b4c98f0f95b0cd9e3c21fef51f9a9b8"
       },
       "optional": false,
       "project": "publisher",
@@ -3672,10 +3672,10 @@
       "license": "MIT",
       "name": "@testing-library/react",
       "notice_paths": [
-        "docs/operations/notices/npm-_testing-library_react-16.3.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_react-16.3.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_testing-library_react-16.3.3-LICENSE": "9680978280d509520d2a7b51e93ffbf7d9ec2b9de4411a6989daba5b659048e0"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_react-16.3.3-LICENSE": "9680978280d509520d2a7b51e93ffbf7d9ec2b9de4411a6989daba5b659048e0"
       },
       "optional": false,
       "project": "publisher",
@@ -3702,10 +3702,10 @@
       "license": "MIT",
       "name": "@testing-library/user-event",
       "notice_paths": [
-        "docs/operations/notices/npm-_testing-library_user-event-14.6.8-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_user-event-14.6.8-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_testing-library_user-event-14.6.8-LICENSE": "b5a4028c49c48f820831421de69c8ea83d621a062914bf16739fd0703c7c9fba"
+        "THIRD_PARTY_NOTICES/npm-_testing-library_user-event-14.6.8-LICENSE": "b5a4028c49c48f820831421de69c8ea83d621a062914bf16739fd0703c7c9fba"
       },
       "optional": false,
       "project": "publisher",
@@ -3732,10 +3732,10 @@
       "license": "MIT",
       "name": "@types/aria-query",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_aria-query-5.0.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_aria-query-5.0.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_aria-query-5.0.4-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_aria-query-5.0.4-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3762,10 +3762,10 @@
       "license": "MIT",
       "name": "@types/chai",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_chai-5.2.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_chai-5.2.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_chai-5.2.3-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_chai-5.2.3-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3792,10 +3792,10 @@
       "license": "MIT",
       "name": "@types/deep-eql",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_deep-eql-4.0.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_deep-eql-4.0.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_deep-eql-4.0.2-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_deep-eql-4.0.2-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3822,10 +3822,10 @@
       "license": "MIT",
       "name": "@types/estree",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_estree-1.0.9-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_estree-1.0.9-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_estree-1.0.9-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_estree-1.0.9-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3852,10 +3852,10 @@
       "license": "MIT",
       "name": "@types/node",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_node-24.19.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_node-24.19.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_node-24.19.2-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_node-24.19.2-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3882,10 +3882,10 @@
       "license": "MIT",
       "name": "@types/react",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_react-19.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_react-19.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_react-19.3.0-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_react-19.3.0-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3912,10 +3912,10 @@
       "license": "MIT",
       "name": "@types/react-dom",
       "notice_paths": [
-        "docs/operations/notices/npm-_types_react-dom-19.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_types_react-dom-19.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_types_react-dom-19.3.0-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        "THIRD_PARTY_NOTICES/npm-_types_react-dom-19.3.0-LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
       },
       "optional": false,
       "project": "publisher",
@@ -3942,10 +3942,10 @@
       "license": "MIT",
       "name": "@vitejs/plugin-react",
       "notice_paths": [
-        "docs/operations/notices/npm-_vitejs_plugin-react-6.1.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_vitejs_plugin-react-6.1.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_vitejs_plugin-react-6.1.2-LICENSE": "29b68325fe026047d13e187b44c33b2acacf7dc647dec4583702e59f235e13b5"
+        "THIRD_PARTY_NOTICES/npm-_vitejs_plugin-react-6.1.2-LICENSE": "29b68325fe026047d13e187b44c33b2acacf7dc647dec4583702e59f235e13b5"
       },
       "optional": false,
       "project": "publisher",
@@ -3972,10 +3972,10 @@
       "license": "MIT",
       "name": "@vitest/mocker",
       "notice_paths": [
-        "docs/operations/notices/npm-_vitest_mocker-5.0.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_vitest_mocker-5.0.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_vitest_mocker-5.0.4-LICENSE": "04575fc5bfae19a9b63100f8691f901a2e15a399011ac02db435a9ef27295551"
+        "THIRD_PARTY_NOTICES/npm-_vitest_mocker-5.0.4-LICENSE": "04575fc5bfae19a9b63100f8691f901a2e15a399011ac02db435a9ef27295551"
       },
       "optional": false,
       "project": "publisher",
@@ -4002,10 +4002,10 @@
       "license": "MIT",
       "name": "@vitest/spy",
       "notice_paths": [
-        "docs/operations/notices/npm-_vitest_spy-5.0.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_vitest_spy-5.0.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_vitest_spy-5.0.4-LICENSE": "04575fc5bfae19a9b63100f8691f901a2e15a399011ac02db435a9ef27295551"
+        "THIRD_PARTY_NOTICES/npm-_vitest_spy-5.0.4-LICENSE": "04575fc5bfae19a9b63100f8691f901a2e15a399011ac02db435a9ef27295551"
       },
       "optional": false,
       "project": "publisher",
@@ -4032,10 +4032,10 @@
       "license": "MIT",
       "name": "agent-base",
       "notice_paths": [
-        "docs/operations/notices/npm-agent-base-7.1.4-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-agent-base-7.1.4-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-agent-base-7.1.4-LICENSE": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
+        "THIRD_PARTY_NOTICES/npm-agent-base-7.1.4-LICENSE": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
       },
       "optional": false,
       "project": "publisher",
@@ -4062,10 +4062,10 @@
       "license": "MIT",
       "name": "ansi-colors",
       "notice_paths": [
-        "docs/operations/notices/npm-ansi-colors-4.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-ansi-colors-4.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-ansi-colors-4.1.3-LICENSE": "94e1923e52409cfd50e97988d9772c0de15f65700097e3227fec367a39e82b94"
+        "THIRD_PARTY_NOTICES/npm-ansi-colors-4.1.3-LICENSE": "94e1923e52409cfd50e97988d9772c0de15f65700097e3227fec367a39e82b94"
       },
       "optional": false,
       "project": "publisher",
@@ -4092,10 +4092,10 @@
       "license": "MIT",
       "name": "ansi-regex",
       "notice_paths": [
-        "docs/operations/notices/npm-ansi-regex-5.0.1-license"
+        "THIRD_PARTY_NOTICES/npm-ansi-regex-5.0.1-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-ansi-regex-5.0.1-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-ansi-regex-5.0.1-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "publisher",
@@ -4122,10 +4122,10 @@
       "license": "MIT",
       "name": "ansi-styles",
       "notice_paths": [
-        "docs/operations/notices/npm-ansi-styles-5.2.0-license"
+        "THIRD_PARTY_NOTICES/npm-ansi-styles-5.2.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-ansi-styles-5.2.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-ansi-styles-5.2.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "publisher",
@@ -4152,10 +4152,10 @@
       "license": "Python-2.0",
       "name": "argparse",
       "notice_paths": [
-        "docs/operations/notices/npm-argparse-2.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-argparse-2.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-argparse-2.0.1-LICENSE": "de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+        "THIRD_PARTY_NOTICES/npm-argparse-2.0.1-LICENSE": "de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
       },
       "optional": false,
       "project": "publisher",
@@ -4182,10 +4182,10 @@
       "license": "MIT",
       "name": "aria-hidden",
       "notice_paths": [
-        "docs/operations/notices/npm-aria-hidden-1.2.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-aria-hidden-1.2.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-aria-hidden-1.2.6-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
+        "THIRD_PARTY_NOTICES/npm-aria-hidden-1.2.6-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
       },
       "optional": false,
       "project": "publisher",
@@ -4212,10 +4212,10 @@
       "license": "Apache-2.0",
       "name": "aria-query",
       "notice_paths": [
-        "docs/operations/notices/npm-aria-query-5.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-aria-query-5.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-aria-query-5.3.0-LICENSE": "c8df456c7ccba74b959087dff494d4ac2a12dfb0400c08b46b2494a08a000567"
+        "THIRD_PARTY_NOTICES/npm-aria-query-5.3.0-LICENSE": "c8df456c7ccba74b959087dff494d4ac2a12dfb0400c08b46b2494a08a000567"
       },
       "optional": false,
       "project": "publisher",
@@ -4242,10 +4242,10 @@
       "license": "MIT",
       "name": "assertion-error",
       "notice_paths": [
-        "docs/operations/notices/npm-assertion-error-2.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-assertion-error-2.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-assertion-error-2.0.1-LICENSE": "2130216d5ab4c02134f8247f32999feda0abe1eaf028218baeac445c19ce4cea"
+        "THIRD_PARTY_NOTICES/npm-assertion-error-2.0.1-LICENSE": "2130216d5ab4c02134f8247f32999feda0abe1eaf028218baeac445c19ce4cea"
       },
       "optional": false,
       "project": "publisher",
@@ -4272,10 +4272,10 @@
       "license": "MIT",
       "name": "balanced-match",
       "notice_paths": [
-        "docs/operations/notices/npm-balanced-match-1.0.2-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-balanced-match-1.0.2-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-balanced-match-1.0.2-LICENSE.md": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        "THIRD_PARTY_NOTICES/npm-balanced-match-1.0.2-LICENSE.md": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
       },
       "optional": false,
       "project": "publisher",
@@ -4302,10 +4302,10 @@
       "license": "MIT",
       "name": "bidi-js",
       "notice_paths": [
-        "docs/operations/notices/npm-bidi-js-1.1.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-bidi-js-1.1.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-bidi-js-1.1.0-LICENSE.txt": "49d4d143fed599deb502a0fe6e02f49832f87e9a3a4cd0502e469596d50faa6d"
+        "THIRD_PARTY_NOTICES/npm-bidi-js-1.1.0-LICENSE.txt": "49d4d143fed599deb502a0fe6e02f49832f87e9a3a4cd0502e469596d50faa6d"
       },
       "optional": false,
       "project": "publisher",
@@ -4332,10 +4332,10 @@
       "license": "MIT",
       "name": "brace-expansion",
       "notice_paths": [
-        "docs/operations/notices/npm-brace-expansion-2.1.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-brace-expansion-2.1.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-brace-expansion-2.1.7-LICENSE": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        "THIRD_PARTY_NOTICES/npm-brace-expansion-2.1.7-LICENSE": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
       },
       "optional": false,
       "project": "publisher",
@@ -4362,10 +4362,10 @@
       "license": "MIT",
       "name": "chai",
       "notice_paths": [
-        "docs/operations/notices/npm-chai-6.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-chai-6.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-chai-6.3.0-LICENSE": "b181da80336ff9dd1043fc8be1a764d7382363433319aa872e4d2cb5ce2a3066"
+        "THIRD_PARTY_NOTICES/npm-chai-6.3.0-LICENSE": "b181da80336ff9dd1043fc8be1a764d7382363433319aa872e4d2cb5ce2a3066"
       },
       "optional": false,
       "project": "publisher",
@@ -4415,10 +4415,10 @@
       "license": "MIT",
       "name": "classnames",
       "notice_paths": [
-        "docs/operations/notices/npm-classnames-2.5.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-classnames-2.5.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-classnames-2.5.1-LICENSE": "0c1c24dcc129cb0c02ee9803cfa7a50061c236a3b59b36a714c27f3ade66d7be"
+        "THIRD_PARTY_NOTICES/npm-classnames-2.5.1-LICENSE": "0c1c24dcc129cb0c02ee9803cfa7a50061c236a3b59b36a714c27f3ade66d7be"
       },
       "optional": false,
       "project": "publisher",
@@ -4445,10 +4445,10 @@
       "license": "MIT",
       "name": "colorette",
       "notice_paths": [
-        "docs/operations/notices/npm-colorette-1.4.0-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-colorette-1.4.0-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-colorette-1.4.0-LICENSE.md": "f101c761d255d0dddc77dd8a9327733b03d381798ec54a1bb718367207b48a8e"
+        "THIRD_PARTY_NOTICES/npm-colorette-1.4.0-LICENSE.md": "f101c761d255d0dddc77dd8a9327733b03d381798ec54a1bb718367207b48a8e"
       },
       "optional": false,
       "project": "publisher",
@@ -4475,10 +4475,10 @@
       "license": "MIT",
       "name": "cookie",
       "notice_paths": [
-        "docs/operations/notices/npm-cookie-1.1.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-cookie-1.1.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-cookie-1.1.1-LICENSE": "c02110eedc16c7114f1a9bdc026c65626ce1d9c7e27fd51a8e0feee8a48a6858"
+        "THIRD_PARTY_NOTICES/npm-cookie-1.1.1-LICENSE": "c02110eedc16c7114f1a9bdc026c65626ce1d9c7e27fd51a8e0feee8a48a6858"
       },
       "optional": false,
       "project": "publisher",
@@ -4505,10 +4505,10 @@
       "license": "MIT",
       "name": "css-tree",
       "notice_paths": [
-        "docs/operations/notices/npm-css-tree-3.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-css-tree-3.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-css-tree-3.2.1-LICENSE": "719a251ceca49c057ea90a1152af6546b767ec88e6d573bb6324454267b32c22"
+        "THIRD_PARTY_NOTICES/npm-css-tree-3.2.1-LICENSE": "719a251ceca49c057ea90a1152af6546b767ec88e6d573bb6324454267b32c22"
       },
       "optional": false,
       "project": "publisher",
@@ -4558,10 +4558,10 @@
       "license": "MIT",
       "name": "csstype",
       "notice_paths": [
-        "docs/operations/notices/npm-csstype-3.2.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-csstype-3.2.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-csstype-3.2.3-LICENSE": "11d55bd4541c75ee7879547ac49089c489163dae49551389713c3d026cab383e"
+        "THIRD_PARTY_NOTICES/npm-csstype-3.2.3-LICENSE": "11d55bd4541c75ee7879547ac49089c489163dae49551389713c3d026cab383e"
       },
       "optional": false,
       "project": "publisher",
@@ -4588,10 +4588,10 @@
       "license": "MIT",
       "name": "data-urls",
       "notice_paths": [
-        "docs/operations/notices/npm-data-urls-8.0.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-data-urls-8.0.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-data-urls-8.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
+        "THIRD_PARTY_NOTICES/npm-data-urls-8.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
       },
       "optional": false,
       "project": "publisher",
@@ -4618,10 +4618,10 @@
       "license": "MIT",
       "name": "debug",
       "notice_paths": [
-        "docs/operations/notices/npm-debug-4.4.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-debug-4.4.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-debug-4.4.3-LICENSE": "3a61c6c96caf5c1d9b623fb9b04c822b783dfcb78aa7e49c76a3f643e6ed7f95"
+        "THIRD_PARTY_NOTICES/npm-debug-4.4.3-LICENSE": "3a61c6c96caf5c1d9b623fb9b04c822b783dfcb78aa7e49c76a3f643e6ed7f95"
       },
       "optional": false,
       "project": "publisher",
@@ -4648,10 +4648,10 @@
       "license": "MIT",
       "name": "decimal.js",
       "notice_paths": [
-        "docs/operations/notices/npm-decimal.js-10.6.0-LICENCE.md"
+        "THIRD_PARTY_NOTICES/npm-decimal.js-10.6.0-LICENCE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-decimal.js-10.6.0-LICENCE.md": "3108b546bcff5d346923a82f48b2d252ca722f9088076db6d145f6b67757ad6c"
+        "THIRD_PARTY_NOTICES/npm-decimal.js-10.6.0-LICENCE.md": "3108b546bcff5d346923a82f48b2d252ca722f9088076db6d145f6b67757ad6c"
       },
       "optional": false,
       "project": "publisher",
@@ -4678,10 +4678,10 @@
       "license": "MIT",
       "name": "dequal",
       "notice_paths": [
-        "docs/operations/notices/npm-dequal-2.0.3-license"
+        "THIRD_PARTY_NOTICES/npm-dequal-2.0.3-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-dequal-2.0.3-license": "306fa513e39b23a6e8747520de761809d206b99800ef41907b530226574c59ae"
+        "THIRD_PARTY_NOTICES/npm-dequal-2.0.3-license": "306fa513e39b23a6e8747520de761809d206b99800ef41907b530226574c59ae"
       },
       "optional": false,
       "project": "publisher",
@@ -4708,10 +4708,10 @@
       "license": "Apache-2.0",
       "name": "detect-libc",
       "notice_paths": [
-        "docs/operations/notices/npm-detect-libc-2.1.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-detect-libc-2.1.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-detect-libc-2.1.2-LICENSE": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        "THIRD_PARTY_NOTICES/npm-detect-libc-2.1.2-LICENSE": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
       },
       "optional": false,
       "project": "publisher",
@@ -4738,10 +4738,10 @@
       "license": "MIT",
       "name": "detect-node-es",
       "notice_paths": [
-        "docs/operations/notices/npm-detect-node-es-1.1.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-detect-node-es-1.1.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-detect-node-es-1.1.0-LICENSE": "54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8"
+        "THIRD_PARTY_NOTICES/npm-detect-node-es-1.1.0-LICENSE": "54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8"
       },
       "optional": false,
       "project": "publisher",
@@ -4768,10 +4768,10 @@
       "license": "MIT",
       "name": "dom-accessibility-api",
       "notice_paths": [
-        "docs/operations/notices/npm-dom-accessibility-api-0.5.16-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-dom-accessibility-api-0.5.16-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-dom-accessibility-api-0.5.16-LICENSE.md": "0ffe67fe630169de46df2d29dc18f5857b4c98f0f95b0cd9e3c21fef51f9a9b8"
+        "THIRD_PARTY_NOTICES/npm-dom-accessibility-api-0.5.16-LICENSE.md": "0ffe67fe630169de46df2d29dc18f5857b4c98f0f95b0cd9e3c21fef51f9a9b8"
       },
       "optional": false,
       "project": "publisher",
@@ -4798,10 +4798,10 @@
       "license": "BSD-2-Clause",
       "name": "entities",
       "notice_paths": [
-        "docs/operations/notices/npm-entities-8.1.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-entities-8.1.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-entities-8.1.0-LICENSE": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+        "THIRD_PARTY_NOTICES/npm-entities-8.1.0-LICENSE": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
       },
       "optional": false,
       "project": "publisher",
@@ -4828,10 +4828,10 @@
       "license": "MIT",
       "name": "es-module-lexer",
       "notice_paths": [
-        "docs/operations/notices/npm-es-module-lexer-2.3.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-es-module-lexer-2.3.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-es-module-lexer-2.3.2-LICENSE": "8a4b6c44eebfb026d23719a348145a661a555568dbfdc11618ff2d0dd9306b00"
+        "THIRD_PARTY_NOTICES/npm-es-module-lexer-2.3.2-LICENSE": "8a4b6c44eebfb026d23719a348145a661a555568dbfdc11618ff2d0dd9306b00"
       },
       "optional": false,
       "project": "publisher",
@@ -4858,10 +4858,10 @@
       "license": "MIT",
       "name": "estree-walker",
       "notice_paths": [
-        "docs/operations/notices/npm-estree-walker-3.0.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-estree-walker-3.0.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-estree-walker-3.0.3-LICENSE": "8a6dcbabe7179f9c8489c08a7d874d0f1e093ae7449e03756ccf87cb9d0e296e"
+        "THIRD_PARTY_NOTICES/npm-estree-walker-3.0.3-LICENSE": "8a6dcbabe7179f9c8489c08a7d874d0f1e093ae7449e03756ccf87cb9d0e296e"
       },
       "optional": false,
       "project": "publisher",
@@ -4888,10 +4888,10 @@
       "license": "Apache-2.0",
       "name": "expect-type",
       "notice_paths": [
-        "docs/operations/notices/npm-expect-type-1.4.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-expect-type-1.4.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-expect-type-1.4.0-LICENSE": "7c6cc83c84eaa249a85bf12fe3eedd831bb50c696e8890b5248223ae68c7b408"
+        "THIRD_PARTY_NOTICES/npm-expect-type-1.4.0-LICENSE": "7c6cc83c84eaa249a85bf12fe3eedd831bb50c696e8890b5248223ae68c7b408"
       },
       "optional": false,
       "project": "publisher",
@@ -4918,10 +4918,10 @@
       "license": "MIT",
       "name": "fast-deep-equal",
       "notice_paths": [
-        "docs/operations/notices/npm-fast-deep-equal-3.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-fast-deep-equal-3.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-fast-deep-equal-3.1.3-LICENSE": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+        "THIRD_PARTY_NOTICES/npm-fast-deep-equal-3.1.3-LICENSE": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
       },
       "optional": false,
       "project": "publisher",
@@ -4948,10 +4948,10 @@
       "license": "MIT",
       "name": "fdir",
       "notice_paths": [
-        "docs/operations/notices/npm-fdir-6.5.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-fdir-6.5.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-fdir-6.5.0-LICENSE": "9a39f2aadab11a3697edd668ff2d8ad885b649737b7ab4d3bf12b34e5ada0c86"
+        "THIRD_PARTY_NOTICES/npm-fdir-6.5.0-LICENSE": "9a39f2aadab11a3697edd668ff2d8ad885b649737b7ab4d3bf12b34e5ada0c86"
       },
       "optional": false,
       "project": "publisher",
@@ -4991,10 +4991,10 @@
       "license": "MIT",
       "name": "get-nonce",
       "notice_paths": [
-        "docs/operations/notices/npm-get-nonce-1.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-get-nonce-1.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-get-nonce-1.0.1-LICENSE": "acf3b087b348d2f2e731b9d4131af185aad694c1204ce14a46909483fd42da05"
+        "THIRD_PARTY_NOTICES/npm-get-nonce-1.0.1-LICENSE": "acf3b087b348d2f2e731b9d4131af185aad694c1204ce14a46909483fd42da05"
       },
       "optional": false,
       "project": "publisher",
@@ -5021,10 +5021,10 @@
       "license": "MIT",
       "name": "html-encoding-sniffer",
       "notice_paths": [
-        "docs/operations/notices/npm-html-encoding-sniffer-7.0.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-html-encoding-sniffer-7.0.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-html-encoding-sniffer-7.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
+        "THIRD_PARTY_NOTICES/npm-html-encoding-sniffer-7.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
       },
       "optional": false,
       "project": "publisher",
@@ -5051,10 +5051,10 @@
       "license": "MIT",
       "name": "https-proxy-agent",
       "notice_paths": [
-        "docs/operations/notices/npm-https-proxy-agent-7.0.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-https-proxy-agent-7.0.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-https-proxy-agent-7.0.6-LICENSE": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
+        "THIRD_PARTY_NOTICES/npm-https-proxy-agent-7.0.6-LICENSE": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
       },
       "optional": false,
       "project": "publisher",
@@ -5081,10 +5081,10 @@
       "license": "MIT",
       "name": "indent-string",
       "notice_paths": [
-        "docs/operations/notices/npm-indent-string-4.0.0-license"
+        "THIRD_PARTY_NOTICES/npm-indent-string-4.0.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-indent-string-4.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-indent-string-4.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "publisher",
@@ -5111,10 +5111,10 @@
       "license": "MIT",
       "name": "index-to-position",
       "notice_paths": [
-        "docs/operations/notices/npm-index-to-position-1.2.0-license"
+        "THIRD_PARTY_NOTICES/npm-index-to-position-1.2.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-index-to-position-1.2.0-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        "THIRD_PARTY_NOTICES/npm-index-to-position-1.2.0-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
       },
       "optional": false,
       "project": "publisher",
@@ -5164,10 +5164,10 @@
       "license": "MIT",
       "name": "js-levenshtein",
       "notice_paths": [
-        "docs/operations/notices/npm-js-levenshtein-1.1.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-js-levenshtein-1.1.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-js-levenshtein-1.1.6-LICENSE": "0f57363c43caf754cf943327878c910ce1386c82c029462cf7274c4a50b5961f"
+        "THIRD_PARTY_NOTICES/npm-js-levenshtein-1.1.6-LICENSE": "0f57363c43caf754cf943327878c910ce1386c82c029462cf7274c4a50b5961f"
       },
       "optional": false,
       "project": "publisher",
@@ -5194,10 +5194,10 @@
       "license": "MIT",
       "name": "js-tokens",
       "notice_paths": [
-        "docs/operations/notices/npm-js-tokens-4.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-js-tokens-4.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-js-tokens-4.0.0-LICENSE": "2213d91c606205c71eb051a199478cdc2adde945893404d7f1421436dd6d5cc1"
+        "THIRD_PARTY_NOTICES/npm-js-tokens-4.0.0-LICENSE": "2213d91c606205c71eb051a199478cdc2adde945893404d7f1421436dd6d5cc1"
       },
       "optional": false,
       "project": "publisher",
@@ -5224,10 +5224,10 @@
       "license": "MIT",
       "name": "js-yaml",
       "notice_paths": [
-        "docs/operations/notices/npm-js-yaml-4.3.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-js-yaml-4.3.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-js-yaml-4.3.2-LICENSE": "a07bc24468b9654ce76a547d47a2db282d07733b715db4c73a98bd63961f9550"
+        "THIRD_PARTY_NOTICES/npm-js-yaml-4.3.2-LICENSE": "a07bc24468b9654ce76a547d47a2db282d07733b715db4c73a98bd63961f9550"
       },
       "optional": false,
       "project": "publisher",
@@ -5254,10 +5254,10 @@
       "license": "MIT",
       "name": "jsdom",
       "notice_paths": [
-        "docs/operations/notices/npm-jsdom-30.1.2-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-jsdom-30.1.2-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-jsdom-30.1.2-LICENSE.txt": "242d37e7cab25cbafc36cc973ee88f9345fddf066afe4f72b7ac3d9ad4e24cce"
+        "THIRD_PARTY_NOTICES/npm-jsdom-30.1.2-LICENSE.txt": "242d37e7cab25cbafc36cc973ee88f9345fddf066afe4f72b7ac3d9ad4e24cce"
       },
       "optional": false,
       "project": "publisher",
@@ -5284,10 +5284,10 @@
       "license": "MIT",
       "name": "json-schema-traverse",
       "notice_paths": [
-        "docs/operations/notices/npm-json-schema-traverse-1.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-json-schema-traverse-1.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-json-schema-traverse-1.0.0-LICENSE": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+        "THIRD_PARTY_NOTICES/npm-json-schema-traverse-1.0.0-LICENSE": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
       },
       "optional": false,
       "project": "publisher",
@@ -5314,10 +5314,10 @@
       "license": "MPL-2.0",
       "name": "lightningcss",
       "notice_paths": [
-        "docs/operations/notices/npm-lightningcss-1.33.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-1.33.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-lightningcss-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
       },
       "optional": false,
       "project": "publisher",
@@ -5435,10 +5435,10 @@
       "license": "MPL-2.0",
       "name": "lightningcss-linux-x64-gnu",
       "notice_paths": [
-        "docs/operations/notices/npm-lightningcss-linux-x64-gnu-1.33.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-linux-x64-gnu-1.33.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-lightningcss-linux-x64-gnu-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-linux-x64-gnu-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
       },
       "optional": true,
       "project": "publisher",
@@ -5465,10 +5465,10 @@
       "license": "MPL-2.0",
       "name": "lightningcss-linux-x64-musl",
       "notice_paths": [
-        "docs/operations/notices/npm-lightningcss-linux-x64-musl-1.33.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-linux-x64-musl-1.33.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-lightningcss-linux-x64-musl-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
+        "THIRD_PARTY_NOTICES/npm-lightningcss-linux-x64-musl-1.33.0-LICENSE": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e"
       },
       "optional": true,
       "project": "publisher",
@@ -5521,10 +5521,10 @@
       "license": "BlueOak-1.0.0",
       "name": "lru-cache",
       "notice_paths": [
-        "docs/operations/notices/npm-lru-cache-11.5.3-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-lru-cache-11.5.3-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-lru-cache-11.5.3-LICENSE.md": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        "THIRD_PARTY_NOTICES/npm-lru-cache-11.5.3-LICENSE.md": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
       },
       "optional": false,
       "project": "publisher",
@@ -5551,10 +5551,10 @@
       "license": "MIT",
       "name": "lz-string",
       "notice_paths": [
-        "docs/operations/notices/npm-lz-string-1.5.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-lz-string-1.5.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-lz-string-1.5.0-LICENSE": "433fc9dfe659dbfb1e91eed8351f13651e97bfa3ac6d03394c3d63f61d4bbc80"
+        "THIRD_PARTY_NOTICES/npm-lz-string-1.5.0-LICENSE": "433fc9dfe659dbfb1e91eed8351f13651e97bfa3ac6d03394c3d63f61d4bbc80"
       },
       "optional": false,
       "project": "publisher",
@@ -5581,10 +5581,10 @@
       "license": "MIT",
       "name": "magic-string",
       "notice_paths": [
-        "docs/operations/notices/npm-magic-string-1.4.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-magic-string-1.4.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-magic-string-1.4.3-LICENSE": "1cbe51b907662f6cb1492b16c359384a595180bf0e4d101603ed525e75c4e484"
+        "THIRD_PARTY_NOTICES/npm-magic-string-1.4.3-LICENSE": "1cbe51b907662f6cb1492b16c359384a595180bf0e4d101603ed525e75c4e484"
       },
       "optional": false,
       "project": "publisher",
@@ -5611,10 +5611,10 @@
       "license": "CC0-1.0",
       "name": "mdn-data",
       "notice_paths": [
-        "docs/operations/notices/npm-mdn-data-2.27.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-mdn-data-2.27.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-mdn-data-2.27.1-LICENSE": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
+        "THIRD_PARTY_NOTICES/npm-mdn-data-2.27.1-LICENSE": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
       },
       "optional": false,
       "project": "publisher",
@@ -5641,10 +5641,10 @@
       "license": "MIT",
       "name": "min-indent",
       "notice_paths": [
-        "docs/operations/notices/npm-min-indent-1.0.1-license"
+        "THIRD_PARTY_NOTICES/npm-min-indent-1.0.1-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-min-indent-1.0.1-license": "9638fa87f845af6cecc56fab498c1f74f4a98522d3b53377bedcbdb44b5a8dcc"
+        "THIRD_PARTY_NOTICES/npm-min-indent-1.0.1-license": "9638fa87f845af6cecc56fab498c1f74f4a98522d3b53377bedcbdb44b5a8dcc"
       },
       "optional": false,
       "project": "publisher",
@@ -5671,10 +5671,10 @@
       "license": "ISC",
       "name": "minimatch",
       "notice_paths": [
-        "docs/operations/notices/npm-minimatch-5.1.9-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-minimatch-5.1.9-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-minimatch-5.1.9-LICENSE": "d11323827fa4edeaafc437cc5b91b6971b335f0127efeeb42bf5122fe8657e8f"
+        "THIRD_PARTY_NOTICES/npm-minimatch-5.1.9-LICENSE": "d11323827fa4edeaafc437cc5b91b6971b335f0127efeeb42bf5122fe8657e8f"
       },
       "optional": false,
       "project": "publisher",
@@ -5701,10 +5701,10 @@
       "license": "MIT",
       "name": "ms",
       "notice_paths": [
-        "docs/operations/notices/npm-ms-2.1.3-license.md"
+        "THIRD_PARTY_NOTICES/npm-ms-2.1.3-license.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-ms-2.1.3-license.md": "1662fae9b5314d11cf51284e2dcd1f006a354f7343f08712a730fcff9a359801"
+        "THIRD_PARTY_NOTICES/npm-ms-2.1.3-license.md": "1662fae9b5314d11cf51284e2dcd1f006a354f7343f08712a730fcff9a359801"
       },
       "optional": false,
       "project": "publisher",
@@ -5731,10 +5731,10 @@
       "license": "MIT",
       "name": "nanoid",
       "notice_paths": [
-        "docs/operations/notices/npm-nanoid-3.3.20-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-nanoid-3.3.20-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-nanoid-3.3.20-LICENSE": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987"
+        "THIRD_PARTY_NOTICES/npm-nanoid-3.3.20-LICENSE": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987"
       },
       "optional": false,
       "project": "publisher",
@@ -5761,10 +5761,10 @@
       "license": "MIT",
       "name": "obug",
       "notice_paths": [
-        "docs/operations/notices/npm-obug-3.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-obug-3.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-obug-3.0.0-LICENSE": "ee48679d379ca6b4493d5e231094d85f818dd9be40b1a4f234fb7ff657ee35d9"
+        "THIRD_PARTY_NOTICES/npm-obug-3.0.0-LICENSE": "ee48679d379ca6b4493d5e231094d85f818dd9be40b1a4f234fb7ff657ee35d9"
       },
       "optional": false,
       "project": "publisher",
@@ -5791,10 +5791,10 @@
       "license": "MIT",
       "name": "openapi-fetch",
       "notice_paths": [
-        "docs/operations/notices/npm-openapi-fetch-0.17.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-openapi-fetch-0.17.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-openapi-fetch-0.17.0-LICENSE": "bbcaaa447169c969087d38c3edc9ce44a6bd4f67152a8eed5aa9d43969e23edc"
+        "THIRD_PARTY_NOTICES/npm-openapi-fetch-0.17.0-LICENSE": "bbcaaa447169c969087d38c3edc9ce44a6bd4f67152a8eed5aa9d43969e23edc"
       },
       "optional": false,
       "project": "publisher",
@@ -5821,10 +5821,10 @@
       "license": "MIT",
       "name": "openapi-typescript",
       "notice_paths": [
-        "docs/operations/notices/npm-openapi-typescript-7.13.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-openapi-typescript-7.13.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-openapi-typescript-7.13.0-LICENSE": "ed4b2c8f3a9aad2bd9fb8088d3e2a142116a13627c7223c28315c65e3ab9bd41"
+        "THIRD_PARTY_NOTICES/npm-openapi-typescript-7.13.0-LICENSE": "ed4b2c8f3a9aad2bd9fb8088d3e2a142116a13627c7223c28315c65e3ab9bd41"
       },
       "optional": false,
       "project": "publisher",
@@ -5851,10 +5851,10 @@
       "license": "MIT",
       "name": "openapi-typescript-helpers",
       "notice_paths": [
-        "docs/operations/notices/npm-openapi-typescript-helpers-0.1.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-openapi-typescript-helpers-0.1.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-openapi-typescript-helpers-0.1.0-LICENSE": "bbcaaa447169c969087d38c3edc9ce44a6bd4f67152a8eed5aa9d43969e23edc"
+        "THIRD_PARTY_NOTICES/npm-openapi-typescript-helpers-0.1.0-LICENSE": "bbcaaa447169c969087d38c3edc9ce44a6bd4f67152a8eed5aa9d43969e23edc"
       },
       "optional": false,
       "project": "publisher",
@@ -5881,10 +5881,10 @@
       "license": "MIT",
       "name": "parse-json",
       "notice_paths": [
-        "docs/operations/notices/npm-parse-json-8.3.0-license"
+        "THIRD_PARTY_NOTICES/npm-parse-json-8.3.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-parse-json-8.3.0-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        "THIRD_PARTY_NOTICES/npm-parse-json-8.3.0-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
       },
       "optional": false,
       "project": "publisher",
@@ -5911,10 +5911,10 @@
       "license": "MIT",
       "name": "parse5",
       "notice_paths": [
-        "docs/operations/notices/npm-parse5-8.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-parse5-8.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-parse5-8.0.1-LICENSE": "8c535800331e1e4439835555b3f9edc7fe9dee2fab0d8bbbd5a982e8b8343d4d"
+        "THIRD_PARTY_NOTICES/npm-parse5-8.0.1-LICENSE": "8c535800331e1e4439835555b3f9edc7fe9dee2fab0d8bbbd5a982e8b8343d4d"
       },
       "optional": false,
       "project": "publisher",
@@ -5941,10 +5941,10 @@
       "license": "ISC",
       "name": "picocolors",
       "notice_paths": [
-        "docs/operations/notices/npm-picocolors-1.1.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-picocolors-1.1.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-picocolors-1.1.1-LICENSE": "6582629e2979466878f6014313dcc2f3756c9616148682227ce3063dde310750"
+        "THIRD_PARTY_NOTICES/npm-picocolors-1.1.1-LICENSE": "6582629e2979466878f6014313dcc2f3756c9616148682227ce3063dde310750"
       },
       "optional": false,
       "project": "publisher",
@@ -5971,10 +5971,10 @@
       "license": "MIT",
       "name": "picomatch",
       "notice_paths": [
-        "docs/operations/notices/npm-picomatch-4.0.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-picomatch-4.0.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-picomatch-4.0.7-LICENSE": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9"
+        "THIRD_PARTY_NOTICES/npm-picomatch-4.0.7-LICENSE": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9"
       },
       "optional": false,
       "project": "publisher",
@@ -6003,12 +6003,12 @@
       "license": "Apache-2.0",
       "name": "playwright",
       "notice_paths": [
-        "docs/operations/notices/npm-playwright-1.64.0-LICENSE",
-        "docs/operations/notices/npm-playwright-1.64.0-NOTICE"
+        "THIRD_PARTY_NOTICES/npm-playwright-1.64.0-LICENSE",
+        "THIRD_PARTY_NOTICES/npm-playwright-1.64.0-NOTICE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-playwright-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
-        "docs/operations/notices/npm-playwright-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+        "THIRD_PARTY_NOTICES/npm-playwright-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
+        "THIRD_PARTY_NOTICES/npm-playwright-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
       },
       "optional": false,
       "project": "publisher",
@@ -6037,12 +6037,12 @@
       "license": "Apache-2.0",
       "name": "playwright-core",
       "notice_paths": [
-        "docs/operations/notices/npm-playwright-core-1.64.0-LICENSE",
-        "docs/operations/notices/npm-playwright-core-1.64.0-NOTICE"
+        "THIRD_PARTY_NOTICES/npm-playwright-core-1.64.0-LICENSE",
+        "THIRD_PARTY_NOTICES/npm-playwright-core-1.64.0-NOTICE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-playwright-core-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
-        "docs/operations/notices/npm-playwright-core-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+        "THIRD_PARTY_NOTICES/npm-playwright-core-1.64.0-LICENSE": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
+        "THIRD_PARTY_NOTICES/npm-playwright-core-1.64.0-NOTICE": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
       },
       "optional": false,
       "project": "publisher",
@@ -6069,10 +6069,10 @@
       "license": "MIT",
       "name": "pluralize",
       "notice_paths": [
-        "docs/operations/notices/npm-pluralize-8.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-pluralize-8.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-pluralize-8.0.0-LICENSE": "5822e0d816e53e3537b306a4132cb7a70881897cf51bf483282148a602979076"
+        "THIRD_PARTY_NOTICES/npm-pluralize-8.0.0-LICENSE": "5822e0d816e53e3537b306a4132cb7a70881897cf51bf483282148a602979076"
       },
       "optional": false,
       "project": "publisher",
@@ -6099,10 +6099,10 @@
       "license": "MIT",
       "name": "postcss",
       "notice_paths": [
-        "docs/operations/notices/npm-postcss-8.5.30-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-postcss-8.5.30-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-postcss-8.5.30-LICENSE": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8"
+        "THIRD_PARTY_NOTICES/npm-postcss-8.5.30-LICENSE": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8"
       },
       "optional": false,
       "project": "publisher",
@@ -6129,10 +6129,10 @@
       "license": "MIT",
       "name": "prettier",
       "notice_paths": [
-        "docs/operations/notices/npm-prettier-3.9.10-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-prettier-3.9.10-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-prettier-3.9.10-LICENSE": "b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c"
+        "THIRD_PARTY_NOTICES/npm-prettier-3.9.10-LICENSE": "b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c"
       },
       "optional": false,
       "project": "publisher",
@@ -6159,10 +6159,10 @@
       "license": "MIT",
       "name": "pretty-format",
       "notice_paths": [
-        "docs/operations/notices/npm-pretty-format-27.5.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-pretty-format-27.5.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-pretty-format-27.5.1-LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+        "THIRD_PARTY_NOTICES/npm-pretty-format-27.5.1-LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
       },
       "optional": false,
       "project": "publisher",
@@ -6212,10 +6212,10 @@
       "license": "MIT",
       "name": "radix-ui",
       "notice_paths": [
-        "docs/operations/notices/npm-radix-ui-1.8.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-radix-ui-1.8.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-radix-ui-1.8.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        "THIRD_PARTY_NOTICES/npm-radix-ui-1.8.1-LICENSE": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
       },
       "optional": false,
       "project": "publisher",
@@ -6242,10 +6242,10 @@
       "license": "MIT",
       "name": "react",
       "notice_paths": [
-        "docs/operations/notices/npm-react-19.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-19.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-19.3.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        "THIRD_PARTY_NOTICES/npm-react-19.3.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
       },
       "optional": false,
       "project": "publisher",
@@ -6272,10 +6272,10 @@
       "license": "MIT",
       "name": "react-dom",
       "notice_paths": [
-        "docs/operations/notices/npm-react-dom-19.3.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-dom-19.3.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-dom-19.3.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        "THIRD_PARTY_NOTICES/npm-react-dom-19.3.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
       },
       "optional": false,
       "project": "publisher",
@@ -6302,10 +6302,10 @@
       "license": "MIT",
       "name": "react-hook-form",
       "notice_paths": [
-        "docs/operations/notices/npm-react-hook-form-7.90.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-hook-form-7.90.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-hook-form-7.90.0-LICENSE": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
+        "THIRD_PARTY_NOTICES/npm-react-hook-form-7.90.0-LICENSE": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
       },
       "optional": false,
       "project": "publisher",
@@ -6332,10 +6332,10 @@
       "license": "MIT",
       "name": "react-is",
       "notice_paths": [
-        "docs/operations/notices/npm-react-is-17.0.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-is-17.0.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-is-17.0.2-LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+        "THIRD_PARTY_NOTICES/npm-react-is-17.0.2-LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
       },
       "optional": false,
       "project": "publisher",
@@ -6362,10 +6362,10 @@
       "license": "MIT",
       "name": "react-remove-scroll",
       "notice_paths": [
-        "docs/operations/notices/npm-react-remove-scroll-2.7.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-remove-scroll-2.7.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-remove-scroll-2.7.2-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
+        "THIRD_PARTY_NOTICES/npm-react-remove-scroll-2.7.2-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
       },
       "optional": false,
       "project": "publisher",
@@ -6415,10 +6415,10 @@
       "license": "MIT",
       "name": "react-router",
       "notice_paths": [
-        "docs/operations/notices/npm-react-router-7.18.4-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-react-router-7.18.4-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-router-7.18.4-LICENSE.md": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49"
+        "THIRD_PARTY_NOTICES/npm-react-router-7.18.4-LICENSE.md": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49"
       },
       "optional": false,
       "project": "publisher",
@@ -6445,10 +6445,10 @@
       "license": "MIT",
       "name": "react-router-dom",
       "notice_paths": [
-        "docs/operations/notices/npm-react-router-dom-7.18.4-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-react-router-dom-7.18.4-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-router-dom-7.18.4-LICENSE.md": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49"
+        "THIRD_PARTY_NOTICES/npm-react-router-dom-7.18.4-LICENSE.md": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49"
       },
       "optional": false,
       "project": "publisher",
@@ -6475,10 +6475,10 @@
       "license": "MIT",
       "name": "react-style-singleton",
       "notice_paths": [
-        "docs/operations/notices/npm-react-style-singleton-2.2.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-react-style-singleton-2.2.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-react-style-singleton-2.2.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
+        "THIRD_PARTY_NOTICES/npm-react-style-singleton-2.2.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
       },
       "optional": false,
       "project": "publisher",
@@ -6505,10 +6505,10 @@
       "license": "MIT",
       "name": "redent",
       "notice_paths": [
-        "docs/operations/notices/npm-redent-3.0.0-license"
+        "THIRD_PARTY_NOTICES/npm-redent-3.0.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-redent-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-redent-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "publisher",
@@ -6535,10 +6535,10 @@
       "license": "MIT",
       "name": "require-from-string",
       "notice_paths": [
-        "docs/operations/notices/npm-require-from-string-2.0.2-license"
+        "THIRD_PARTY_NOTICES/npm-require-from-string-2.0.2-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-require-from-string-2.0.2-license": "6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f"
+        "THIRD_PARTY_NOTICES/npm-require-from-string-2.0.2-license": "6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f"
       },
       "optional": false,
       "project": "publisher",
@@ -6565,10 +6565,10 @@
       "license": "MIT",
       "name": "rolldown",
       "notice_paths": [
-        "docs/operations/notices/npm-rolldown-1.2.13-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-rolldown-1.2.13-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-rolldown-1.2.13-LICENSE": "23ecfff35a5a2e80d92142f75228912c3b1abc4b5a8337a821ff4397e2f9f734"
+        "THIRD_PARTY_NOTICES/npm-rolldown-1.2.13-LICENSE": "23ecfff35a5a2e80d92142f75228912c3b1abc4b5a8337a821ff4397e2f9f734"
       },
       "optional": false,
       "project": "publisher",
@@ -6618,10 +6618,10 @@
       "license": "MIT",
       "name": "scheduler",
       "notice_paths": [
-        "docs/operations/notices/npm-scheduler-0.28.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-scheduler-0.28.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-scheduler-0.28.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        "THIRD_PARTY_NOTICES/npm-scheduler-0.28.0-LICENSE": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
       },
       "optional": false,
       "project": "publisher",
@@ -6648,10 +6648,10 @@
       "license": "MIT",
       "name": "set-cookie-parser",
       "notice_paths": [
-        "docs/operations/notices/npm-set-cookie-parser-2.7.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-set-cookie-parser-2.7.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-set-cookie-parser-2.7.2-LICENSE": "c5c6c5183a789d122f267c405f685037efb87e27fcde28ab1dd7378a2d2f5962"
+        "THIRD_PARTY_NOTICES/npm-set-cookie-parser-2.7.2-LICENSE": "c5c6c5183a789d122f267c405f685037efb87e27fcde28ab1dd7378a2d2f5962"
       },
       "optional": false,
       "project": "publisher",
@@ -6678,10 +6678,10 @@
       "license": "BSD-3-Clause",
       "name": "source-map-js",
       "notice_paths": [
-        "docs/operations/notices/npm-source-map-js-1.2.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-source-map-js-1.2.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-source-map-js-1.2.2-LICENSE": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd"
+        "THIRD_PARTY_NOTICES/npm-source-map-js-1.2.2-LICENSE": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd"
       },
       "optional": false,
       "project": "publisher",
@@ -6708,10 +6708,10 @@
       "license": "MIT",
       "name": "std-env",
       "notice_paths": [
-        "docs/operations/notices/npm-std-env-4.3.0-LICENCE"
+        "THIRD_PARTY_NOTICES/npm-std-env-4.3.0-LICENCE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-std-env-4.3.0-LICENCE": "a6f36438e46fb911859f3b9c4cad045ba64e1af3d8f4512c60258fa2d7552d28"
+        "THIRD_PARTY_NOTICES/npm-std-env-4.3.0-LICENCE": "a6f36438e46fb911859f3b9c4cad045ba64e1af3d8f4512c60258fa2d7552d28"
       },
       "optional": false,
       "project": "publisher",
@@ -6738,10 +6738,10 @@
       "license": "MIT",
       "name": "strip-indent",
       "notice_paths": [
-        "docs/operations/notices/npm-strip-indent-3.0.0-license"
+        "THIRD_PARTY_NOTICES/npm-strip-indent-3.0.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-strip-indent-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-strip-indent-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "publisher",
@@ -6768,10 +6768,10 @@
       "license": "MIT",
       "name": "supports-color",
       "notice_paths": [
-        "docs/operations/notices/npm-supports-color-10.2.2-license"
+        "THIRD_PARTY_NOTICES/npm-supports-color-10.2.2-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-supports-color-10.2.2-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        "THIRD_PARTY_NOTICES/npm-supports-color-10.2.2-license": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
       },
       "optional": false,
       "project": "publisher",
@@ -6798,10 +6798,10 @@
       "license": "MIT",
       "name": "tinybench",
       "notice_paths": [
-        "docs/operations/notices/npm-tinybench-6.2.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tinybench-6.2.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tinybench-6.2.2-LICENSE": "cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea"
+        "THIRD_PARTY_NOTICES/npm-tinybench-6.2.2-LICENSE": "cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea"
       },
       "optional": false,
       "project": "publisher",
@@ -6828,10 +6828,10 @@
       "license": "MIT",
       "name": "tinyexec",
       "notice_paths": [
-        "docs/operations/notices/npm-tinyexec-1.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tinyexec-1.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tinyexec-1.3.1-LICENSE": "f95f668fe64081ddb4153b322e34fdd719b991285ed08177d5ad7133b7988d92"
+        "THIRD_PARTY_NOTICES/npm-tinyexec-1.3.1-LICENSE": "f95f668fe64081ddb4153b322e34fdd719b991285ed08177d5ad7133b7988d92"
       },
       "optional": false,
       "project": "publisher",
@@ -6858,10 +6858,10 @@
       "license": "MIT",
       "name": "tinyglobby",
       "notice_paths": [
-        "docs/operations/notices/npm-tinyglobby-0.2.17-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tinyglobby-0.2.17-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tinyglobby-0.2.17-LICENSE": "22c68811e174cbbfb3813d4135918df4f540959c14d872e601d9abe83d3cde8f"
+        "THIRD_PARTY_NOTICES/npm-tinyglobby-0.2.17-LICENSE": "22c68811e174cbbfb3813d4135918df4f540959c14d872e601d9abe83d3cde8f"
       },
       "optional": false,
       "project": "publisher",
@@ -6888,10 +6888,10 @@
       "license": "MIT",
       "name": "tldts",
       "notice_paths": [
-        "docs/operations/notices/npm-tldts-7.4.18-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tldts-7.4.18-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tldts-7.4.18-LICENSE": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb"
+        "THIRD_PARTY_NOTICES/npm-tldts-7.4.18-LICENSE": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb"
       },
       "optional": false,
       "project": "publisher",
@@ -6918,10 +6918,10 @@
       "license": "MIT",
       "name": "tldts-core",
       "notice_paths": [
-        "docs/operations/notices/npm-tldts-core-7.4.18-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tldts-core-7.4.18-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tldts-core-7.4.18-LICENSE": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb"
+        "THIRD_PARTY_NOTICES/npm-tldts-core-7.4.18-LICENSE": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb"
       },
       "optional": false,
       "project": "publisher",
@@ -6948,10 +6948,10 @@
       "license": "BSD-3-Clause",
       "name": "tough-cookie",
       "notice_paths": [
-        "docs/operations/notices/npm-tough-cookie-6.0.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-tough-cookie-6.0.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tough-cookie-6.0.2-LICENSE": "22ec6791c91ba42c0516a05f4cbdde019aae4687f8a38c5ca7e8a69ee68f851d"
+        "THIRD_PARTY_NOTICES/npm-tough-cookie-6.0.2-LICENSE": "22ec6791c91ba42c0516a05f4cbdde019aae4687f8a38c5ca7e8a69ee68f851d"
       },
       "optional": false,
       "project": "publisher",
@@ -6978,10 +6978,10 @@
       "license": "MIT",
       "name": "tr46",
       "notice_paths": [
-        "docs/operations/notices/npm-tr46-7.0.0-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-tr46-7.0.0-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tr46-7.0.0-LICENSE.md": "499d6d466d064e0460427967a344e2a32fcb86ea8c6cd1a285ec4f1fa03fba67"
+        "THIRD_PARTY_NOTICES/npm-tr46-7.0.0-LICENSE.md": "499d6d466d064e0460427967a344e2a32fcb86ea8c6cd1a285ec4f1fa03fba67"
       },
       "optional": false,
       "project": "publisher",
@@ -7008,10 +7008,10 @@
       "license": "0BSD",
       "name": "tslib",
       "notice_paths": [
-        "docs/operations/notices/npm-tslib-2.8.1-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-tslib-2.8.1-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-tslib-2.8.1-LICENSE.txt": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+        "THIRD_PARTY_NOTICES/npm-tslib-2.8.1-LICENSE.txt": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
       },
       "optional": false,
       "project": "publisher",
@@ -7061,10 +7061,10 @@
       "license": "Apache-2.0",
       "name": "typescript",
       "notice_paths": [
-        "docs/operations/notices/npm-typescript-5.9.3-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-typescript-5.9.3-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-typescript-5.9.3-LICENSE.txt": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+        "THIRD_PARTY_NOTICES/npm-typescript-5.9.3-LICENSE.txt": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
       },
       "optional": false,
       "project": "publisher",
@@ -7091,10 +7091,10 @@
       "license": "MIT",
       "name": "undici",
       "notice_paths": [
-        "docs/operations/notices/npm-undici-8.11.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-undici-8.11.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-undici-8.11.2-LICENSE": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        "THIRD_PARTY_NOTICES/npm-undici-8.11.2-LICENSE": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
       },
       "optional": false,
       "project": "publisher",
@@ -7121,10 +7121,10 @@
       "license": "MIT",
       "name": "undici-types",
       "notice_paths": [
-        "docs/operations/notices/npm-undici-types-7.24.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-undici-types-7.24.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-undici-types-7.24.6-LICENSE": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        "THIRD_PARTY_NOTICES/npm-undici-types-7.24.6-LICENSE": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
       },
       "optional": false,
       "project": "publisher",
@@ -7174,10 +7174,10 @@
       "license": "MIT",
       "name": "use-callback-ref",
       "notice_paths": [
-        "docs/operations/notices/npm-use-callback-ref-1.3.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-use-callback-ref-1.3.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-use-callback-ref-1.3.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
+        "THIRD_PARTY_NOTICES/npm-use-callback-ref-1.3.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
       },
       "optional": false,
       "project": "publisher",
@@ -7204,10 +7204,10 @@
       "license": "MIT",
       "name": "use-sidecar",
       "notice_paths": [
-        "docs/operations/notices/npm-use-sidecar-1.1.3-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-use-sidecar-1.1.3-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-use-sidecar-1.1.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
+        "THIRD_PARTY_NOTICES/npm-use-sidecar-1.1.3-LICENSE": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9"
       },
       "optional": false,
       "project": "publisher",
@@ -7234,10 +7234,10 @@
       "license": "MIT",
       "name": "vite",
       "notice_paths": [
-        "docs/operations/notices/npm-vite-8.3.4-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-vite-8.3.4-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-vite-8.3.4-LICENSE.md": "a47172e44a86a7e2cd1c16282341f7726ec60caafe3a6166fe3e0602005b6fa6"
+        "THIRD_PARTY_NOTICES/npm-vite-8.3.4-LICENSE.md": "a47172e44a86a7e2cd1c16282341f7726ec60caafe3a6166fe3e0602005b6fa6"
       },
       "optional": false,
       "project": "publisher",
@@ -7264,10 +7264,10 @@
       "license": "MIT",
       "name": "vitest",
       "notice_paths": [
-        "docs/operations/notices/npm-vitest-5.0.4-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-vitest-5.0.4-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-vitest-5.0.4-LICENSE.md": "78fbac9e571c2ee260deb2a1941a8a18f0a85e3f39c23d08e2dcee6da4841998"
+        "THIRD_PARTY_NOTICES/npm-vitest-5.0.4-LICENSE.md": "78fbac9e571c2ee260deb2a1941a8a18f0a85e3f39c23d08e2dcee6da4841998"
       },
       "optional": false,
       "project": "publisher",
@@ -7294,10 +7294,10 @@
       "license": "MIT",
       "name": "w3c-xmlserializer",
       "notice_paths": [
-        "docs/operations/notices/npm-w3c-xmlserializer-6.0.0-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-w3c-xmlserializer-6.0.0-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-w3c-xmlserializer-6.0.0-LICENSE.md": "ab654de803cdaa9e2819ab2e934bdf7f757e308649ec231d78e80e92425cdc34"
+        "THIRD_PARTY_NOTICES/npm-w3c-xmlserializer-6.0.0-LICENSE.md": "ab654de803cdaa9e2819ab2e934bdf7f757e308649ec231d78e80e92425cdc34"
       },
       "optional": false,
       "project": "publisher",
@@ -7324,10 +7324,10 @@
       "license": "BSD-2-Clause",
       "name": "webidl-conversions",
       "notice_paths": [
-        "docs/operations/notices/npm-webidl-conversions-8.0.1-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-webidl-conversions-8.0.1-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-webidl-conversions-8.0.1-LICENSE.md": "a889cc4dbee2ae172c179856b25d75b0b7a5a136e1b97109b9b590b2ff1a879c"
+        "THIRD_PARTY_NOTICES/npm-webidl-conversions-8.0.1-LICENSE.md": "a889cc4dbee2ae172c179856b25d75b0b7a5a136e1b97109b9b590b2ff1a879c"
       },
       "optional": false,
       "project": "publisher",
@@ -7354,10 +7354,10 @@
       "license": "MIT",
       "name": "whatwg-mimetype",
       "notice_paths": [
-        "docs/operations/notices/npm-whatwg-mimetype-5.0.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-whatwg-mimetype-5.0.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-whatwg-mimetype-5.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
+        "THIRD_PARTY_NOTICES/npm-whatwg-mimetype-5.0.0-LICENSE.txt": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa"
       },
       "optional": false,
       "project": "publisher",
@@ -7384,10 +7384,10 @@
       "license": "MIT",
       "name": "whatwg-url",
       "notice_paths": [
-        "docs/operations/notices/npm-whatwg-url-17.2.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-whatwg-url-17.2.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-whatwg-url-17.2.0-LICENSE.txt": "db480f236292a093e77a83c35431a8496624e1e664a3547768a9ce2bdde39877"
+        "THIRD_PARTY_NOTICES/npm-whatwg-url-17.2.0-LICENSE.txt": "db480f236292a093e77a83c35431a8496624e1e664a3547768a9ce2bdde39877"
       },
       "optional": false,
       "project": "publisher",
@@ -7414,10 +7414,10 @@
       "license": "MIT",
       "name": "why-is-node-running",
       "notice_paths": [
-        "docs/operations/notices/npm-why-is-node-running-3.2.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-why-is-node-running-3.2.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-why-is-node-running-3.2.1-LICENSE": "6a134e51aa31496c15a741592fc5d782b2dbf8d8b6b8524e15c8520ae0cd6374"
+        "THIRD_PARTY_NOTICES/npm-why-is-node-running-3.2.1-LICENSE": "6a134e51aa31496c15a741592fc5d782b2dbf8d8b6b8524e15c8520ae0cd6374"
       },
       "optional": false,
       "project": "publisher",
@@ -7444,10 +7444,10 @@
       "license": "Apache-2.0",
       "name": "xml-name-validator",
       "notice_paths": [
-        "docs/operations/notices/npm-xml-name-validator-5.0.0-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-xml-name-validator-5.0.0-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-xml-name-validator-5.0.0-LICENSE.txt": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9"
+        "THIRD_PARTY_NOTICES/npm-xml-name-validator-5.0.0-LICENSE.txt": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9"
       },
       "optional": false,
       "project": "publisher",
@@ -7474,10 +7474,10 @@
       "license": "MIT",
       "name": "xmlchars",
       "notice_paths": [
-        "docs/operations/notices/npm-xmlchars-2.2.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-xmlchars-2.2.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-xmlchars-2.2.0-LICENSE": "45d196313c2647d313cc65ca9b093d2d6974b64d35ee7346f2c60c9d518dff2c"
+        "THIRD_PARTY_NOTICES/npm-xmlchars-2.2.0-LICENSE": "45d196313c2647d313cc65ca9b093d2d6974b64d35ee7346f2c60c9d518dff2c"
       },
       "optional": false,
       "project": "publisher",
@@ -7504,10 +7504,10 @@
       "license": "Apache-2.0",
       "name": "yaml-ast-parser",
       "notice_paths": [
-        "docs/operations/notices/npm-yaml-ast-parser-0.0.43-license.txt"
+        "THIRD_PARTY_NOTICES/npm-yaml-ast-parser-0.0.43-license.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-yaml-ast-parser-0.0.43-license.txt": "bf602897f63ff2706e3059fd60321ab5273a691833c98820433ef1d18abed6a2"
+        "THIRD_PARTY_NOTICES/npm-yaml-ast-parser-0.0.43-license.txt": "bf602897f63ff2706e3059fd60321ab5273a691833c98820433ef1d18abed6a2"
       },
       "optional": false,
       "project": "publisher",
@@ -7534,10 +7534,10 @@
       "license": "ISC",
       "name": "yargs-parser",
       "notice_paths": [
-        "docs/operations/notices/npm-yargs-parser-21.1.1-LICENSE.txt"
+        "THIRD_PARTY_NOTICES/npm-yargs-parser-21.1.1-LICENSE.txt"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-yargs-parser-21.1.1-LICENSE.txt": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d"
+        "THIRD_PARTY_NOTICES/npm-yargs-parser-21.1.1-LICENSE.txt": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d"
       },
       "optional": false,
       "project": "publisher",
@@ -7564,10 +7564,10 @@
       "license": "Apache-2.0",
       "name": "@modelcontextprotocol/client",
       "notice_paths": [
-        "docs/operations/notices/npm-_modelcontextprotocol_client-2.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_modelcontextprotocol_client-2.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_modelcontextprotocol_client-2.3.1-LICENSE": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+        "THIRD_PARTY_NOTICES/npm-_modelcontextprotocol_client-2.3.1-LICENSE": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
       },
       "optional": false,
       "project": "clients",
@@ -7594,10 +7594,10 @@
       "license": "Apache-2.0",
       "name": "@modelcontextprotocol/core",
       "notice_paths": [
-        "docs/operations/notices/npm-_modelcontextprotocol_core-2.3.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-_modelcontextprotocol_core-2.3.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-_modelcontextprotocol_core-2.3.1-LICENSE": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+        "THIRD_PARTY_NOTICES/npm-_modelcontextprotocol_core-2.3.1-LICENSE": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
       },
       "optional": false,
       "project": "clients",
@@ -7624,10 +7624,10 @@
       "license": "MIT",
       "name": "cross-spawn",
       "notice_paths": [
-        "docs/operations/notices/npm-cross-spawn-7.0.6-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-cross-spawn-7.0.6-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-cross-spawn-7.0.6-LICENSE": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
+        "THIRD_PARTY_NOTICES/npm-cross-spawn-7.0.6-LICENSE": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
       },
       "optional": false,
       "project": "clients",
@@ -7654,10 +7654,10 @@
       "license": "MIT",
       "name": "eventsource",
       "notice_paths": [
-        "docs/operations/notices/npm-eventsource-3.0.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-eventsource-3.0.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-eventsource-3.0.7-LICENSE": "f683a72ffe6a9675b5507af22fe0f448d8c8de3da1e14f139d370a7e6a54a23e"
+        "THIRD_PARTY_NOTICES/npm-eventsource-3.0.7-LICENSE": "f683a72ffe6a9675b5507af22fe0f448d8c8de3da1e14f139d370a7e6a54a23e"
       },
       "optional": false,
       "project": "clients",
@@ -7684,10 +7684,10 @@
       "license": "MIT",
       "name": "eventsource-parser",
       "notice_paths": [
-        "docs/operations/notices/npm-eventsource-parser-3.1.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-eventsource-parser-3.1.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-eventsource-parser-3.1.1-LICENSE": "835eb611a23301b27115ca1be9f754c876e643ceb7fe63049c6b50609a1cafeb"
+        "THIRD_PARTY_NOTICES/npm-eventsource-parser-3.1.1-LICENSE": "835eb611a23301b27115ca1be9f754c876e643ceb7fe63049c6b50609a1cafeb"
       },
       "optional": false,
       "project": "clients",
@@ -7714,10 +7714,10 @@
       "license": "ISC",
       "name": "isexe",
       "notice_paths": [
-        "docs/operations/notices/npm-isexe-2.0.0-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-isexe-2.0.0-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-isexe-2.0.0-LICENSE": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        "THIRD_PARTY_NOTICES/npm-isexe-2.0.0-LICENSE": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
       },
       "optional": false,
       "project": "clients",
@@ -7744,10 +7744,10 @@
       "license": "MIT",
       "name": "jose",
       "notice_paths": [
-        "docs/operations/notices/npm-jose-6.2.12-LICENSE.md"
+        "THIRD_PARTY_NOTICES/npm-jose-6.2.12-LICENSE.md"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-jose-6.2.12-LICENSE.md": "8078b0829d6c3e9ecde2f003e1966e4cad3efc6e7a640efbab0313cc166b1af1"
+        "THIRD_PARTY_NOTICES/npm-jose-6.2.12-LICENSE.md": "8078b0829d6c3e9ecde2f003e1966e4cad3efc6e7a640efbab0313cc166b1af1"
       },
       "optional": false,
       "project": "clients",
@@ -7774,10 +7774,10 @@
       "license": "MIT",
       "name": "path-key",
       "notice_paths": [
-        "docs/operations/notices/npm-path-key-3.1.1-license"
+        "THIRD_PARTY_NOTICES/npm-path-key-3.1.1-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-path-key-3.1.1-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-path-key-3.1.1-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "clients",
@@ -7804,10 +7804,10 @@
       "license": "MIT",
       "name": "pkce-challenge",
       "notice_paths": [
-        "docs/operations/notices/npm-pkce-challenge-5.0.1-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-pkce-challenge-5.0.1-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-pkce-challenge-5.0.1-LICENSE": "feb87a2e0c305de3464cc44077da5393c52d8ca6362d37427157d04ec6f4510d"
+        "THIRD_PARTY_NOTICES/npm-pkce-challenge-5.0.1-LICENSE": "feb87a2e0c305de3464cc44077da5393c52d8ca6362d37427157d04ec6f4510d"
       },
       "optional": false,
       "project": "clients",
@@ -7834,10 +7834,10 @@
       "license": "MIT",
       "name": "shebang-command",
       "notice_paths": [
-        "docs/operations/notices/npm-shebang-command-2.0.0-license"
+        "THIRD_PARTY_NOTICES/npm-shebang-command-2.0.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-shebang-command-2.0.0-license": "69dee148a2cc470554dfa7142e830662062394d0fe67cddd379aba90dc60d6b3"
+        "THIRD_PARTY_NOTICES/npm-shebang-command-2.0.0-license": "69dee148a2cc470554dfa7142e830662062394d0fe67cddd379aba90dc60d6b3"
       },
       "optional": false,
       "project": "clients",
@@ -7864,10 +7864,10 @@
       "license": "MIT",
       "name": "shebang-regex",
       "notice_paths": [
-        "docs/operations/notices/npm-shebang-regex-3.0.0-license"
+        "THIRD_PARTY_NOTICES/npm-shebang-regex-3.0.0-license"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-shebang-regex-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        "THIRD_PARTY_NOTICES/npm-shebang-regex-3.0.0-license": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
       },
       "optional": false,
       "project": "clients",
@@ -7894,10 +7894,10 @@
       "license": "ISC",
       "name": "which",
       "notice_paths": [
-        "docs/operations/notices/npm-which-2.0.2-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-which-2.0.2-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-which-2.0.2-LICENSE": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        "THIRD_PARTY_NOTICES/npm-which-2.0.2-LICENSE": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
       },
       "optional": false,
       "project": "clients",
@@ -7924,10 +7924,10 @@
       "license": "MIT",
       "name": "zod",
       "notice_paths": [
-        "docs/operations/notices/npm-zod-4.6.7-LICENSE"
+        "THIRD_PARTY_NOTICES/npm-zod-4.6.7-LICENSE"
       ],
       "notice_sha256": {
-        "docs/operations/notices/npm-zod-4.6.7-LICENSE": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+        "THIRD_PARTY_NOTICES/npm-zod-4.6.7-LICENSE": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
       },
       "optional": false,
       "project": "clients",

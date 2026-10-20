@@ -1,6 +1,6 @@
 # Identity and deployment modes
 
-The source implements verification, fresh identity/grant reads and shared HTTP/MCP authentication. The publisher and synthetic Compose topology also exist, but rendered-browser/composed acceptance, an identity-provider browser sign-in flow and verified Studio delegation remain open. Production remains blocked by the additional gates in the approved design. The [organization-runtime foundation](../superpowers/specs/2026-10-14-organization-runtime-foundation.md) wires the existing verifier into a separate synthetic-data OIDC profile; it is not a universal identity-provider compatibility claim.
+The source implements verification, fresh identity/grant reads and shared HTTP/MCP authentication. The publisher and synthetic Compose topology also exist, but rendered-browser/composed acceptance, an identity-provider browser sign-in flow and verified Studio delegation remain open. Production remains blocked by the additional gates in the approved design. The [organization-runtime foundation](../design-records/2026-10-14-organization-runtime-foundation.md) wires the existing verifier into a separate synthetic-data OIDC profile; it is not a universal identity-provider compatibility claim.
 
 ## Internal interfaces
 
@@ -47,7 +47,7 @@ The registry has a single unique `principals.subject` column. To avoid aliasing 
 
 Only the registry owner/operator provisions principals and grant rows or changes/revokes them. The application role has no insert/update permission on these tables. An owner must review the specific policy, tenant, roles and entitlements before granting access. Do not give the application migration/owner credentials to simplify bootstrap. For a new issuer, explicitly provision its users with that issuer's key; changing the configured issuer alone does not adopt the previous issuer's accounts.
 
-This is not verified Studio integration. No live OIDC requests, real user tokens, production credential creation or Studio account data were used. Task 11 must adapt its resource server to this authenticator and verify real HTTP audience/profile/delegation behavior. See [integration research](../research/integrations.md).
+This is not verified Studio integration. No live OIDC requests, real user tokens, production credential creation or Studio account data were used. Task 11 must adapt its resource server to this authenticator and verify real HTTP audience/profile/delegation behavior. See [integration research](../archive/research/integrations.md).
 
 ## Hash-only service/demo credential storage
 
