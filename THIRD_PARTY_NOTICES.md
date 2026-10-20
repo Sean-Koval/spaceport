@@ -2,7 +2,7 @@
 
 This repository incorporates and depends on third-party software. Its licenses and notices remain applicable. Original repository code is licensed under Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)); that license does not apply to third-party components, and no public distribution authorization is implied.
 
-The inspected locked Python/npm dependency inventory is [docs/operations/dependency-inventory.json](docs/operations/dependency-inventory.json). Available upstream LICENSE/COPYING/NOTICE files are copied verbatim in [docs/operations/notices](docs/operations/notices). Do not replace those notices with this summary. The inventory records uninstalled/conditional artifacts whose notice contents remain unverified.
+The inspected locked Python/npm dependency inventory is [docs/operations/dependency-inventory.json](docs/operations/dependency-inventory.json). Available upstream LICENSE/COPYING/NOTICE files are copied verbatim under [THIRD_PARTY_NOTICES/](THIRD_PARTY_NOTICES/). Do not replace those notices with this summary. The inventory records uninstalled/conditional artifacts whose notice contents remain unverified.
 
 Runtime/build images: official Python, PostgreSQL, Nginx, Node, astral/uv and Cube images are pinned by digest in the Compose/Dockerfiles. Their OS, bundled libraries and browser notices must additionally be inventoried from the exact prepared artifacts. Preserve upstream image/package attribution and source notices. See [licensing status](docs/operations/licensing.md) and [production gates](docs/operations/production-gates.md).
 
