@@ -15,7 +15,7 @@
 
 <img alt="The publisher's review screen for the synthetic product Daily revenue, version 1.0.0, revision 3: fixture checks passed, the north-total known-answer rows match, and a publisher who is not the author has the Publish button available." src="docs/assets/front/review.png" width="960" height="600">
 
-*The review screen over the repository's own fixture product. Regenerate it with `python3 scripts/capture_front.py`, which runs the publisher against a small mock gateway; no credentials are involved.*
+The publisher's review screen as it stands at the freeze, still in its pre-Airframe styling: the synthetic Daily revenue product, its passing fixture checks, and Publish for a publisher who is not the author.
 
 ## Where it fits
 
