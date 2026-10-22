@@ -1,0 +1,23 @@
+<svg class="af-d" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 258" role="img" aria-label="Where Spaceport sits: agents call Spaceport's four MCP tools, which return permission-checked rows from reviewed data products.">
+<style>
+  .af-d .bg { fill: var(--af-canvas, #000000); }
+  .af-d .box { fill: var(--af-raised, #141414); }
+  .af-d .box-hub { fill: var(--af-raised, #141414); stroke: var(--af-line-strong, #6B6B6B); stroke-width: 1; }
+  .af-d .box-plan { fill: none; stroke: var(--af-line-strong, #6B6B6B); stroke-width: 1; stroke-dasharray: 4 4; }
+  .af-d .box-ext { fill: var(--af-surface, #0A0A0A); stroke: var(--af-line-strong, #6B6B6B); stroke-width: 1; }
+  .af-d .person { fill: var(--af-surface, #0A0A0A); stroke: var(--af-fg-subtle, #8A8A8A); stroke-width: 1; }
+  .af-d .bound { fill: none; stroke: var(--af-rule, #424242); stroke-width: 1; stroke-dasharray: 2 5; }
+  .af-d .bound-fill { fill: var(--af-surface, #0A0A0A); }
+  .af-d .name { font: 700 16px "Archivo", "Helvetica Neue", Arial, sans-serif; font-stretch: 125%; fill: var(--af-fg, #FFFFFF); }
+  .af-d .name-s { font: 700 14px "Archivo", "Helvetica Neue", Arial, sans-serif; font-stretch: 125%; fill: var(--af-fg, #FFFFFF); }
+  .af-d .title { font: 700 20px "Archivo", "Helvetica Neue", Arial, sans-serif; font-stretch: 125%; fill: var(--af-fg, #FFFFFF); }
+  .af-d .body { font: 400 13px "Red Hat Text", "Helvetica Neue", Arial, sans-serif; fill: var(--af-fg-muted, #A6A6A6); }
+  .af-d .lbl { font: 500 12.5px "Red Hat Text", "Helvetica Neue", Arial, sans-serif; fill: var(--af-fg-subtle, #8A8A8A); }
+  .af-d .lbl-hi { font: 500 12.5px "Red Hat Text", "Helvetica Neue", Arial, sans-serif; fill: var(--af-brand-text, #FFC400); }
+  .af-d .edge { fill: none; stroke: var(--af-fg-subtle, #8A8A8A); stroke-width: 1.25; }
+  .af-d .edge-plan { fill: none; stroke: var(--af-fg-subtle, #8A8A8A); stroke-width: 1.25; stroke-dasharray: 5 4; }
+  .af-d .elabel { font: 400 12.5px "Red Hat Text", "Helvetica Neue", Arial, sans-serif; fill: var(--af-fg-subtle, #8A8A8A); }
+  .af-d .arrowhead { fill: var(--af-fg-subtle, #8A8A8A); }
+  .af-d .dot { fill: var(--af-dot-field, #262626); }
+</style>
+<defs><marker id="sp-fits-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs><rect class="bg" width="960" height="258"/><rect class="box-ext" x="24" y="56" width="236" height="138" rx="12"/><text class="lbl" x="42" y="82">Ask</text><text class="name" x="42" y="104">Agents</text><text class="body" x="42" y="126">Claude Code, Codex or any</text><text class="body" x="42" y="144">MCP client, acting for a</text><text class="body" x="42" y="162">person with their own access</text><path class="edge" d="M260 125 H 334" marker-end="url(#sp-fits-arrow)"/><text class="elabel" x="297" y="114" text-anchor="middle">MCP</text><rect class="box-hub" x="340" y="32" width="300" height="186" rx="12"/><clipPath id="pe340-32-300-186"><rect x="340" y="32" width="300" height="186" rx="12"/></clipPath><rect x="340" y="32" width="300" height="3" fill="var(--af-product-spaceport, #B199F4)" clip-path="url(#pe340-32-300-186)"/><text class="lbl" x="358" y="58" text-anchor="start">Spaceport</text><text class="name" x="358" y="82" text-anchor="start">Four MCP tools</text><text style='font: 500 13px "DM Mono", ui-monospace, Menlo, monospace; fill: var(--af-fg, #FFFFFF);' x="358" y="112">search_products</text><text style='font: 500 13px "DM Mono", ui-monospace, Menlo, monospace; fill: var(--af-fg, #FFFFFF);' x="358" y="136">describe_product</text><text style='font: 500 13px "DM Mono", ui-monospace, Menlo, monospace; fill: var(--af-fg, #FFFFFF);' x="358" y="160">query_product</text><text style='font: 500 13px "DM Mono", ui-monospace, Menlo, monospace; fill: var(--af-fg, #FFFFFF);' x="358" y="184">get_result</text><path class="edge" d="M640 125 H 714" marker-end="url(#sp-fits-arrow)"/><text class="elabel" x="677" y="114" text-anchor="middle">policy</text><text class="elabel" x="677" y="146" text-anchor="middle">checked</text><rect class="box" x="720" y="56" width="216" height="138" rx="12"/><text class="lbl" x="738" y="82">Reviewed</text><text class="name" x="738" y="104">Data products</text><text class="body" x="738" y="126">Fixture-tested, published</text><text class="body" x="738" y="144">by someone other than</text><text class="body" x="738" y="162">the author, versioned</text><text class="elabel" x="480" y="246" text-anchor="middle">Rows come back, never credentials or SQL; each result names its product, version and digest.</text></svg>

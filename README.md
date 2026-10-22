@@ -13,13 +13,23 @@
 
 **Publish a tested metric once; every agent gets the same permission-checked answer over MCP.**
 
-<img alt="The publisher's review screen for the synthetic product Daily revenue, version 1.0.0, revision 3: fixture checks passed, the north-total known-answer rows match, and a publisher who is not the author has the Publish button available." src="docs/assets/front/review.png" width="960" height="600">
+<img alt="The publisher's review screen for the synthetic product Daily revenue, with four numbered marks: 1 the product, version and revision; 2 fixture checks passed; 3 the north-total known-answer test; 4 the Publish button." src="docs/assets/front/review-annotated.png" width="960" height="600">
 
-The publisher's review screen as it stands at the freeze, still in its pre-Airframe styling: the synthetic Daily revenue product, its passing fixture checks, and Publish for a publisher who is not the author.
+The publisher's review screen for the synthetic Daily revenue product. This is the frozen UI, in its old styling from before Airframe, the suite's design system.
+
+1. The product, version and the exact saved revision under review.
+2. The fixture checks, which passed.
+3. One known-answer test: the north-total rows match what the author expected.
+4. Publish, open to a publisher who is not the author.
 
 ## Where it fits
 
-In the [agent-factory suite](https://sean-koval.github.io/agent-factory/), hangar runs the agents, Tower governs what they may do, flightdeck judges the results, and Spaceport answers their data questions. Four MCP tools (`search_products`, `describe_product`, `query_product`, `get_result`) return permission-checked rows instead of credentials or SQL. The suite's [architecture page](https://sean-koval.github.io/agent-factory/architecture/) shows the planes; asking Tower's decision point on every call is post-unfreeze work ([#14](https://github.com/Sean-Koval/spaceport/issues/14)).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/front/where-it-fits-dark.svg">
+  <img alt="Agents call Spaceport over MCP. Its four tools, search_products, describe_product, query_product and get_result, check policy and return rows from reviewed data products. Rows come back, never credentials or SQL." src="docs/assets/front/where-it-fits-light.svg" width="960" height="258">
+</picture>
+
+In the [agent-factory suite](https://sean-koval.github.io/agent-factory/), hangar runs the agents, Tower governs what they may do, flightdeck judges the results, and Spaceport answers their data questions. The [architecture page](https://sean-koval.github.io/agent-factory/architecture/) shows the planes; asking Tower's decision point on every call is post-unfreeze work ([#14](https://github.com/Sean-Koval/spaceport/issues/14)).
 
 ## What it is for
 
